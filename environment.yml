@@ -1,0 +1,15 @@
+name: schedy
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - pip
+  - openpyxl>=3.1        # Skeleton XLSX parsing
+  - fastapi>=0.110       # Web API
+  - uvicorn>=0.29        # ASGI server
+  - pydantic>=2.6        # Domain model validation / API schemas
+  - pytest>=8.0          # Tests
+  - reportlab>=4.0       # PDF timetable export
+  - mkdocs-material>=9.5 # HTML documentation site
+  - pip:
+      - ortools>=9.11    # CP-SAT solver (not on conda-forge for all platforms)
