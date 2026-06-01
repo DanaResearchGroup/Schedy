@@ -174,3 +174,42 @@ Weights are tunable by the planner.
 - **Hebrew/RTL:** the skeleton is Hebrew; the UI is bilingual. Course objects should retain both Hebrew and English descriptions (both are present in the skeleton).
 - **Solver explainability** is a first-class feature, not a nice-to-have: the best-effort report is what makes the auto-solver trustworthy and the manual-edit backstop usable.
 - **Example to encode as a Constraint-Evaluator test case** (from the source doc): Thermodynamics A lab offered Sunday and Wednesday; Molecular Genetics (BioChemE core) on Sunday and Intro to Biochemistry & Enzymology (ChemE core) on Wednesday at the same times — cross-day satisfiability holds because BioChemE students take the lab Wednesday and ChemE students take it Sunday.
+
+## Implementation Status
+
+> Updated 2026-06-01. Initial build complete: full backend engine implemented and tested, frontend scaffolded. **47 tests passing on Python 3.14**; the API boots and runs a live catalog → solve → CSV/PDF export pipeline.
+
+### What is built
+
+Implemented from the ground up, committed module-by-module. Stack as specified: Python 3.14 · OR-Tools CP-SAT · FastAPI · SQLite · React/TypeScript.
+
+**Backend engine (`backend/schedy/`):**
+
+| Module | Status | Notes |
+| --- | --- | --- |
+| `domain.py` | ✅ | Time grid (Sun–Thu, ten 60-min `:30`-aligned boxes), `Cohort`/`Room`/`Session`/`FixedEvent`, soft-weight ladder |
+| `calendar_engine.py` (pure) | ✅ | Realize dated days, meeting counts/deficits, swap-induced order-inversion flags |
+| `evaluator.py` (pure) | ✅ | Correctness core — every hard + soft violation; reused by solver *and* live editor |
+| `parser.py` + `validator.py` (pure) | ✅ | Technion XLSX → sessions (columns matched by Hebrew header); must-exist checklist matching; smoke-tested against the real `raw/30.4.26.XLSX` |
+| `model_builder.py` + `solver.py` | ✅ | CP-SAT model (hard no-overlap + weighted soft objective); best-effort solve + attached evaluator report |
+| `catalog.py` / `store.py` / `api.py` / `exporters.py` | ✅ | Course aggregate → Problem; SQLite persistence; FastAPI orchestration; CSV + PDF export |
+
+**Frontend (`frontend/`):** runnable Vite + React + TS scaffold — weekly grid (hard conflicts glow red), catalog panel, solve flow, export links, bilingual Hebrew-RTL / English. Validated by inspection only.
+
+**Project infrastructure:** `environment.yml` (conda, Python 3.14), MkDocs Material HTML documentation (builds clean under `--strict`), git history with one commit per module.
+
+### Honest caveats
+
+- **Frontend is a scaffold, not built or run.** Node was not installed in the build environment, so the React app is validated by inspection only. Drag-and-drop grid editing, per-cohort/room/lecturer views, availability grids, and the import-review and calendar UIs are stubbed for the next pass.
+- **Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.** It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as `lab_cross_day_unsatisfiable` for manual fix. This is consistent with the best-effort design (the evaluator is the single source of truth), but it means the solver does not *natively* guarantee this hard constraint.
+- **Two design questions remain open** (see Further Notes): whether ChemE–Chemistry is a full program or a track within ChemE, and confirmation of the color→role mapping. Both affect cohort enumeration and should be resolved before populating a real catalog.
+- **`num_exercise_groups` is currently a catalog attribute**, not derived from the imported skeleton. The skeleton-driven expansion (create one exercise session per *offered* group) is not yet wired into the solve path.
+
+### Suggested next steps
+
+1. Install Node 20+ and run the frontend (`npm install && npm run dev`) against the API to validate the scaffold end-to-end.
+2. Build drag-and-drop editing of placements on the weekly grid with live re-validation (the evaluator already supports per-edit checking).
+3. Wire the skeleton import-review screen: import → parse → human-review/correct → validate against checklist → solve.
+4. Add the per-cohort / per-room / per-lecturer grid views and the per-person availability grids.
+5. Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy).
+6. Consider a CP-SAT encoding (or a guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.
