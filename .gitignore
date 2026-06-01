@@ -27,3 +27,6 @@ build/
 # Generated exports
 *.pdf
 exports/
+
+# MkDocs build output
+site/
