@@ -114,6 +114,34 @@ def test_evaluate_live_revalidation(client):
     assert client.get("/export/csv").status_code == 200
 
 
+REAL_XLSX = os.path.join(os.path.dirname(__file__), "..", "..", "raw", "30.4.26.XLSX")
+
+
+@pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
+def test_skeleton_upload_filters_to_catalog(client):
+    # Catalog knows course 00940411 -> upload filters the skeleton to it.
+    client.post("/catalog/courses", json={
+        "number": "00940411", "programs": ["ChemE"], "year": 1, "role": "core",
+        "lecture_boxes": 3,
+    })
+    with open(REAL_XLSX, "rb") as f:
+        r = client.post("/skeleton/upload", files={"file": ("skeleton.xlsx", f)})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] > 0
+    assert all(o["course_number"] == "00940411" for o in body["offered"])
+
+
+def test_solve_returns_session_metadata(client):
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    r = client.post("/solve", json={"time_limit_s": 5}).json()
+    assert "sessions" in r
+    meta = r["sessions"]["00540319-lec"]
+    assert meta["type"] == "lecture"
+    assert meta["cohorts"] == ["ChemE Y2"]
+    assert meta["role"] == "core"
+
+
 def test_delete_course(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     assert client.delete("/catalog/courses/00540319").status_code == 200

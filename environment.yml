@@ -7,6 +7,7 @@ dependencies:
   - openpyxl>=3.1        # Skeleton XLSX parsing
   - fastapi>=0.110       # Web API
   - uvicorn>=0.29        # ASGI server
+  - python-multipart>=0.0.9  # file uploads (skeleton XLSX)
   - pydantic>=2.6        # Domain model validation / API schemas
   - pytest>=8.0          # Tests
   - reportlab>=4.0       # PDF timetable export

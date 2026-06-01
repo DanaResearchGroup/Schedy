@@ -10,14 +10,16 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fastapi import Body, FastAPI, HTTPException, Response
+import tempfile
+
+from fastapi import Body, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import catalog as catalog_mod
 from .domain import Schedule, SessionType
 from .evaluator import evaluate
 from .exporters import to_csv, to_pdf
-from .parser import parse_rows
+from .parser import parse_rows, parse_skeleton
 from .solver import solve
 from .store import Store, course_from_dict, course_to_dict
 from .validator import ChecklistItem, find_missing
@@ -33,6 +35,24 @@ def _problem(store: Store):
         store.list_courses(),
         availability=_load_availability(store),
     )
+
+
+def _session_meta(problem) -> dict:
+    """Per-session metadata the grid needs to render readable, filterable blocks."""
+    out: dict[str, dict] = {}
+    for s in problem.sessions:
+        out[s.id] = {
+            "course_number": s.course_number,
+            "type": s.type.value,
+            "group": s.group,
+            "length_boxes": s.length_boxes,
+            "role": s.role.value,
+            "cohorts": sorted(c.label for c in s.cohorts),
+            "lecturers": list(s.lecturer_ids),
+            "tas": list(s.ta_ids),
+            "is_remote": s.is_remote,
+        }
+    return out
 
 
 def _violation_dicts(evaluation) -> list[dict]:
@@ -96,6 +116,30 @@ def create_app(store: Store | None = None) -> FastAPI:
             for s in offered
         ]
 
+    @app.post("/skeleton/upload")
+    async def skeleton_upload(file: UploadFile = File(...)) -> dict:
+        """Upload a Technion skeleton XLSX; parse it, filtered to catalog courses."""
+        data = await file.read()
+        relevant = {c.number for c in store.list_courses()} or None
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            tmp.write(data)
+            path = tmp.name
+        try:
+            offered = parse_skeleton(path, relevant)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"could not parse skeleton: {exc}")
+        finally:
+            os.unlink(path)
+        store.set_setting("offered_rows", [
+            {"course_number": s.course_number,
+             "event_type": s.event_type.value if s.event_type else None,
+             "group_code": s.group_code, "name_he": s.name_he, "name_en": s.name_en,
+             "day": s.day, "start_min": s.start_min, "end_min": s.end_min,
+             "room": s.room, "package": s.package, "row": s.row}
+            for s in offered
+        ])
+        return {"count": len(offered), "offered": store.get_setting("offered_rows")}
+
     @app.post("/skeleton/validate")
     def skeleton_validate(payload: dict = Body(...)) -> dict:
         offered = parse_rows(payload["header"], payload["rows"])
@@ -131,6 +175,7 @@ def create_app(store: Store | None = None) -> FastAPI:
             "feasible": result.evaluation.is_feasible,
             "soft_penalty": result.evaluation.soft_penalty,
             "placements": placements,
+            "sessions": _session_meta(problem),
             "violations": _violation_dicts(result.evaluation),
         }
 
@@ -158,6 +203,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         return {
             "feasible": evaluation.is_feasible,
             "soft_penalty": evaluation.soft_penalty,
+            "sessions": _session_meta(problem),
             "violations": _violation_dicts(evaluation),
         }
 

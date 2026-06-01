@@ -19,9 +19,25 @@ export interface Course {
   needs_computer_farm?: boolean;
   is_remote?: boolean;
   is_external?: boolean;
+  ext_day?: number | null;
+  ext_start_min?: number | null;
+  ext_end_min?: number | null;
+  ext_room?: string | null;
   lecturer_ids?: string[];
   ta_ids?: string[];
 }
+
+export const ROOMS: { id: string; name: string }[] = [
+  { id: "hall1", name: "Hall 1 (210)" },
+  { id: "room2", name: "Classroom 2 — computer farm (22)" },
+  { id: "room3", name: "Classroom 3 (50)" },
+  { id: "room4", name: "Classroom 4 (50)" },
+  { id: "room5", name: "Classroom 5 (50)" },
+  { id: "hall6", name: "Hall 6 (120)" },
+];
+
+export const PROGRAMS: Program[] = ["ChemE", "BioChemE", "ChemE-Chemistry"];
+export const ROLES: Role[] = ["core", "elective", "replacement", "lab"];
 
 export interface Placement {
   day: number;
