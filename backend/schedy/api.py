@@ -134,6 +134,33 @@ def create_app(store: Store | None = None) -> FastAPI:
             "violations": _violation_dicts(result.evaluation),
         }
 
+    # ---- live re-validation (the editor backstop) ------------------- #
+    @app.post("/evaluate")
+    def run_evaluate(payload: dict = Body(...)) -> dict:
+        """Re-validate a hand-edited schedule without re-solving.
+
+        Powers the interactive grid: every drag-drop posts the updated placements
+        and gets fresh violations back. The edited schedule is persisted so the
+        exports reflect manual changes.
+        """
+        placements_in = payload.get("placements", {})
+        problem = _problem(store)
+        known = {s.id for s in problem.sessions}
+        sched = Schedule()
+        for sid, p in placements_in.items():
+            if sid in known:
+                sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+        store.set_setting("last_schedule", {
+            sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
+            for sid, pl in sched.placements.items()
+        })
+        evaluation = evaluate(problem, sched)
+        return {
+            "feasible": evaluation.is_feasible,
+            "soft_penalty": evaluation.soft_penalty,
+            "violations": _violation_dicts(evaluation),
+        }
+
     # ---- export ----------------------------------------------------- #
     def _last_schedule() -> tuple[Any, Schedule]:
         placements = store.get_setting("last_schedule")

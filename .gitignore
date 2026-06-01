@@ -13,6 +13,7 @@ dist/
 build/
 .vite/
 *.local
+*.tsbuildinfo
 
 # SQLite catalog data
 *.sqlite

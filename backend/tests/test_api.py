@@ -72,6 +72,30 @@ def test_skeleton_validate_reports_missing(client):
     assert r["missing"] == ["Thermo lecture"]
 
 
+def test_evaluate_live_revalidation(client):
+    # Two cohort-clashing cores. Overlap them by hand -> hard violation; then
+    # move one off the overlap -> feasible.
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    client.post("/catalog/courses", json=_core("00540320", "dr_b"))
+
+    overlap = {"placements": {
+        "00540319-lec": {"day": 0, "start_box": 0, "room_id": "hall1"},
+        "00540320-lec": {"day": 0, "start_box": 0, "room_id": "hall6"},
+    }}
+    r = client.post("/evaluate", json=overlap).json()
+    assert r["feasible"] is False
+    assert any(v["kind"] == "cohort_double_booked" for v in r["violations"])
+
+    moved = {"placements": {
+        "00540319-lec": {"day": 0, "start_box": 0, "room_id": "hall1"},
+        "00540320-lec": {"day": 1, "start_box": 0, "room_id": "hall6"},
+    }}
+    r2 = client.post("/evaluate", json=moved).json()
+    assert r2["feasible"] is True
+    # The edit is persisted, so export now works without a fresh solve.
+    assert client.get("/export/csv").status_code == 200
+
+
 def test_delete_course(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     assert client.delete("/catalog/courses/00540319").status_code == 200

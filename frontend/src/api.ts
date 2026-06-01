@@ -1,4 +1,10 @@
-import type { Course, SolveResult } from "./types";
+import type { Course, Placement, SolveResult, Violation } from "./types";
+
+export interface EvalResult {
+  feasible: boolean;
+  soft_penalty: number;
+  violations: Violation[];
+}
 
 const BASE = "/api";
 
@@ -28,6 +34,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ time_limit_s: timeLimit }),
     }).then(json<SolveResult>),
+
+  evaluate: (placements: Record<string, Placement>) =>
+    fetch(`${BASE}/evaluate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placements }),
+    }).then(json<EvalResult>),
 
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: () => `${BASE}/export/pdf`,
