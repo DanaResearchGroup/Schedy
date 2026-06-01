@@ -1,23 +1,34 @@
-import type { Placement, Violation } from "../types";
+import type { Placement, SessionMeta, Violation } from "../types";
+import { ROOMS } from "../types";
 import { DAY_NAMES, boxLabel, type Lang } from "../i18n";
 
 const BOXES = 10; // 08:30..18:30
 const DAYS = 5; // Sun..Thu
 
+const ROOM_NAME = Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
+const TYPE_ABBR: Record<string, string> = { lecture: "L", exercise: "T", lab: "Lab" };
+
 interface Props {
   placements: Record<string, Placement>;
+  sessions: Record<string, SessionMeta>;
   violations: Violation[];
   lang: Lang;
+  selectedId: string | null;
   onMove: (sessionId: string, day: number, startBox: number) => void;
+  onSelect: (sessionId: string) => void;
 }
 
-// The weekly grid: the centerpiece, editable view. Each placed session renders
-// as a draggable block in its (day, start_box) cell. Dropping it on another cell
-// moves it (keeping its room); the parent re-validates live. Sessions touched by
-// a hard violation glow red.
-export function WeeklyGrid({ placements, violations, lang, onMove }: Props) {
+// The centerpiece editable grid. Blocks are readable (course · group · type ·
+// room), colored by role, draggable to move (keeping room), and clickable to
+// inspect. Hard-conflicted blocks glow red.
+export function WeeklyGrid({
+  placements, sessions, violations, lang, selectedId, onMove, onSelect,
+}: Props) {
   const conflicted = new Set(
     violations.filter((v) => v.severity === "hard").flatMap((v) => v.session_ids),
+  );
+  const soft = new Set(
+    violations.filter((v) => v.severity === "soft").flatMap((v) => v.session_ids),
   );
 
   const byCell = new Map<string, string[]>();
@@ -37,9 +48,7 @@ export function WeeklyGrid({ placements, violations, lang, onMove }: Props) {
       <thead>
         <tr>
           <th className="time-col"></th>
-          {Array.from({ length: DAYS }, (_, d) => (
-            <th key={d}>{DAY_NAMES[lang][d]}</th>
-          ))}
+          {Array.from({ length: DAYS }, (_, d) => <th key={d}>{DAY_NAMES[lang][d]}</th>)}
         </tr>
       </thead>
       <tbody>
@@ -49,22 +58,34 @@ export function WeeklyGrid({ placements, violations, lang, onMove }: Props) {
             {Array.from({ length: DAYS }, (_, day) => {
               const sids = byCell.get(`${day}:${box}`) ?? [];
               return (
-                <td
-                  key={day}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={onDrop(day, box)}
-                >
-                  {sids.map((sid) => (
-                    <div
-                      key={sid}
-                      className={`block${conflicted.has(sid) ? " conflict" : ""}`}
-                      title={sid}
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData("text/session", sid)}
-                    >
-                      {sid}
-                    </div>
-                  ))}
+                <td key={day} onDragOver={(e) => e.preventDefault()} onDrop={onDrop(day, box)}>
+                  {sids.map((sid) => {
+                    const m = sessions[sid];
+                    const role = m?.role ?? "core";
+                    const cls = [
+                      "block", `role-${role}`,
+                      conflicted.has(sid) ? "conflict" : soft.has(sid) ? "soft" : "",
+                      selectedId === sid ? "selected" : "",
+                    ].join(" ").trim();
+                    return (
+                      <div
+                        key={sid} className={cls} draggable
+                        onDragStart={(e) => e.dataTransfer.setData("text/session", sid)}
+                        onClick={() => onSelect(sid)}
+                        title={m ? `${m.course_number} ${m.type}` : sid}
+                      >
+                        <div className="b-top">
+                          <span className="b-course">{m?.course_number ?? sid}</span>
+                          {m?.group && <span className="b-group">{m.group}</span>}
+                        </div>
+                        <div className="b-sub">
+                          <span className="b-type">{m ? TYPE_ABBR[m.type] : ""}</span>
+                          <span className="b-room">{ROOM_NAME[placements[sid].room_id] ?? ""}</span>
+                          {m?.is_remote && <span className="b-zoom">⚡</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </td>
               );
             })}

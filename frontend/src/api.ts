@@ -1,9 +1,22 @@
-import type { Course, Placement, SolveResult, Violation } from "./types";
+import type {
+  Course,
+  OfferedRow,
+  Placement,
+  SessionMeta,
+  SolveResult,
+  Violation,
+} from "./types";
 
 export interface EvalResult {
   feasible: boolean;
   soft_penalty: number;
+  sessions: Record<string, SessionMeta>;
   violations: Violation[];
+}
+
+export interface UploadResult {
+  count: number;
+  offered: OfferedRow[];
 }
 
 // Dev: "/api" (Vite proxies it to the backend, stripping the prefix).
@@ -44,6 +57,14 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ placements }),
     }).then(json<EvalResult>),
+
+  uploadSkeleton: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetch(`${BASE}/skeleton/upload`, { method: "POST", body: fd }).then(
+      json<UploadResult>,
+    );
+  },
 
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: () => `${BASE}/export/pdf`,

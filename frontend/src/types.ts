@@ -53,6 +53,18 @@ export interface Violation {
   weight: number;
 }
 
+export interface SessionMeta {
+  course_number: string;
+  type: "lecture" | "exercise" | "lab";
+  group: string | null;
+  length_boxes: number;
+  role: Role;
+  cohorts: string[];
+  lecturers: string[];
+  tas: string[];
+  is_remote: boolean;
+}
+
 export interface SolveResult {
   status: string;
   solved: boolean;
@@ -60,5 +72,20 @@ export interface SolveResult {
   objective?: number;
   soft_penalty?: number;
   placements: Record<string, Placement>;
+  sessions: Record<string, SessionMeta>;
   violations: Violation[];
+}
+
+export interface OfferedRow {
+  course_number: string;
+  event_type: string | null;
+  group_code: string | null;
+  name_he: string;
+  name_en: string;
+  day: number | null;
+  start_min: number | null;
+  end_min: number | null;
+  room: string;
+  package: string;
+  row: number;
 }

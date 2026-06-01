@@ -1,17 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
-import type { Course, Placement, Violation } from "./types";
+import type { Course, Placement, SessionMeta, Violation } from "./types";
 import { t, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
 import { CatalogPanel } from "./components/CatalogPanel";
+import { ImportPanel } from "./components/ImportPanel";
+
+type Tab = "schedule" | "catalog" | "import";
 
 export default function App() {
   const [lang, setLang] = useState<Lang>("he");
+  const [tab, setTab] = useState<Tab>("schedule");
   const [courses, setCourses] = useState<Course[]>([]);
   const [placements, setPlacements] = useState<Record<string, Placement> | null>(null);
+  const [sessions, setSessions] = useState<Record<string, SessionMeta>>({});
   const [violations, setViolations] = useState<Violation[]>([]);
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<string>("all");
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
@@ -28,10 +35,10 @@ export default function App() {
       const r = await api.solve(10);
       if (r.solved) {
         setPlacements(r.placements);
+        setSessions(r.sessions);
         setViolations(r.violations);
-      } else {
-        setError(`No solution (${r.status})`);
-      }
+        setSelected(null);
+      } else setError(`No solution (${r.status})`);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -39,8 +46,6 @@ export default function App() {
     }
   };
 
-  // Drag-drop edit: move a session to a new cell (keeping its room), then ask the
-  // backend to re-validate the whole schedule live — the editor backstop.
   const onMove = async (sid: string, day: number, startBox: number) => {
     if (!placements) return;
     const next = { ...placements, [sid]: { ...placements[sid], day, start_box: startBox } };
@@ -53,72 +58,155 @@ export default function App() {
     }
   };
 
+  // View filter: which sessions to show on the grid.
+  const { cohorts, rooms, lecturers } = useMemo(() => {
+    const co = new Set<string>(), rm = new Set<string>(), le = new Set<string>();
+    for (const [sid, m] of Object.entries(sessions)) {
+      m.cohorts.forEach((c) => co.add(c));
+      m.lecturers.forEach((l) => le.add(l));
+      if (placements?.[sid]) rm.add(placements[sid].room_id);
+    }
+    return { cohorts: [...co].sort(), rooms: [...rm].sort(), lecturers: [...le].sort() };
+  }, [sessions, placements]);
+
+  const shownPlacements = useMemo(() => {
+    if (!placements || view === "all") return placements ?? {};
+    const [kind, val] = view.split(":");
+    const out: Record<string, Placement> = {};
+    for (const [sid, p] of Object.entries(placements)) {
+      const m = sessions[sid];
+      const keep =
+        kind === "cohort" ? m?.cohorts.includes(val)
+        : kind === "room" ? p.room_id === val
+        : kind === "lecturer" ? m?.lecturers.includes(val)
+        : true;
+      if (keep) out[sid] = p;
+    }
+    return out;
+  }, [placements, sessions, view]);
+
   const hardCount = violations.filter((v) => v.severity === "hard").length;
+  const selectedViolations = selected
+    ? violations.filter((v) => v.session_ids.includes(selected))
+    : [];
 
   return (
     <div className="app">
       <header>
-        <h1>{t("title", lang)}</h1>
+        <div className="brand">⬡ <strong>Schedy</strong></div>
+        <nav className="tabs">
+          {(["schedule", "catalog", "import"] as Tab[]).map((tb) => (
+            <button key={tb} className={tab === tb ? "tab active" : "tab"}
+              onClick={() => setTab(tb)}>
+              {t(tb === "schedule" ? "tabSchedule" : tb === "catalog" ? "tabCatalog" : "tabImport", lang)}
+            </button>
+          ))}
+        </nav>
         <div className="spacer" />
-        <button onClick={() => setLang(lang === "he" ? "en" : "he")}>
-          {lang === "he" ? "English" : "עברית"}
+        <button className="ghost" onClick={() => setLang(lang === "he" ? "en" : "he")}>
+          {lang === "he" ? "EN" : "עב"}
         </button>
       </header>
 
       {error && <div className="error">{error}</div>}
 
-      <div className="layout">
-        <aside>
+      {tab === "catalog" && (
+        <div className="panel">
           <CatalogPanel
-            courses={courses}
-            lang={lang}
-            onAdd={(c) => api.upsertCourse(c).then(refresh)}
+            courses={courses} lang={lang}
+            onAdd={(c) => api.upsertCourse(c).then(refresh).catch((e) => setError(String(e)))}
             onDelete={(n) => api.deleteCourse(n).then(refresh)}
           />
-        </aside>
+        </div>
+      )}
 
-        <main>
+      {tab === "import" && <div className="panel"><ImportPanel lang={lang} /></div>}
+
+      {tab === "schedule" && (
+        <div className="panel">
           <div className="toolbar">
             <button className="primary" disabled={solving} onClick={solve}>
               {solving ? t("solving", lang) : t("solve", lang)}
             </button>
             {placements && (
               <>
-                <a href={api.exportCsvUrl()}>{t("exportCsv", lang)}</a>
-                <a href={api.exportPdfUrl()}>{t("exportPdf", lang)}</a>
+                <label className="view">
+                  {t("view", lang)}:
+                  <select value={view} onChange={(e) => setView(e.target.value)}>
+                    <option value="all">{t("allSessions", lang)}</option>
+                    <optgroup label={t("byCohort", lang)}>
+                      {cohorts.map((c) => <option key={c} value={`cohort:${c}`}>{c}</option>)}
+                    </optgroup>
+                    <optgroup label={t("byRoom", lang)}>
+                      {rooms.map((r) => <option key={r} value={`room:${r}`}>{r}</option>)}
+                    </optgroup>
+                    <optgroup label={t("byLecturer", lang)}>
+                      {lecturers.map((l) => <option key={l} value={`lecturer:${l}`}>{l}</option>)}
+                    </optgroup>
+                  </select>
+                </label>
+                <div className="spacer" />
                 <span className={hardCount ? "badge bad" : "badge ok"}>
-                  {hardCount ? t("infeasible", lang) : t("feasible", lang)}
+                  {hardCount ? `${hardCount} ⚠` : t("feasible", lang)}
                 </span>
+                <a className="ghost" href={api.exportCsvUrl()}>CSV</a>
+                <a className="ghost" href={api.exportPdfUrl()}>PDF</a>
               </>
             )}
           </div>
 
-          <h2>{t("schedule", lang)}</h2>
           {placements ? (
-            <WeeklyGrid
-              placements={placements}
-              violations={violations}
-              lang={lang}
-              onMove={onMove}
-            />
+            <div className="schedule-body">
+              <WeeklyGrid
+                placements={shownPlacements} sessions={sessions} violations={violations}
+                lang={lang} selectedId={selected} onMove={onMove} onSelect={setSelected}
+              />
+              <aside className="detail">
+                {selected ? (
+                  <>
+                    <h3>{selected}</h3>
+                    {sessions[selected] && (
+                      <ul className="meta">
+                        <li>{sessions[selected].course_number} · {sessions[selected].type}</li>
+                        <li>{sessions[selected].cohorts.join(", ")}</li>
+                        {sessions[selected].lecturers.length > 0 &&
+                          <li>👤 {sessions[selected].lecturers.join(", ")}</li>}
+                      </ul>
+                    )}
+                    {selectedViolations.length > 0 ? (
+                      <ul className="violations">
+                        {selectedViolations.map((v, i) => (
+                          <li key={i} className={v.severity}>
+                            <span className="kind">{v.kind}</span> {v.message}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p className="muted ok-text">✓ {t("noViolations", lang)}</p>}
+                  </>
+                ) : (
+                  <p className="muted">{t("details", lang)}</p>
+                )}
+              </aside>
+            </div>
           ) : (
             <p className="empty">{t("empty", lang)}</p>
           )}
 
           {violations.length > 0 && (
-            <section className="violations">
-              <h2>{t("violations", lang)}</h2>
+            <section className="violations all-violations">
+              <h3>{t("violations", lang)} ({violations.length})</h3>
               <ul>
                 {violations.map((v, i) => (
-                  <li key={i} className={v.severity}>
+                  <li key={i} className={v.severity}
+                    onClick={() => v.session_ids[0] && setSelected(v.session_ids[0])}>
                     <span className="kind">{v.kind}</span> {v.message}
                   </li>
                 ))}
               </ul>
             </section>
           )}
-        </main>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

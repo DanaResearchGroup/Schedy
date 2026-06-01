@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Course } from "../types";
-import { t, type Lang } from "../i18n";
+import { ROLE_LABEL, t, type Lang } from "../i18n";
+import { CourseForm, blankCourse } from "./CourseForm";
 
 interface Props {
   courses: Course[];
@@ -9,51 +10,48 @@ interface Props {
   onDelete: (n: string) => void;
 }
 
-// A compact catalog editor. A full build would expand this into the per-course
-// form described in the PRD (session structure, room needs, externals); this
-// scaffold covers the common case of adding a core course with a lecture.
+// Catalog manager: a list of courses with add / edit / delete, backed by the
+// full CourseForm. Editing an existing course locks its number (the primary key).
 export function CatalogPanel({ courses, lang, onAdd, onDelete }: Props) {
-  const [number, setNumber] = useState("");
+  const [draft, setDraft] = useState<Course | null>(null);
+  const [isNew, setIsNew] = useState(false);
 
-  const add = () => {
-    if (!number.trim()) return;
-    onAdd({
-      number: number.trim(),
-      programs: ["ChemE"],
-      year: 2,
-      role: "core",
-      lecture_boxes: 2,
-      num_exercise_groups: 1,
-      exercise_boxes: 1,
-      expected_enrollment: 40,
-    });
-    setNumber("");
-  };
+  const startNew = () => { setDraft(blankCourse()); setIsNew(true); };
+  const startEdit = (c: Course) => { setDraft({ ...c }); setIsNew(false); };
+  const close = () => setDraft(null);
+  const save = (c: Course) => { onAdd(c); close(); };
 
   return (
     <div className="catalog">
-      <h2>{t("catalog", lang)}</h2>
-      <div className="add-row">
-        <input
-          value={number}
-          placeholder={t("number", lang)}
-          onChange={(e) => setNumber(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-        />
-        <button onClick={add}>{t("addCourse", lang)}</button>
+      <div className="catalog-head">
+        <h2>{t("catalog", lang)}</h2>
+        {!draft && <button className="primary" onClick={startNew}>{t("addCourse", lang)}</button>}
       </div>
-      <ul className="course-list">
-        {courses.map((c) => (
-          <li key={c.number}>
-            <span>
-              {c.number} · {c.programs.join("/")} Y{c.year} · {c.role}
-            </span>
-            <button className="link" onClick={() => onDelete(c.number)}>
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
+
+      {draft ? (
+        <CourseForm initial={draft} isNew={isNew} lang={lang} onSave={save} onCancel={close} />
+      ) : (
+        <ul className="course-list">
+          {courses.length === 0 && <li className="muted">—</li>}
+          {courses.map((c) => (
+            <li key={c.number}>
+              <button className="course-link" onClick={() => startEdit(c)}>
+                <strong>{c.number}</strong>
+                <span className="muted">
+                  {(lang === "he" ? c.name_he : c.name_en) || ""}
+                </span>
+                <span className="tags">
+                  <span className={`tag role-${c.role}`}>{ROLE_LABEL[c.role][lang]}</span>
+                  {c.programs.map((p) => <span key={p} className="tag">{p}</span>)}
+                  <span className="tag">Y{c.year}</span>
+                  {c.is_external && <span className="tag ext">ext</span>}
+                </span>
+              </button>
+              <button className="link" title="delete" onClick={() => onDelete(c.number)}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
