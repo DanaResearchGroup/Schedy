@@ -181,4 +181,16 @@ def create_app(store: Store | None = None) -> FastAPI:
         problem, sched = _last_schedule()
         return Response(to_pdf(problem, sched), media_type="application/pdf")
 
+    # ---- serve the built frontend (single-process / packaged mode) -- #
+    # When a built SPA is present, serve it at "/" so the planner runs one
+    # process and opens a browser — no Node at runtime (see docs/windows.md).
+    # Mounted last, so the API routes above take precedence.
+    static_dir = os.environ.get("SCHEDY_STATIC")
+    if not static_dir:
+        guess = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+        static_dir = guess if os.path.isdir(guess) else None
+    if static_dir and os.path.isdir(static_dir):
+        from fastapi.staticfiles import StaticFiles
+        app.mount("/", StaticFiles(directory=static_dir, html=True), name="spa")
+
     return app

@@ -34,6 +34,24 @@ def test_health_empty(client):
     assert r.json() == {"status": "ok", "courses": 0}
 
 
+def test_serves_built_spa_when_present(tmp_path):
+    # A built SPA in SCHEDY_STATIC is served at "/" while API routes still win.
+    static = tmp_path / "dist"
+    static.mkdir()
+    (static / "index.html").write_text("<!doctype html><title>Schedy</title>")
+    os.environ["SCHEDY_STATIC"] = str(static)
+    try:
+        store = Store(str(tmp_path / "spa.sqlite"))
+        with TestClient(create_app(store)) as c:
+            assert c.get("/health").json()["status"] == "ok"   # API still wins
+            root = c.get("/")
+            assert root.status_code == 200
+            assert "Schedy" in root.text                        # SPA served
+        store.close()
+    finally:
+        del os.environ["SCHEDY_STATIC"]
+
+
 def test_full_pipeline_catalog_solve_export(client):
     # Two cohort-clashing core courses -> solver must separate them.
     assert client.post("/catalog/courses", json=_core("00540319", "dr_a")).status_code == 200

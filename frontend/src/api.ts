@@ -6,7 +6,10 @@ export interface EvalResult {
   violations: Violation[];
 }
 
-const BASE = "/api";
+// Dev: "/api" (Vite proxies it to the backend, stripping the prefix).
+// Production build: VITE_API_BASE="" so calls hit the same FastAPI origin that
+// serves the built SPA (see frontend/.env.production and docs/windows.md).
+const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);

@@ -28,4 +28,5 @@ nav:
   - Architecture: architecture.md
   - Modules: modules.md
   - Constraints reference: constraints.md
+  - Windows & packaging: windows.md
   - PRD: PRD.md
