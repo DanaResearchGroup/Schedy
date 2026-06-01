@@ -1,0 +1,157 @@
+"""FastAPI app — thin orchestration over the engine + store.
+
+Pipeline the planner drives: maintain the catalog, import & validate a skeleton,
+solve, review/edit, export. Business logic stays in the engine modules; this
+layer only wires HTTP to them.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from fastapi import Body, FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
+
+from . import catalog as catalog_mod
+from .domain import Schedule, SessionType
+from .evaluator import evaluate
+from .exporters import to_csv, to_pdf
+from .parser import parse_rows
+from .solver import solve
+from .store import Store, course_from_dict, course_to_dict
+from .validator import ChecklistItem, find_missing
+
+
+def _load_availability(store: Store) -> dict[str, set[tuple[int, int]]]:
+    raw = store.get_setting("availability", {}) or {}
+    return {p: {tuple(cell) for cell in cells} for p, cells in raw.items()}
+
+
+def _problem(store: Store):
+    return catalog_mod.expand(
+        store.list_courses(),
+        availability=_load_availability(store),
+    )
+
+
+def _violation_dicts(evaluation) -> list[dict]:
+    return [
+        {"kind": v.kind, "severity": v.severity, "message": v.message,
+         "session_ids": list(v.session_ids), "weight": v.weight}
+        for v in evaluation.violations
+    ] if evaluation else []
+
+
+def create_app(store: Store | None = None) -> FastAPI:
+    store = store or Store(os.environ.get("SCHEDY_DB", "schedy.sqlite"))
+    app = FastAPI(title="Schedy", version="0.1.0")
+    app.add_middleware(
+        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    )
+    app.state.store = store
+
+    @app.get("/health")
+    def health() -> dict:
+        return {"status": "ok", "courses": len(store.list_courses())}
+
+    # ---- catalog ---------------------------------------------------- #
+    @app.get("/catalog/courses")
+    def list_courses() -> list[dict]:
+        return [course_to_dict(c) for c in store.list_courses()]
+
+    @app.post("/catalog/courses")
+    def upsert_course(payload: dict = Body(...)) -> dict:
+        try:
+            course = course_from_dict(payload)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"invalid course: {exc}")
+        store.upsert_course(course)
+        return course_to_dict(course)
+
+    @app.delete("/catalog/courses/{number}")
+    def delete_course(number: str) -> dict:
+        store.delete_course(number)
+        return {"deleted": number}
+
+    # ---- availability ---------------------------------------------- #
+    @app.put("/availability")
+    def set_availability(payload: dict = Body(...)) -> dict:
+        store.set_setting("availability", payload)
+        return {"people": list(payload.keys())}
+
+    # ---- skeleton import + validate -------------------------------- #
+    @app.post("/skeleton/parse")
+    def skeleton_parse(payload: dict = Body(...)) -> list[dict]:
+        header = payload["header"]
+        rows = payload["rows"]
+        relevant = payload.get("relevant_course_numbers")
+        offered = parse_rows(header, rows, set(relevant) if relevant else None)
+        return [
+            {"course_number": s.course_number, "event_type":
+             s.event_type.value if s.event_type else None,
+             "group_code": s.group_code, "day": s.day,
+             "start_min": s.start_min, "end_min": s.end_min,
+             "room": s.room, "row": s.row}
+            for s in offered
+        ]
+
+    @app.post("/skeleton/validate")
+    def skeleton_validate(payload: dict = Body(...)) -> dict:
+        offered = parse_rows(payload["header"], payload["rows"])
+        checklist = [
+            ChecklistItem(
+                course_number=item["course_number"],
+                event_type=SessionType(item["event_type"]),
+                group_code=item.get("group_code"),
+                label=item.get("label", ""),
+            )
+            for item in payload.get("checklist", [])
+        ]
+        missing = find_missing(checklist, offered)
+        return {"missing": [m.describe() for m in missing], "ok": not missing}
+
+    # ---- solve ------------------------------------------------------ #
+    @app.post("/solve")
+    def run_solve(payload: dict = Body(default={})) -> dict:
+        time_limit = float(payload.get("time_limit_s", 10))
+        problem = _problem(store)
+        result = solve(problem, time_limit_s=time_limit)
+        if not result.solved:
+            return {"status": result.status, "solved": False,
+                    "placements": {}, "violations": []}
+        placements = {
+            sid: {"day": p.day, "start_box": p.start_box, "room_id": p.room_id}
+            for sid, p in result.schedule.placements.items()
+        }
+        store.set_setting("last_schedule", placements)
+        return {
+            "status": result.status, "solved": True,
+            "objective": result.objective,
+            "feasible": result.evaluation.is_feasible,
+            "soft_penalty": result.evaluation.soft_penalty,
+            "placements": placements,
+            "violations": _violation_dicts(result.evaluation),
+        }
+
+    # ---- export ----------------------------------------------------- #
+    def _last_schedule() -> tuple[Any, Schedule]:
+        placements = store.get_setting("last_schedule")
+        if not placements:
+            raise HTTPException(404, "no solved schedule yet; POST /solve first")
+        sched = Schedule()
+        for sid, p in placements.items():
+            sched.place(sid, p["day"], p["start_box"], p["room_id"])
+        return _problem(store), sched
+
+    @app.get("/export/csv")
+    def export_csv() -> Response:
+        problem, sched = _last_schedule()
+        return Response(to_csv(problem, sched), media_type="text/csv")
+
+    @app.get("/export/pdf")
+    def export_pdf() -> Response:
+        problem, sched = _last_schedule()
+        return Response(to_pdf(problem, sched), media_type="application/pdf")
+
+    return app
