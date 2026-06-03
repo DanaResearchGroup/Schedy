@@ -132,6 +132,25 @@ def test_skeleton_upload_filters_to_catalog(client):
     assert all(o["course_number"] == "00940411" for o in body["offered"])
 
 
+@pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
+def test_skeleton_groups_drive_solve(client):
+    # Catalog declares 1 exercise group; the skeleton offers several -> the solve
+    # places the skeleton's actual groups (named SE0xx), not the declared count.
+    client.post("/catalog/courses", json={
+        "number": "00940411", "programs": ["ChemE"], "year": 1, "role": "core",
+        "lecture_boxes": 3, "exercise_boxes": 2, "num_exercise_groups": 1,
+    })
+    with open(REAL_XLSX, "rb") as f:
+        up = client.post("/skeleton/upload", files={"file": ("s.xlsx", f)}).json()
+    assert up["count"] > 0
+
+    r = client.post("/solve", json={"time_limit_s": 8}).json()
+    assert r["solved"] is True
+    ex_ids = [sid for sid, m in r["sessions"].items() if m["type"] == "exercise"]
+    assert len(ex_ids) >= 2
+    assert any("SE01" in sid for sid in ex_ids)  # real skeleton group codes
+
+
 def test_solve_returns_session_metadata(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     r = client.post("/solve", json={"time_limit_s": 5}).json()

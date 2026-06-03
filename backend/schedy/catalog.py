@@ -57,7 +57,7 @@ class Course:
         return frozenset(Cohort(p, self.year) for p in self.programs)
 
 
-def _course_sessions(c: Course) -> list[Session]:
+def _course_sessions(c: Course, offered_groups: list[str] | None = None) -> list[Session]:
     cohorts = c.cohorts
     out: list[Session] = []
     common = dict(
@@ -69,11 +69,24 @@ def _course_sessions(c: Course) -> list[Session]:
     if c.lecture_boxes > 0:
         out.append(Session(id=f"{c.number}-lec", type=SessionType.LECTURE,
                            length_boxes=c.lecture_boxes, **common))
-    for g in range(c.num_exercise_groups):
-        out.append(Session(
-            id=f"{c.number}-ex{g + 1}", type=SessionType.EXERCISE,
-            length_boxes=c.exercise_boxes, group=f"G{g + 1}",
-            ta_ids=tuple(c.ta_ids), **common))
+
+    # Exercise sessions: when the imported skeleton supplies the actual offered
+    # groups for this course, create one session per offered group (using its real
+    # group code). Otherwise fall back to the catalog's declared count.
+    if offered_groups:
+        for code in offered_groups:
+            safe = code.replace(" ", "_")
+            out.append(Session(
+                id=f"{c.number}-ex-{safe}", type=SessionType.EXERCISE,
+                length_boxes=c.exercise_boxes, group=code,
+                ta_ids=tuple(c.ta_ids), **common))
+    else:
+        for g in range(c.num_exercise_groups):
+            out.append(Session(
+                id=f"{c.number}-ex{g + 1}", type=SessionType.EXERCISE,
+                length_boxes=c.exercise_boxes, group=f"G{g + 1}",
+                ta_ids=tuple(c.ta_ids), **common))
+
     if c.lab_boxes > 0:
         days = c.lab_days or [None]
         lab_group = c.number if len(days) > 1 else None
@@ -95,24 +108,51 @@ def _external_event(c: Course) -> FixedEvent | None:
     )
 
 
+def offered_exercise_groups(offered_rows: list[dict]) -> dict[str, list[str]]:
+    """Map course number -> ordered distinct exercise group codes from a skeleton.
+
+    `offered_rows` are the parsed/serialised OfferedSession dicts the skeleton
+    import persists (see api.skeleton_upload). Only exercise events with a group
+    code count; order is preserved and duplicates removed.
+    """
+    groups: dict[str, list[str]] = {}
+    for r in offered_rows:
+        if r.get("event_type") != "exercise":
+            continue
+        code = r.get("group_code")
+        if not code:
+            continue
+        seen = groups.setdefault(r["course_number"], [])
+        if code not in seen:
+            seen.append(code)
+    return groups
+
+
 def expand(
     courses: list[Course],
     *,
+    offered_rows: list[dict] | None = None,
     availability: dict[str, set[tuple[int, int]]] | None = None,
     soft_weights: SoftWeights | None = None,
     biology_intervals: list[DayInterval] | None = None,
     include_blackouts: bool = True,
 ) -> Problem:
-    """Build a solver Problem from the catalog."""
+    """Build a solver Problem from the catalog.
+
+    When `offered_rows` from an imported skeleton are supplied, each course's
+    exercise sessions are taken from the actual offered groups; otherwise the
+    catalog's declared `num_exercise_groups` is used.
+    """
     sessions: list[Session] = []
     fixed: list[FixedEvent] = list(standing_blackouts()) if include_blackouts else []
+    groups_by_course = offered_exercise_groups(offered_rows) if offered_rows else {}
     for c in courses:
         if c.is_external:
             fe = _external_event(c)
             if fe:
                 fixed.append(fe)
         else:
-            sessions.extend(_course_sessions(c))
+            sessions.extend(_course_sessions(c, groups_by_course.get(c.number)))
     return Problem(
         sessions=sessions,
         fixed_events=fixed,

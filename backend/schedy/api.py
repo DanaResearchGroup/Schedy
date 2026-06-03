@@ -33,6 +33,7 @@ def _load_availability(store: Store) -> dict[str, set[tuple[int, int]]]:
 def _problem(store: Store):
     return catalog_mod.expand(
         store.list_courses(),
+        offered_rows=store.get_setting("offered_rows") or None,
         availability=_load_availability(store),
     )
 
