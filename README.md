@@ -1,6 +1,7 @@
 # Schedy
 
 ![status](https://img.shields.io/badge/status-active%20development-yellow)
+![license](https://img.shields.io/badge/license-MIT-green)
 ![python](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)
 ![solver](https://img.shields.io/badge/solver-OR--Tools%20CP--SAT-EA4335?logo=google&logoColor=white)

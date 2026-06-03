@@ -1,11 +1,30 @@
+################################################################################
+#
+#   Files for git to ignore
+#
+################################################################################
+
+# MacOS files
+.DS_Store
+
 # Python
 __pycache__/
 *.py[cod]
+*.so
+*.pyd
 .venv/
 venv/
 .pytest_cache/
 .mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
 *.egg-info/
+
+# Editor / IDE
+.idea/
+.vscode/
+.history/
 
 # Node / frontend
 node_modules/
@@ -20,14 +39,12 @@ build/
 *.sqlite3
 *.db
 
-# Editor / OS
-.vscode/
-.idea/
-.DS_Store
-
 # Generated exports
 *.pdf
 exports/
 
 # MkDocs build output
 site/
+
+# Scratch
+scratch/
