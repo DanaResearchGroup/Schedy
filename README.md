@@ -1,5 +1,7 @@
 # Schedy
 
+[![CI](https://github.com/alongd/Schedy/actions/workflows/ci.yml/badge.svg)](https://github.com/alongd/Schedy/actions/workflows/ci.yml)
+[![docs](https://github.com/alongd/Schedy/actions/workflows/docs.yml/badge.svg)](https://github.com/alongd/Schedy/actions/workflows/docs.yml)
 ![status](https://img.shields.io/badge/status-active%20development-yellow)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![python](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)
