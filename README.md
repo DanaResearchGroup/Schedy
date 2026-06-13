@@ -1,16 +1,10 @@
 # Schedy
 
-[![CI](https://github.com/alongd/Schedy/actions/workflows/ci.yml/badge.svg)](https://github.com/alongd/Schedy/actions/workflows/ci.yml)
-[![docs](https://github.com/alongd/Schedy/actions/workflows/docs.yml/badge.svg)](https://github.com/alongd/Schedy/actions/workflows/docs.yml)
-![status](https://img.shields.io/badge/status-active%20development-yellow)
-![license](https://img.shields.io/badge/license-MIT-green)
+[![CI](https://github.com/DanaResearchGroup/Schedy/actions/workflows/ci.yml/badge.svg)](https://github.com/DanaResearchGroup/Schedy/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/DanaResearchGroup/Schedy/actions/workflows/codeql.yml/badge.svg)](https://github.com/DanaResearchGroup/Schedy/actions/workflows/codeql.yml)
+[![docs](https://github.com/DanaResearchGroup/Schedy/actions/workflows/docs.yml/badge.svg)](https://github.com/DanaResearchGroup/Schedy/actions/workflows/docs.yml)
 ![python](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)
-![tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)
-![solver](https://img.shields.io/badge/solver-OR--Tools%20CP--SAT-EA4335?logo=google&logoColor=white)
-![API](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
-![frontend](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-61DAFB?logo=react&logoColor=black)
-![build](https://img.shields.io/badge/build-Vite-646CFF?logo=vite&logoColor=white)
-![docs](https://img.shields.io/badge/docs-MkDocs%20Material-526CFE?logo=materialformkdocs&logoColor=white)
+![license](https://img.shields.io/badge/license-MIT-green)
 
 Auto-solver for the Chemical Engineering department's weekly teaching schedule.
 It places the department's own lectures, exercises, and labs into a Sun–Thu
