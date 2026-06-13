@@ -259,6 +259,26 @@ def create_app(store: Store | None = None) -> FastAPI:
         ])
         return {"count": len(offered), "offered": store.get_setting("offered_rows")}
 
+    @app.get("/skeleton/rows")
+    def get_skeleton_rows() -> list[dict]:
+        """The stored (possibly hand-edited) offered rows that drive the solve."""
+        return store.get_setting("offered_rows") or []
+
+    @app.put("/skeleton/rows")
+    def put_skeleton_rows(payload: dict = Body(...)) -> dict:
+        """Persist hand-edited offered rows; pin status is recomputed server-side."""
+        rows = payload.get("rows", [])
+        norm = []
+        for r in rows:
+            day = r.get("day")
+            day = int(day) if day is not None and day != "" else None
+            start = r.get("start_min")
+            start = int(start) if start is not None and start != "" else None
+            norm.append({**r, "day": day, "start_min": start,
+                         "pinned": catalog_mod.pinnable(day, start)})
+        store.set_setting("offered_rows", norm)
+        return {"count": len(norm), "offered": norm}
+
     @app.post("/skeleton/validate")
     def skeleton_validate(payload: dict = Body(...)) -> dict:
         offered = parse_rows(payload["header"], payload["rows"])

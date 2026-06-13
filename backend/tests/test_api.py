@@ -188,6 +188,31 @@ def test_seed_catalog_loads_and_solves(client):
     assert len(solved["placements"]) > 15
 
 
+def test_skeleton_rows_edit_then_solve(client):
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    client.app.state.store.set_setting("offered_rows", [
+        {"course_number": "00540319", "event_type": "exercise", "group_code": "SE011",
+         "name_he": "", "name_en": "", "day": 1, "start_min": 9 * 60 + 30,
+         "end_min": 10 * 60 + 30, "room": "", "package": "", "row": 1, "pinned": True},
+    ])
+    assert client.get("/skeleton/rows").json()[0]["group_code"] == "SE011"
+
+    # Planner corrects the row: move to Thu(4) 15:30 and rename the group.
+    edited = [{
+        "course_number": "00540319", "event_type": "exercise", "group_code": "SE099",
+        "name_he": "", "name_en": "", "day": 4, "start_min": 15 * 60 + 30,
+        "end_min": 16 * 60 + 30, "room": "", "package": "", "row": 1,
+    }]
+    out = client.put("/skeleton/rows", json={"rows": edited}).json()
+    assert out["offered"][0]["pinned"] is True  # recomputed server-side
+    assert client.get("/skeleton/rows").json()[0]["group_code"] == "SE099"
+
+    r = client.post("/solve", json={"time_limit_s": 8}).json()
+    sid = "00540319-ex-SE099"
+    assert r["placements"][sid]["day"] == 4
+    assert r["placements"][sid]["start_box"] == 7  # 15:30 -> box 7
+
+
 def test_skeleton_time_fixes_session_in_solve(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     # Inject a skeleton offered row carrying a concrete day/time for an exercise.

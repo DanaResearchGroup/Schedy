@@ -97,6 +97,15 @@ export const api = {
     );
   },
 
+  getSkeletonRows: () => fetch(`${BASE}/skeleton/rows`).then(json<OfferedRow[]>),
+
+  putSkeletonRows: (rows: OfferedRow[]) =>
+    fetch(`${BASE}/skeleton/rows`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    }).then(json<{ count: number; offered: OfferedRow[] }>),
+
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: () => `${BASE}/export/pdf`,
 };
