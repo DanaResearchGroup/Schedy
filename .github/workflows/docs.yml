@@ -8,50 +8,39 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
 
-# Official GitHub Pages deployment — no gh-pages branch needed.
-# One-time setup: Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+# Publishes the built MkDocs site to the `gh-pages` branch via `mkdocs gh-deploy`
+# (pure Python — no Node action). One-time: Settings -> Pages -> Source:
+# "Deploy from a branch" -> gh-pages / (root).
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  build:
-    name: Build MkDocs site
+  docs:
+    name: Build & publish MkDocs site
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # gh-deploy needs history to update the gh-pages branch
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install MkDocs Material
         run: pip install "mkdocs-material>=9.5"
 
-      - name: Build docs (strict)
-        run: mkdocs build --strict
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Build (PR) or deploy to gh-pages (push)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            mkdocs build --strict
+          else
+            mkdocs gh-deploy --force --strict
+          fi
