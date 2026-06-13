@@ -167,6 +167,36 @@ def test_delete_course(client):
     assert client.get("/catalog/courses").json() == []
 
 
+def test_calendar_round_trips_and_analyzes(client):
+    assert client.get("/calendar").json() == {}
+    # Analyze before any calendar is a 404.
+    assert client.get("/calendar/analyze").status_code == 404
+
+    # A four-week semester (Sun 2026-03-01 .. Thu 2026-03-26) with one blocked
+    # Sunday and a substitution making 2026-03-10 (Tue) run the Wednesday (3) template.
+    cal = {
+        "start": "2026-03-01", "end": "2026-03-26",
+        "blocked_dates": ["2026-03-08"],
+        "substitutions": {"2026-03-10": 3},
+    }
+    assert client.put("/calendar", json=cal).status_code == 200
+    assert client.get("/calendar").json() == cal
+
+    # Bad calendar is rejected.
+    assert client.put("/calendar", json={"start": "nope", "end": "2026-03-26"}).status_code == 400
+
+    a = client.get("/calendar/analyze").json()
+    assert a["weeks"] == 4
+    assert a["teaching_days"] > 0
+    # Sunday (template 0) lost one teaching day to the block; Wednesday (3)
+    # gained one from the substitution.
+    assert a["template_counts"]["0"] == 3
+    assert a["template_counts"]["3"] == 5
+    assert {"date": "2026-03-10", "template": 3} in a["substituted_days"]
+    # No solved schedule yet, so no per-session deficits.
+    assert a["lost_sessions"] == []
+
+
 def test_availability_round_trips_and_constrains_solve(client):
     # Empty before anything is stored.
     assert client.get("/availability").json() == {}

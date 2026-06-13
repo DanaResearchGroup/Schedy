@@ -8,6 +8,7 @@ layer only wires HTTP to them.
 from __future__ import annotations
 
 import os
+from datetime import date
 from typing import Any
 
 import tempfile
@@ -16,6 +17,13 @@ from fastapi import Body, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import catalog as catalog_mod
+from .calendar_engine import (
+    SemesterCalendar,
+    lost_sessions,
+    order_inversions,
+    realize,
+    teaching_days_by_template,
+)
 from .domain import Schedule, SessionType
 from .evaluator import evaluate
 from .exporters import to_csv, to_pdf
@@ -28,6 +36,19 @@ from .validator import ChecklistItem, find_missing
 def _load_availability(store: Store) -> dict[str, set[tuple[int, int]]]:
     raw = store.get_setting("availability", {}) or {}
     return {p: {tuple(cell) for cell in cells} for p, cells in raw.items()}
+
+
+def _calendar_from_dict(raw: dict) -> SemesterCalendar:
+    """Parse the stored calendar JSON (ISO date strings) into the engine type."""
+    return SemesterCalendar(
+        start=date.fromisoformat(raw["start"]),
+        end=date.fromisoformat(raw["end"]),
+        blocked_dates={date.fromisoformat(d) for d in raw.get("blocked_dates", [])},
+        substitutions={
+            date.fromisoformat(d): int(t)
+            for d, t in (raw.get("substitutions") or {}).items()
+        },
+    )
 
 
 def _problem(store: Store):
@@ -105,6 +126,63 @@ def create_app(store: Store | None = None) -> FastAPI:
     def set_availability(payload: dict = Body(...)) -> dict:
         store.set_setting("availability", payload)
         return {"people": list(payload.keys())}
+
+    # ---- semester calendar (dates overlay) ------------------------- #
+    @app.get("/calendar")
+    def get_calendar() -> dict:
+        """Stored semester calendar (start/end/blocked_dates/substitutions)."""
+        return store.get_setting("calendar", {}) or {}
+
+    @app.put("/calendar")
+    def set_calendar(payload: dict = Body(...)) -> dict:
+        try:
+            _calendar_from_dict(payload)  # validate it parses
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"invalid calendar: {exc}")
+        store.set_setting("calendar", payload)
+        return {"ok": True}
+
+    @app.get("/calendar/analyze")
+    def analyze_calendar() -> dict:
+        """Realize the stored calendar and report deficits against the last solve."""
+        raw = store.get_setting("calendar")
+        if not raw:
+            raise HTTPException(404, "no calendar set; PUT /calendar first")
+        cal = _calendar_from_dict(raw)
+        days = realize(cal)
+        teaching = teaching_days_by_template(cal)
+
+        lost: list = []
+        inversions: list = []
+        if store.get_setting("last_schedule"):
+            problem, sched = _last_schedule()
+            lost = lost_sessions(cal, sched, problem)
+            inversions = order_inversions(cal, sched, problem)
+
+        return {
+            "total_days": len(days),
+            "teaching_days": sum(1 for d in days if d.is_teaching),
+            "weeks": (days[-1].week_index + 1) if days else 0,
+            "template_counts": {t: len(ds) for t, ds in teaching.items()},
+            "substituted_days": [
+                {"date": d.date.isoformat(), "template": d.template}
+                for d in days if d.substituted and d.is_teaching
+            ],
+            "blocked_count": sum(1 for d in days if not d.is_teaching and d.template is not None),
+            "lost_sessions": [
+                {"session_id": l.session_id, "course_number": l.course_number,
+                 "weekday_template": l.weekday_template, "realized": l.realized,
+                 "baseline": l.baseline, "deficit": l.deficit}
+                for l in lost
+            ],
+            "order_inversions": [
+                {"course_number": o.course_number, "week_index": o.week_index,
+                 "lecture_date": o.lecture_date.isoformat(),
+                 "exercise_date": o.exercise_date.isoformat(),
+                 "exercise_group": o.exercise_group}
+                for o in inversions
+            ],
+        }
 
     # ---- skeleton import + validate -------------------------------- #
     @app.post("/skeleton/parse")
