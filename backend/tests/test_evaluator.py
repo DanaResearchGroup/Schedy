@@ -191,6 +191,25 @@ def test_lab_cross_day_satisfied_via_alternate_day():
     assert "lab_cross_day_unsatisfiable" not in kinds(result)
 
 
+def test_cross_day_lab_overlapping_cohort_core_is_not_double_booked():
+    # A cross-day lab alternative may overlap the cohort's own course on its
+    # "off" day (students attend the other day) — that's governed by the
+    # lab_cross_day rule, not a cohort double-booking.
+    lab1 = Session("L-1", "TH", SessionType.LAB, 2,
+                   cohorts=frozenset({CHEME2}), lab_group="thermo")
+    lab2 = Session("L-2", "TH", SessionType.LAB, 2,
+                   cohorts=frozenset({CHEME2}), lab_group="thermo")
+    core = lecture("core", course="CC", cohorts=frozenset({CHEME2}))
+    problem = Problem(sessions=[lab1, lab2, core])
+    sched = Schedule()
+    sched.place("L-1", day=0, start_box=0, room_id="room3")    # overlaps core
+    sched.place("L-2", day=3, start_box=0, room_id="room3")    # clear day
+    sched.place("core", day=0, start_box=0, room_id="hall1")
+    result = evaluate(problem, sched)
+    assert "cohort_double_booked" not in kinds(result)
+    assert "lab_cross_day_unsatisfiable" not in kinds(result)  # Wed is clear
+
+
 def test_lab_cross_day_unsatisfiable_when_all_days_blocked():
     lab_sun = Session("lab-sun", "LAB", SessionType.LAB, 2,
                       cohorts=frozenset({CHEME2}), lab_group="thermo")

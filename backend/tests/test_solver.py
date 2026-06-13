@@ -32,6 +32,37 @@ def lecture(sid, course, cohorts=frozenset({CHEME2}), length=2,
                    length_boxes=length, cohorts=cohorts, role=role, **kw)
 
 
+def lab(sid, course, group, cohorts=frozenset({CHEME2}), length=2, **kw):
+    return Session(id=sid, course_number=course, type=SessionType.LAB,
+                   length_boxes=length, cohorts=cohorts, lab_group=group, **kw)
+
+
+def test_solver_satisfies_lab_cross_day_via_repair():
+    # A cross-day lab (two alternatives) for ChemE, with core lectures competing
+    # for time. The repair loop must yield a schedule with >=1 clash-free lab day.
+    lab1 = lab("L-1", "TH", "thermo")
+    lab2 = lab("L-2", "TH", "thermo")
+    c1 = lecture("c1", "C1")
+    c2 = lecture("c2", "C2")
+    result = solve(Problem(sessions=[lab1, lab2, c1, c2]), time_limit_s=5)
+    assert result.solved and result.evaluation.is_feasible
+    assert not any(v.kind == "lab_cross_day_unsatisfiable"
+                   for v in result.evaluation.violations)
+
+
+def test_solver_returns_best_effort_when_lab_cross_day_impossible():
+    # Both lab alternatives pinned onto the cohort's pinned lectures -> no
+    # clash-free day exists; solve returns a best-effort schedule, still flagged.
+    lab1 = lab("L-1", "TH", "thermo", fixed_day=0, fixed_box=0)
+    lab2 = lab("L-2", "TH", "thermo", fixed_day=1, fixed_box=0)
+    c1 = lecture("c1", "C1", fixed_day=0, fixed_box=0)
+    c2 = lecture("c2", "C2", fixed_day=1, fixed_box=0)
+    result = solve(Problem(sessions=[lab1, lab2, c1, c2]), time_limit_s=5)
+    assert result.solved  # best-effort schedule returned, not None
+    assert any(v.kind == "lab_cross_day_unsatisfiable"
+               for v in result.evaluation.violations)
+
+
 def test_solver_separates_cohort_clashing_lectures():
     a = lecture("a", "C1")
     b = lecture("b", "C2")  # both serve CHEME2 -> must not overlap

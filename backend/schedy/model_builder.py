@@ -7,9 +7,10 @@ start is constrained within its day, so intervals never cross a day boundary.
 
 Hard constraints become no-overlap / forbidden-region constraints; soft
 constraints become reified overlap booleans summed into the objective (the
-weighted ladder). Lab cross-day satisfiability is intentionally left to the
-Constraint Evaluator as a post-hoc check (best-effort philosophy) — it does not
-linearise cleanly and the evaluator is the single source of truth anyway.
+weighted ladder). Lab cross-day satisfiability ("each cohort keeps >=1 clash-free
+day") is kept out of the base model — it bloats it and rarely binds — and added
+lazily per offending lab group by the solver's guided-repair loop when the
+evaluator flags it (see `_hard_lab_cross_day` and `solver.solve`).
 """
 
 from __future__ import annotations
@@ -55,8 +56,12 @@ class _SessionVars:
 
 
 class ModelBuilder:
-    def __init__(self, problem: Problem):
+    def __init__(self, problem: Problem, enforce_lab_groups: frozenset[str] = frozenset()):
         self.problem = problem
+        # Lab groups whose ">=1 clash-free day per cohort" rule is encoded natively
+        # this round (added lazily by the solver's guided-repair loop). Empty by
+        # default so the base model stays lean.
+        self.enforce_lab_groups = enforce_lab_groups
         self.model = cp_model.CpModel()
         self.vars: dict[str, _SessionVars] = {}
         self.has_objective = False
@@ -98,6 +103,7 @@ class ModelBuilder:
         self._hard_fixed_events()
         self._hard_fixed_placements()
         self._hard_availability()
+        self._hard_lab_cross_day()
         self._objective()
 
     # ------------------------------------------------------------------ #
@@ -136,6 +142,8 @@ class ModelBuilder:
         for s in self.problem.sessions:
             if s.role is CourseRole.ELECTIVE:
                 continue  # electives handled softly
+            if s.lab_group:
+                continue  # cross-day lab alternatives: only >=1 day need be clear
             for c in s.cohorts:
                 per_cohort.setdefault(c, []).append(self.vars[s.id].interval)
         for fe in self.problem.fixed_events:
@@ -209,6 +217,53 @@ class ModelBuilder:
                 m.Add(v.abs_end <= cell).OnlyEnforceIf(before)
                 m.Add(v.abs_start >= cell + 1).OnlyEnforceIf(after)
                 m.AddBoolOr([before, after])
+
+    def _hard_lab_cross_day(self) -> None:
+        """For each enforced lab group + served cohort, require >=1 clash-free day.
+
+        Encoded lazily (only for groups the repair loop flags) to keep the base
+        model lean. "Clash-free" mirrors the evaluator exactly: an alternative is
+        clear for a cohort if it overlaps none of that cohort's non-lab,
+        non-elective sessions nor its (non-blackout) external walls.
+        """
+        if not self.enforce_lab_groups:
+            return
+        m = self.model
+        groups = self.problem.lab_alternatives()
+        for gid in self.enforce_lab_groups:
+            sessions = groups.get(gid)
+            if not sessions:
+                continue
+            cohorts = set()
+            for s in sessions:
+                cohorts |= set(s.cohorts)
+            for cohort in cohorts:
+                busy = [o for o in self.problem.sessions
+                        if not o.lab_group and o.role is not CourseRole.ELECTIVE
+                        and cohort in o.cohorts]
+                busy_fixed = [fe for fe in self.problem.fixed_events
+                              if not fe.is_blackout and cohort in fe.cohorts]
+                clears = []
+                for s in sessions:
+                    v = self.vars[s.id]
+                    clear = m.NewBoolVar(f"labclear_{gid}_{cohort.label}_{s.id}")
+                    for o in busy:
+                        ov = self.vars[o.id]
+                        bef = m.NewBoolVar(f"lc_b_{s.id}_{o.id}")
+                        aft = m.NewBoolVar(f"lc_a_{s.id}_{o.id}")
+                        m.Add(v.abs_end <= ov.abs_start).OnlyEnforceIf(bef)
+                        m.Add(ov.abs_end <= v.abs_start).OnlyEnforceIf(aft)
+                        m.AddBoolOr([bef, aft]).OnlyEnforceIf(clear)
+                    for fe in busy_fixed:
+                        b0, b1 = _interval_to_abs_boxes(fe.interval)
+                        bef = m.NewBoolVar(f"lc_fb_{s.id}_{fe.id}")
+                        aft = m.NewBoolVar(f"lc_fa_{s.id}_{fe.id}")
+                        m.Add(v.abs_end <= b0).OnlyEnforceIf(bef)
+                        m.Add(v.abs_start >= b1).OnlyEnforceIf(aft)
+                        m.AddBoolOr([bef, aft]).OnlyEnforceIf(clear)
+                    clears.append(clear)
+                if clears:
+                    m.AddBoolOr(clears)
 
     # ------------------------------------------------------------------ #
     # Soft objective (weighted ladder)

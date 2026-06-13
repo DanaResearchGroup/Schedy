@@ -156,7 +156,10 @@ def _check_pairwise(placed, w, out: list[Violation]) -> None:
                     f"({sa.id}, {sb.id}).",
                     ids, weight=w.elective_vs_core,
                 ))
-            elif shared_cohorts:  # neither elective
+            elif shared_cohorts and not (sa.lab_group or sb.lab_group):
+                # Cross-day lab alternatives may legitimately overlap the cohort's
+                # other courses on their "off" day — that's the lab_cross_day rule,
+                # not a double-booking — so only flag when neither side is one.
                 out.append(Violation(
                     "cohort_double_booked", HARD,
                     f"{_fmt(shared_cohorts)} double-booked across {sa.id} and {sb.id}.",
