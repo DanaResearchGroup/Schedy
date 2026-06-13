@@ -52,7 +52,7 @@ backend/        Python engine + FastAPI API
     exporters.py         CSV + PDF
     api.py               FastAPI orchestration
     sample_data.py       illustrative demo catalog
-  tests/                 70 tests
+  tests/                 73 tests
 frontend/       React + TS + Vite — tabs: Schedule / Catalog / Availability / Calendar / Import
 docs/           PRD + MkDocs documentation source (incl. windows.md)
 raw/            constraints spec + example Technion skeleton
@@ -66,7 +66,7 @@ mkdocs.yml      HTML docs config
 conda env create -f environment.yml
 conda activate schedy
 cd backend && pip install -e .
-pytest                 # 70 passing
+pytest                 # 73 passing
 ```
 
 ## Run
@@ -97,13 +97,13 @@ Packaging a one-click Windows app: see [docs/windows.md](docs/windows.md).
 ## Status
 
 Backend engine complete and tested (domain, calendar, evaluator, parser,
-validator, CP-SAT solver, catalog, store, API, exporters). Frontend is a
-functional MVP — tabbed app with the interactive editable grid (multi-box blocks
-+ blackout/external overlay), full catalog editor with sample data, per-person
-availability, semester calendar analysis, an editable skeleton import that pins
-fixed times, and per-cohort PDF grid export with Hebrew names. Next candidates:
-pin labs / map skeleton room strings to the room inventory, and a native CP-SAT
-encoding for cross-day labs.
+validator, CP-SAT solver with a lab cross-day repair loop, catalog, store, API,
+exporters). Frontend is a functional MVP — tabbed app with the interactive
+editable grid (multi-box blocks + blackout/external overlay), full catalog editor
+with sample data across all three programs, per-person availability, semester
+calendar analysis, an editable skeleton import that pins fixed times, and
+per-cohort PDF grid export with Hebrew names. The PRD's design questions are
+resolved; the app is ready to populate with a real catalog.
 
 Documentation: [docs/index.md](docs/index.md) · full spec & status:
 [docs/PRD.md](docs/PRD.md).

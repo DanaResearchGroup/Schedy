@@ -169,8 +169,8 @@ Weights are tunable by the planner.
 
 ## Further Notes
 
-- **Programs:** the source doc lists Chemical Engineering, Biochemical Engineering, and "Chemical Engineering Chemistry" (ChemE–Chemistry). Confirm whether the third is a full program with its own cohorts or a track within ChemE before building cohort enumeration.
-- **Color taxonomy:** the doc's color coding (yellow = ChemE core, green = BioChemE core, light-blue = shared core, orange = shared electives, blue = replacements) maps directly onto the `role` + `cohort-set` model and can drive grid coloring in the UI.
+- **Programs (resolved 2026-06-13):** ChemE–Chemistry is a **full program** with its own cohorts (ChemE–Chemistry Y1…Y4), modeled as `Program.CHEME_CHEM` alongside ChemE and BioChemE; a course's audience is its `programs` list. The sample catalog exercises all three.
+- **Color taxonomy (confirmed 2026-06-13):** the doc's color coding (yellow = ChemE core, green = BioChemE core, light-blue = shared core, orange = shared electives, blue = replacements) maps onto the `role` + `programs` model. The UI colors **by role** (core / elective / replacement / lab); program-specificity is carried by each course's `programs`, not by a separate color.
 - **Hebrew/RTL:** the skeleton is Hebrew; the UI is bilingual. Course objects should retain both Hebrew and English descriptions (both are present in the skeleton).
 - **Solver explainability** is a first-class feature, not a nice-to-have: the best-effort report is what makes the auto-solver trustworthy and the manual-edit backstop usable.
 - **Example to encode as a Constraint-Evaluator test case** (from the source doc): Thermodynamics A lab offered Sunday and Wednesday; Molecular Genetics (BioChemE core) on Sunday and Intro to Biochemistry & Enzymology (ChemE core) on Wednesday at the same times — cross-day satisfiability holds because BioChemE students take the lab Wednesday and ChemE students take it Sunday.
@@ -214,11 +214,11 @@ Bilingual Hebrew-RTL / English throughout.
 
 - **Lab cross-day satisfiability uses a guided-repair loop.** Cross-day lab alternatives are excluded from the strict per-cohort no-overlap (a lab may overlap the cohort's course on its "off" day) and governed by the "≥1 clash-free day per cohort" rule. The base model omits that rule (it bloats the model and rarely binds); when the evaluator flags `lab_cross_day_unsatisfiable`, the solver encodes the constraint natively for the offending lab groups and re-solves (up to N rounds), falling back to the best-effort flagged schedule only if no clash-free arrangement exists.
 - **Skeleton day/time → hard fixed placement (option a).** When the skeleton gives a session a concrete, grid-aligned weekday/time, that `(day, box)` is pinned as a hard constraint in CP-SAT and flagged `fixed_placement` by the evaluator if moved; the grid locks such blocks (🔒). The import table is editable (correct day/time/group before solving). Validated on the real Technion fixture (96% of timed rows pin). **By design:** labs are never pinned (the skeleton carries no labs — labs are department-scheduled), and the skeleton's *room* strings are university-wide locations, ignored for solving (the solver assigns our six rooms; no room collisions are expected).
-- **Two design questions remain open** (see Further Notes): whether ChemE–Chemistry is a full program or a track within ChemE, and confirmation of the color→role mapping. Both affect cohort enumeration and should be resolved before populating a real catalog.
+- **Design questions resolved (2026-06-13):** ChemE–Chemistry is a full program (its own cohorts; `Program.CHEME_CHEM`), and the color→role mapping is confirmed (UI colors by role; programs carried per-course). See Further Notes.
 
 ### Suggested next steps
 
 1. Make the import table editable (correct day/time/group, persist back to `offered_rows`) — parsed times already feed the solve as hard fixed placements; this adds human review/correction before solving. Then extend pinning to labs and map skeleton room strings to the room inventory.
 2. A native CP-SAT encoding (or guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.
-3. Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy) and populate a real catalog.
+3. Populate a real catalog (design questions resolved: ChemE–Chemistry is a full program; color→role mapping confirmed).
 4. PDF polish: per-cohort/per-room timetable pages (grid layout) rather than a single flat table.

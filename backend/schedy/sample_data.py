@@ -1,7 +1,8 @@
 """A realistic sample department catalog for demos and first-run onboarding.
 
 One illustrative Spring semester for the Chemical Engineering department: core
-courses for both programs across years 1-4, a cross-day lab, a lab-only course,
+courses across all three programs (ChemE, BioChemE, ChemE–Chemistry) and years
+1-4, a cross-day lab, a lab-only course,
 electives that should not collide, a Zoom-only course, a computer-farm course,
 and an externally-fixed course (given by another department) that the solver must
 schedule around. Numbers/names are plausible but illustrative, not authoritative.
@@ -17,6 +18,7 @@ from .domain import CourseRole, Program
 
 CHEME = Program.CHEME
 BIO = Program.BIOCHEME
+CHEM = Program.CHEME_CHEM  # ChemE–Chemistry — a full program (its own cohorts)
 
 # Day indices: Sun=0 Mon=1 Tue=2 Wed=3 Thu=4. Minutes are minute-of-day.
 _8_30 = 8 * 60 + 30
@@ -36,7 +38,7 @@ def sample_courses() -> list[Course]:
         ),
         Course(
             number="01250300", name_he="כימיה כללית", name_en="General Chemistry",
-            programs=[CHEME, BIO], year=1, role=CourseRole.CORE,
+            programs=[CHEME, BIO, CHEM], year=1, role=CourseRole.CORE,
             lecture_boxes=2, num_exercise_groups=2, exercise_boxes=1,
             expected_enrollment=110, lecturer_ids=["prof_levi"],
             ta_ids=["ta_adi", "ta_noa"],
@@ -61,9 +63,15 @@ def sample_courses() -> list[Course]:
         ),
         Course(
             number="01250420", name_he="כימיה אורגנית", name_en="Organic Chemistry",
-            programs=[CHEME, BIO], year=2, role=CourseRole.CORE,
+            programs=[CHEME, BIO, CHEM], year=2, role=CourseRole.CORE,
             lecture_boxes=2, num_exercise_groups=1, exercise_boxes=2,
             expected_enrollment=90, lecturer_ids=["dr_shapiro"], ta_ids=["ta_lior"],
+        ),
+        Course(
+            number="01250250", name_he="כימיה אנליטית", name_en="Analytical Chemistry",
+            programs=[CHEM], year=2, role=CourseRole.CORE,
+            lecture_boxes=2, num_exercise_groups=1, exercise_boxes=1,
+            expected_enrollment=30, lecturer_ids=["prof_haim"], ta_ids=["ta_gil"],
         ),
 
         # ---- Year 3 ---------------------------------------------------- #
