@@ -137,6 +137,12 @@ def _start_box(start_min: int | None) -> int | None:
     return box if 0 <= box < BOXES_PER_DAY else None
 
 
+def pinnable(day: int | None, start_min: int | None) -> bool:
+    """Whether a skeleton row's day+time can become a hard fixed placement."""
+    return (day is not None and 0 <= day < NUM_DAYS
+            and _start_box(start_min) is not None)
+
+
 def offered_placements(
     offered_rows: list[dict],
 ) -> dict[tuple[str, str, str | None], tuple[int, int]]:

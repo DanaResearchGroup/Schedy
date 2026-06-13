@@ -64,6 +64,19 @@ def test_solver_routes_computer_course_to_farm():
     assert result.schedule.placements["comp"].room_id == "room2"
 
 
+def test_solver_honors_fixed_placement():
+    # A skeleton-fixed session must land exactly on its (day, box); a second
+    # cohort-clashing session must then schedule around it.
+    fixed = lecture("fx", "C1", length=2, fixed_day=2, fixed_box=3)
+    other = lecture("ot", "C2", length=2)  # shares CHEME2 -> no overlap allowed
+    problem = Problem(sessions=[fixed, other])
+    result = solve(problem, time_limit_s=5)
+    assert result.solved and result.evaluation.is_feasible
+    p = result.schedule.placements["fx"]
+    assert (p.day, p.start_box) == (2, 3)
+    assert not any(v.kind == "fixed_placement" for v in result.evaluation.violations)
+
+
 def test_solver_avoids_blackout_windows():
     sessions = [lecture(f"s{i}", f"C{i}", length=1) for i in range(6)]
     problem = Problem(sessions=sessions, fixed_events=standing_blackouts())

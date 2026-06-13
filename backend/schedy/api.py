@@ -253,7 +253,8 @@ def create_app(store: Store | None = None) -> FastAPI:
              "event_type": s.event_type.value if s.event_type else None,
              "group_code": s.group_code, "name_he": s.name_he, "name_en": s.name_en,
              "day": s.day, "start_min": s.start_min, "end_min": s.end_min,
-             "room": s.room, "package": s.package, "row": s.row}
+             "room": s.room, "package": s.package, "row": s.row,
+             "pinned": catalog_mod.pinnable(s.day, s.start_min)}
             for s in offered
         ])
         return {"count": len(offered), "offered": store.get_setting("offered_rows")}

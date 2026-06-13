@@ -137,4 +137,5 @@ export interface OfferedRow {
   room: string;
   package: string;
   row: number;
+  pinned?: boolean;
 }

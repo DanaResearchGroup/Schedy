@@ -50,6 +50,7 @@ export function ImportPanel({ lang }: { lang: Lang }) {
       ) : (
         <>
           <h3>{t("offeredSessions", lang)} ({rows.length})</h3>
+          <p className="muted">{t("pinnedHint", lang)}</p>
           <table className="data">
             <thead>
               <tr>
@@ -59,17 +60,19 @@ export function ImportPanel({ lang }: { lang: Lang }) {
                 <th>{t("day", lang)}</th>
                 <th>{t("time", lang)}</th>
                 <th>{t("room", lang)}</th>
+                <th aria-label="pinned">🔒</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={i}>
+                <tr key={i} className={r.pinned ? "pinned-row" : ""}>
                   <td>{r.course_number}</td>
                   <td>{r.event_type ?? "—"}</td>
                   <td>{r.group_code ?? "—"}</td>
                   <td>{dayName(r.day)}</td>
                   <td>{timeRange(r)}</td>
                   <td>{r.room || "—"}</td>
+                  <td>{r.pinned ? "🔒" : ""}</td>
                 </tr>
               ))}
             </tbody>

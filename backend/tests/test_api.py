@@ -143,12 +143,16 @@ def test_skeleton_groups_drive_solve(client):
     with open(REAL_XLSX, "rb") as f:
         up = client.post("/skeleton/upload", files={"file": ("s.xlsx", f)}).json()
     assert up["count"] > 0
+    # The real skeleton carries grid-aligned times, so rows are flagged pinnable.
+    assert any(row.get("pinned") for row in up["offered"])
 
     r = client.post("/solve", json={"time_limit_s": 8}).json()
     assert r["solved"] is True
     ex_ids = [sid for sid, m in r["sessions"].items() if m["type"] == "exercise"]
     assert len(ex_ids) >= 2
     assert any("SE01" in sid for sid in ex_ids)  # real skeleton group codes
+    # …and those timed exercises are pinned as hard fixed placements.
+    assert any(m["fixed"] for sid, m in r["sessions"].items() if m["type"] == "exercise")
 
 
 def test_solve_returns_session_metadata(client):
@@ -182,6 +186,24 @@ def test_seed_catalog_loads_and_solves(client):
     solved = client.post("/solve", json={"time_limit_s": 15}).json()
     assert solved["solved"], solved.get("status")
     assert len(solved["placements"]) > 15
+
+
+def test_skeleton_time_fixes_session_in_solve(client):
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    # Inject a skeleton offered row carrying a concrete day/time for an exercise.
+    client.app.state.store.set_setting("offered_rows", [
+        {"course_number": "00540319", "event_type": "exercise",
+         "group_code": "SE011", "name_he": "", "name_en": "",
+         "day": 2, "start_min": 11 * 60 + 30, "end_min": 12 * 60 + 30,
+         "room": "", "package": "", "row": 1},
+    ])
+    r = client.post("/solve", json={"time_limit_s": 8}).json()
+    assert r["solved"]
+    sid = "00540319-ex-SE011"
+    assert r["placements"][sid]["day"] == 2
+    assert r["placements"][sid]["start_box"] == 3  # 11:30 -> box 3
+    assert r["sessions"][sid]["fixed"] is True
+    assert r["sessions"]["00540319-lec"]["fixed"] is False
 
 
 def test_fixed_events_overlay(client):

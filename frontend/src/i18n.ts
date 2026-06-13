@@ -106,6 +106,10 @@ export const STRINGS = {
   blackoutLegend: { he: "חלון חסום", en: "Blackout" },
   externalLegend: { he: "קורס חיצוני", en: "External" },
   fixedTag: { he: "מקובע (שלד)", en: "fixed (skeleton)" },
+  pinnedHint: {
+    he: "🔒 שורות עם יום ושעה מהשלד יקובעו כאילוץ קשה בפתרון.",
+    en: "🔒 rows with a skeleton day + time are pinned as a hard constraint when solving.",
+  },
   emptyCatalog: {
     he: "הקטלוג ריק — הוסף קורס או טען קטלוג לדוגמה כדי להתחיל",
     en: "Catalog is empty — add a course or load the sample catalog to get started",
