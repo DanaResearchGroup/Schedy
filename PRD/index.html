@@ -855,7 +855,7 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 </ul>
 <h2 id="implementation-status">Implementation Status<a class="headerlink" href="#implementation-status" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p>Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. <strong>67 tests passing on Python 3.14</strong>; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV/PDF pipeline.</p>
+<p>Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. <strong>70 tests passing on Python 3.14</strong>; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.</p>
 </blockquote>
 <h3 id="what-is-built">What is built<a class="headerlink" href="#what-is-built" title="Permanent link">&para;</a></h3>
 <p>Implemented from the ground up, committed module-by-module. Stack as specified: Python 3.14 · OR-Tools CP-SAT · FastAPI · SQLite · React/TypeScript.</p>
@@ -911,7 +911,10 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 - <strong>Catalog</strong> — full course editor + one-click "Load sample catalog".
 - <strong>Availability</strong> — per-person click grid → hard <code>person_unavailable</code> walls on re-solve.
 - <strong>Calendar</strong> — semester dates, blocked days, day-substitutions; Analyze → per-weekday teaching counts, uneven sessions, order inversions.
-- <strong>Import</strong> — Technion XLSX upload, parsed and filtered to the catalog.</p>
+- <strong>Import</strong> — Technion XLSX upload, parsed and filtered to the catalog into an
+  editable table (day/time/group); grid-aligned times pin as hard placements (🔒).</p>
+<p>Exports: CSV and a printable PDF — one weekly Sun–Thu grid page <strong>per cohort</strong>
+(Hebrew names, spanning blocks), or a flat assignments list.</p>
 <p>Bilingual Hebrew-RTL / English throughout.</p>
 <p><strong>Project infrastructure:</strong> <code>environment.yml</code> (conda, Python 3.14), GitHub Actions (CI, CodeQL, MkDocs → gh-pages), MkDocs Material docs (builds clean under <code>--strict</code>), <code>launcher.py</code> one-command local/desktop launch, git history with one commit per feature.</p>
 <h3 id="honest-caveats">Honest caveats<a class="headerlink" href="#honest-caveats" title="Permanent link">&para;</a></h3>
