@@ -181,7 +181,8 @@ export default function App() {
                   {hardCount ? `${hardCount} ⚠` : t("feasible", lang)}
                 </span>
                 <a className="ghost" href={api.exportCsvUrl()}>CSV</a>
-                <a className="ghost" href={api.exportPdfUrl()}>PDF</a>
+                <a className="ghost" href={api.exportPdfUrl("cohort")}>{t("pdfGrid", lang)}</a>
+                <a className="ghost" href={api.exportPdfUrl("flat")}>{t("pdfList", lang)}</a>
               </>
             )}
           </div>

@@ -106,6 +106,8 @@ export const STRINGS = {
   blackoutLegend: { he: "חלון חסום", en: "Blackout" },
   externalLegend: { he: "קורס חיצוני", en: "External" },
   fixedTag: { he: "מקובע (שלד)", en: "fixed (skeleton)" },
+  pdfGrid: { he: "PDF מערכת", en: "PDF grid" },
+  pdfList: { he: "PDF רשימה", en: "PDF list" },
   pinnedHint: {
     he: "🔒 שורות עם יום ושעה מהשלד יקובעו כאילוץ קשה בפתרון.",
     en: "🔒 rows with a skeleton day + time are pinned as a hard constraint when solving.",

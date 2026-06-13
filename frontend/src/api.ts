@@ -107,5 +107,6 @@ export const api = {
     }).then(json<{ count: number; offered: OfferedRow[] }>),
 
   exportCsvUrl: () => `${BASE}/export/csv`,
-  exportPdfUrl: () => `${BASE}/export/pdf`,
+  exportPdfUrl: (layout: "cohort" | "flat" = "cohort") =>
+    `${BASE}/export/pdf?layout=${layout}`,
 };

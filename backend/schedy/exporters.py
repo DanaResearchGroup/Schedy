@@ -16,6 +16,7 @@ import os
 from dataclasses import dataclass
 
 from .domain import (
+    BOXES_PER_DAY,
     DAY_NAMES,
     Problem,
     Schedule,
@@ -104,6 +105,34 @@ def assignment_rows(problem: Problem, schedule: Schedule) -> list[AssignmentRow]
     return rows
 
 
+@dataclass(frozen=True)
+class GridCell:
+    """One placed session as it appears on a cohort's weekly grid."""
+    session_id: str
+    course_number: str
+    type: str
+    group: str | None
+    room: str
+    day: int
+    start_box: int
+    span: int  # length in boxes (rows it covers, starting at start_box)
+
+
+def cohort_grid_cells(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
+    """Group placed sessions by cohort label for the per-cohort grid pages."""
+    out: dict[str, list[GridCell]] = {}
+    for sid, p in schedule.placements.items():
+        s = problem.session(sid)
+        cell = GridCell(
+            session_id=sid, course_number=s.course_number, type=s.type.value,
+            group=s.group, room=problem.room(p.room_id).name,
+            day=p.day, start_box=p.start_box, span=s.length_boxes,
+        )
+        for c in s.cohorts:
+            out.setdefault(c.label, []).append(cell)
+    return out
+
+
 CSV_HEADER = [
     "course_number", "session_id", "session_type", "group", "day", "time",
     "room", "cohorts", "lecturers", "tas",
@@ -128,27 +157,43 @@ def to_pdf(
     schedule: Schedule,
     title: str = "Schedy timetable",
     course_names: dict[str, str] | None = None,
+    layout: str = "flat",
 ) -> bytes:
-    """Printable PDF table of all assignments.
+    """Printable PDF of the schedule.
 
-    `course_names` maps course number -> display name (Hebrew preferred); when
-    given, a Name column is added and rendered right-to-left via the bundled
-    Hebrew font. Without it (or the font), the export still works in ASCII.
+    `layout="flat"` (default) is one sorted table of every assignment;
+    `layout="cohort"` is one weekly Sun–Thu × academic-hour grid page per cohort
+    — the printable class timetable. `course_names` maps course number -> display
+    name (Hebrew preferred), rendered right-to-left via the bundled Hebrew font;
+    without it (or the font) the export still works in ASCII.
     """
-    from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+    from reportlab.platypus import SimpleDocTemplate
     from reportlab.lib.styles import getSampleStyleSheet
 
     has_font = _ensure_fonts()
-    show_name = bool(course_names) and has_font
-    body_font = _PDF_FONT if has_font else "Helvetica"
-    head_font = _PDF_FONT_BOLD if has_font else "Helvetica-Bold"
-
+    fonts = (
+        _PDF_FONT if has_font else "Helvetica",
+        _PDF_FONT_BOLD if has_font else "Helvetica-Bold",
+        has_font,
+    )
+    styles = getSampleStyleSheet()
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
-    styles = getSampleStyleSheet()
+    if layout == "cohort":
+        story = _cohort_story(problem, schedule, course_names or {}, fonts, styles, title)
+    else:
+        story = _flat_story(problem, schedule, course_names or {}, fonts, styles, title)
+    doc.build(story)
+    return buf.getvalue()
 
+
+def _flat_story(problem, schedule, course_names, fonts, styles, title):
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle, Paragraph
+
+    body_font, head_font, has_font = fonts
+    show_name = bool(course_names) and has_font
     header = ["Course"]
     if show_name:
         header.append("Name")
@@ -157,7 +202,7 @@ def to_pdf(
     for r in assignment_rows(problem, schedule):
         row = [r.course_number]
         if show_name:
-            row.append(_rtl((course_names or {}).get(r.course_number, "")))
+            row.append(_rtl(course_names.get(r.course_number, "")))
         row += [r.session_type, r.group, r.day, r.time, r.room, r.cohorts]
         data.append(row)
 
@@ -172,5 +217,63 @@ def to_pdf(
         ("ROWBACKGROUNDS", (0, 1), (-1, -1),
          [colors.white, colors.HexColor("#f0f4f8")]),
     ]))
-    doc.build([Paragraph(title, styles["Title"]), table])
-    return buf.getvalue()
+    return [Paragraph(title, styles["Title"]), table]
+
+
+def _cohort_story(problem, schedule, course_names, fonts, styles, title):
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import PageBreak, Paragraph, Spacer, Table, TableStyle
+
+    body_font, head_font, has_font = fonts
+    cell_style = ParagraphStyle("cell", fontName=body_font, fontSize=7, leading=8.5)
+    grids = cohort_grid_cells(problem, schedule)
+    if not grids:
+        return [Paragraph(title, styles["Title"]),
+                Paragraph("No sessions placed yet.", styles["Normal"])]
+
+    col_widths = [2.2 * cm] + [4.5 * cm] * len(DAY_NAMES)
+    story = []
+    for page_i, label in enumerate(sorted(grids)):
+        data = [["", *DAY_NAMES]]
+        for b in range(BOXES_PER_DAY):
+            data.append([box_label(b), "", "", "", "", ""])
+        spans = []
+        for c in sorted(grids[label], key=lambda x: (x.day, x.start_box)):
+            col, row0 = c.day + 1, c.start_box + 1
+            lines = [f"<b>{escape(c.course_number)}</b>"]
+            name = course_names.get(c.course_number, "")
+            if name and has_font:
+                lines.append(escape(_rtl(name)))
+            sub = c.type[:4]
+            if c.group:
+                sub += f" {escape(c.group)}"
+            sub += f" · {escape(c.room)}"
+            lines.append(sub)
+            para = Paragraph("<br/>".join(lines), cell_style)
+            existing = data[row0][col]
+            data[row0][col] = para if not existing else [existing, para]
+            if c.span > 1:
+                spans.append(("SPAN", (col, row0), (col, c.start_box + c.span)))
+
+        table = Table(data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b6cb0")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (0, 1), (0, -1), colors.HexColor("#f1f5f9")),
+            ("FONTNAME", (0, 0), (-1, 0), head_font),
+            ("FONTNAME", (0, 1), (0, -1), body_font),
+            ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            *spans,
+        ]))
+        story.append(Paragraph(f"{title} — {label}", styles["Title"]))
+        story.append(Spacer(1, 0.2 * cm))
+        story.append(table)
+        if page_i < len(grids) - 1:
+            story.append(PageBreak())
+    return story

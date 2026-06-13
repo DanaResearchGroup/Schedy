@@ -10,7 +10,13 @@ from schedy.domain import (
     Session,
     SessionType,
 )
-from schedy.exporters import CSV_HEADER, assignment_rows, to_csv, to_pdf
+from schedy.exporters import (
+    CSV_HEADER,
+    assignment_rows,
+    cohort_grid_cells,
+    to_csv,
+    to_pdf,
+)
 
 CHEME2 = Cohort(Program.CHEME, 2)
 
@@ -54,6 +60,33 @@ def test_pdf_export_smoke():
     pdf = to_pdf(problem, sched, title="Test")
     assert pdf[:4] == b"%PDF"
     assert len(pdf) > 500
+
+
+def test_cohort_grid_cells_groups_placements_by_cohort_with_spans():
+    problem, sched = _problem()  # both sessions serve ChemE Y2
+    grids = cohort_grid_cells(problem, sched)
+    assert set(grids) == {"ChemE Y2"}
+    spans = sorted((c.day, c.start_box, c.span) for c in grids["ChemE Y2"])
+    assert spans == [(0, 0, 2), (2, 4, 1)]  # lecture spans 2 boxes, exercise 1
+    lec = next(c for c in grids["ChemE Y2"] if c.start_box == 0)
+    assert lec.course_number == "00540319" and lec.type == "lecture"
+    assert lec.room == "Hall 1"
+
+
+def test_pdf_cohort_layout_is_multipage_pdf():
+    # Two cohorts -> two grid pages.
+    a = Session("a-lec", "C1", SessionType.LECTURE, 2,
+                cohorts=frozenset({Cohort(Program.CHEME, 2)}))
+    b = Session("b-lec", "C2", SessionType.LECTURE, 2,
+                cohorts=frozenset({Cohort(Program.BIOCHEME, 3)}))
+    problem = Problem(sessions=[a, b])
+    sched = Schedule()
+    sched.place("a-lec", day=0, start_box=0, room_id="hall1")
+    sched.place("b-lec", day=1, start_box=2, room_id="hall6")
+    pdf = to_pdf(problem, sched, layout="cohort",
+                 course_names={"C1": "תרמודינמיקה", "C2": "ביוכימיה"})
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 1000
 
 
 def test_pdf_export_with_hebrew_names():
