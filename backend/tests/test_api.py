@@ -167,6 +167,23 @@ def test_delete_course(client):
     assert client.get("/catalog/courses").json() == []
 
 
+def test_seed_catalog_loads_and_solves(client):
+    assert client.get("/catalog/courses").json() == []
+    r = client.post("/catalog/seed").json()
+    assert r["seeded"] > 10
+    courses = client.get("/catalog/courses").json()
+    assert len(courses) == r["seeded"]
+    # Seeding again without force is refused; with force it replaces cleanly.
+    assert client.post("/catalog/seed").status_code == 409
+    assert client.post("/catalog/seed", params={"force": "true"}).status_code == 200
+    assert len(client.get("/catalog/courses").json()) == r["seeded"]
+
+    # The demo catalog must actually solve so a first-run user sees a schedule.
+    solved = client.post("/solve", json={"time_limit_s": 15}).json()
+    assert solved["solved"], solved.get("status")
+    assert len(solved["placements"]) > 15
+
+
 def test_calendar_round_trips_and_analyzes(client):
     assert client.get("/calendar").json() == {}
     # Analyze before any calendar is a 404.

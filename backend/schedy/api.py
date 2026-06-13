@@ -116,6 +116,20 @@ def create_app(store: Store | None = None) -> FastAPI:
         store.delete_course(number)
         return {"deleted": number}
 
+    @app.post("/catalog/seed")
+    def seed_catalog(force: bool = False) -> dict:
+        """Load the illustrative demo catalog (first-run onboarding)."""
+        from .sample_data import sample_courses
+        existing = store.list_courses()
+        if existing and not force:
+            raise HTTPException(409, "catalog not empty; pass ?force=true to replace")
+        for c in existing:
+            store.delete_course(c.number)
+        courses = sample_courses()
+        for c in courses:
+            store.upsert_course(c)
+        return {"seeded": len(courses)}
+
     # ---- availability ---------------------------------------------- #
     @app.get("/availability")
     def get_availability() -> dict:

@@ -140,6 +140,7 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 
 /* ---- catalog ---- */
 .catalog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.catalog-actions { display: flex; gap: 0.5rem; }
 .course-list { list-style: none; padding: 0; margin: 0; }
 .course-list li { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border); }
 .course-link {

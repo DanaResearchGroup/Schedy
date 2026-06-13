@@ -102,6 +102,11 @@ export const STRINGS = {
   },
   deficitLabel: { he: "חוסר", en: "deficit" },
   weekLabel: { he: "שבוע", en: "Week" },
+  loadSample: { he: "טען קטלוג לדוגמה", en: "Load sample catalog" },
+  emptyCatalog: {
+    he: "הקטלוג ריק — הוסף קורס או טען קטלוג לדוגמה כדי להתחיל",
+    en: "Catalog is empty — add a course or load the sample catalog to get started",
+  },
 } as const;
 
 export const ROLE_LABEL: Record<string, Record<Lang, string>> = {

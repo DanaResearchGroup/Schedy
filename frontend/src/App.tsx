@@ -127,6 +127,7 @@ export default function App() {
             courses={courses} lang={lang}
             onAdd={(c) => api.upsertCourse(c).then(refresh).catch((e) => setError(String(e)))}
             onDelete={(n) => api.deleteCourse(n).then(refresh)}
+            onSeed={() => api.seedCatalog().then(refresh).catch((e) => setError(String(e)))}
           />
         </div>
       )}
@@ -206,7 +207,18 @@ export default function App() {
               </aside>
             </div>
           ) : (
-            <p className="empty">{t("empty", lang)}</p>
+            <div className="empty">
+              <p>{t("empty", lang)}</p>
+              {courses.length === 0 && (
+                <button className="ghost" onClick={async () => {
+                  try {
+                    await api.seedCatalog();
+                    await refresh();
+                    await solve();
+                  } catch (e) { setError(String(e)); }
+                }}>{t("loadSample", lang)}</button>
+              )}
+            </div>
           )}
 
           {violations.length > 0 && (

@@ -8,11 +8,12 @@ interface Props {
   lang: Lang;
   onAdd: (c: Course) => void;
   onDelete: (n: string) => void;
+  onSeed: () => void;
 }
 
 // Catalog manager: a list of courses with add / edit / delete, backed by the
 // full CourseForm. Editing an existing course locks its number (the primary key).
-export function CatalogPanel({ courses, lang, onAdd, onDelete }: Props) {
+export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed }: Props) {
   const [draft, setDraft] = useState<Course | null>(null);
   const [isNew, setIsNew] = useState(false);
 
@@ -25,14 +26,22 @@ export function CatalogPanel({ courses, lang, onAdd, onDelete }: Props) {
     <div className="catalog">
       <div className="catalog-head">
         <h2>{t("catalog", lang)}</h2>
-        {!draft && <button className="primary" onClick={startNew}>{t("addCourse", lang)}</button>}
+        {!draft && (
+          <div className="catalog-actions">
+            {courses.length === 0 && (
+              <button className="ghost" onClick={onSeed}>{t("loadSample", lang)}</button>
+            )}
+            <button className="primary" onClick={startNew}>{t("addCourse", lang)}</button>
+          </div>
+        )}
       </div>
 
       {draft ? (
         <CourseForm initial={draft} isNew={isNew} lang={lang} onSave={save} onCancel={close} />
+      ) : courses.length === 0 ? (
+        <p className="empty">{t("emptyCatalog", lang)}</p>
       ) : (
         <ul className="course-list">
-          {courses.length === 0 && <li className="muted">—</li>}
           {courses.map((c) => (
             <li key={c.number}>
               <button className="course-link" onClick={() => startEdit(c)}>

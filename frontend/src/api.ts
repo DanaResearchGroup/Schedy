@@ -47,6 +47,11 @@ export const api = {
   deleteCourse: (n: string) =>
     fetch(`${BASE}/catalog/courses/${n}`, { method: "DELETE" }).then(json),
 
+  seedCatalog: (force = false) =>
+    fetch(`${BASE}/catalog/seed?force=${force}`, { method: "POST" }).then(
+      json<{ seeded: number }>,
+    ),
+
   solve: (timeLimit = 10) =>
     fetch(`${BASE}/solve`, {
       method: "POST",
