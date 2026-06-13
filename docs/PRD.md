@@ -177,7 +177,7 @@ Weights are tunable by the planner.
 
 ## Implementation Status
 
-> Updated 2026-06-01. Initial build complete: full backend engine implemented and tested, frontend scaffolded. **47 tests passing on Python 3.14**; the API boots and runs a live catalog → solve → CSV/PDF export pipeline.
+> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **61 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → solve → edit → CSV/PDF pipeline.
 
 ### What is built
 
@@ -192,24 +192,29 @@ Implemented from the ground up, committed module-by-module. Stack as specified: 
 | `evaluator.py` (pure) | ✅ | Correctness core — every hard + soft violation; reused by solver *and* live editor |
 | `parser.py` + `validator.py` (pure) | ✅ | Technion XLSX → sessions (columns matched by Hebrew header); must-exist checklist matching; smoke-tested against the real `raw/30.4.26.XLSX` |
 | `model_builder.py` + `solver.py` | ✅ | CP-SAT model (hard no-overlap + weighted soft objective); best-effort solve + attached evaluator report |
-| `catalog.py` / `store.py` / `api.py` / `exporters.py` | ✅ | Course aggregate → Problem; SQLite persistence; FastAPI orchestration; CSV + PDF export |
+| `catalog.py` / `store.py` / `api.py` / `exporters.py` | ✅ | Course aggregate → Problem; SQLite persistence; FastAPI orchestration; CSV + Hebrew-capable PDF export |
+| `sample_data.py` | ✅ | Illustrative demo catalog (both programs, years 1–4, cross-day lab, electives, Zoom, computer-farm, external wall); `POST /catalog/seed` |
 
-**Frontend (`frontend/`):** runnable Vite + React + TS scaffold — weekly grid (hard conflicts glow red), catalog panel, solve flow, export links, bilingual Hebrew-RTL / English. Validated by inspection only.
+**Frontend (`frontend/`):** built and running (Vite + React + TS), single-process via FastAPI `StaticFiles`. Tabs:
+- **Schedule** — drag-drop weekly grid with live re-validation; blocks colored by role and sized to their length; blackout + external-course walls overlaid; per-cohort/room/lecturer views; role/wall legend; CSV/PDF export; one-click sample-and-solve on the empty state.
+- **Catalog** — full course editor + one-click "Load sample catalog".
+- **Availability** — per-person click grid → hard `person_unavailable` walls on re-solve.
+- **Calendar** — semester dates, blocked days, day-substitutions; Analyze → per-weekday teaching counts, uneven sessions, order inversions.
+- **Import** — Technion XLSX upload, parsed and filtered to the catalog.
 
-**Project infrastructure:** `environment.yml` (conda, Python 3.14), MkDocs Material HTML documentation (builds clean under `--strict`), git history with one commit per module.
+Bilingual Hebrew-RTL / English throughout.
+
+**Project infrastructure:** `environment.yml` (conda, Python 3.14), GitHub Actions (CI, CodeQL, MkDocs → gh-pages), MkDocs Material docs (builds clean under `--strict`), `launcher.py` one-command local/desktop launch, git history with one commit per feature.
 
 ### Honest caveats
 
-- **Frontend is a scaffold, not built or run.** Node was not installed in the build environment, so the React app is validated by inspection only. Drag-and-drop grid editing, per-cohort/room/lecturer views, availability grids, and the import-review and calendar UIs are stubbed for the next pass.
-- **Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.** It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as `lab_cross_day_unsatisfiable` for manual fix. This is consistent with the best-effort design (the evaluator is the single source of truth), but it means the solver does not *natively* guarantee this hard constraint.
+- **Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.** It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as `lab_cross_day_unsatisfiable` for manual fix. Consistent with the best-effort design (the evaluator is the single source of truth), but the solver does not *natively* guarantee this hard constraint.
+- **Skeleton import is review-only for non-exercise data.** Offered exercise *group codes* drive the solve (one session per offered group), but lecture/lab *sections* and the parsed skeleton *times* are not yet consumed, and the import table is not editable.
 - **Two design questions remain open** (see Further Notes): whether ChemE–Chemistry is a full program or a track within ChemE, and confirmation of the color→role mapping. Both affect cohort enumeration and should be resolved before populating a real catalog.
-- **`num_exercise_groups` is currently a catalog attribute**, not derived from the imported skeleton. The skeleton-driven expansion (create one exercise session per *offered* group) is not yet wired into the solve path.
 
 ### Suggested next steps
 
-1. Install Node 20+ and run the frontend (`npm install && npm run dev`) against the API to validate the scaffold end-to-end.
-2. Build drag-and-drop editing of placements on the weekly grid with live re-validation (the evaluator already supports per-edit checking).
-3. Wire the skeleton import-review screen: import → parse → human-review/correct → validate against checklist → solve.
-4. Add the per-cohort / per-room / per-lecturer grid views and the per-person availability grids.
-5. Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy).
-6. Consider a CP-SAT encoding (or a guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.
+1. Richer skeleton→solve wiring: make the import table editable and feed lecture/lab sections and parsed times into the solve (decide whether times become hard placements, soft hints, or editable defaults).
+2. A native CP-SAT encoding (or guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.
+3. Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy) and populate a real catalog.
+4. PDF polish: per-cohort/per-room timetable pages (grid layout) rather than a single flat table.

@@ -19,13 +19,19 @@ then hands the planner an **editable, live-validated** result.
 - **Auto-solve** the department's schedule with OR-Tools CP-SAT (best-effort +
   explanation of every soft-constraint compromise).
 - **Interactive grid** — drag-and-drop editing with live re-validation; readable
-  blocks colored by role; per-cohort / per-room / per-lecturer views.
+  blocks colored by role and sized to their length; blackout windows and
+  external-course walls overlaid; per-cohort / per-room / per-lecturer views.
 - **Persistent catalog** of courses with a full editor (programs, year, role,
-  session structure, room needs, externals, staff).
+  session structure, room needs, externals, staff), plus a **one-click sample
+  catalog** so a fresh install reaches a full solved schedule in seconds.
+- **Per-person availability** — a click grid to mark when a lecturer/TA can't
+  teach; blocks become hard constraints on re-solve.
+- **Semester calendar** — semester dates, blocked days, and day-substitutions;
+  Analyze reports teaching-day counts, uneven sessions, and order inversions.
 - **Skeleton import** — upload the Technion XLSX; it's parsed, filtered to your
   catalog, and its actual offered groups drive the solve.
 - **Bilingual** Hebrew (RTL) / English UI.
-- **Exports** — printable PDF timetables + flat CSV.
+- **Exports** — printable PDF timetables (with Hebrew course names) + flat CSV.
 
 ## Layout
 
@@ -43,8 +49,9 @@ backend/        Python engine + FastAPI API
     store.py             SQLite persistence
     exporters.py         CSV + PDF
     api.py               FastAPI orchestration
-  tests/                 56 tests
-frontend/       React + TS + Vite — tabs: Schedule / Catalog / Import
+    sample_data.py       illustrative demo catalog
+  tests/                 61 tests
+frontend/       React + TS + Vite — tabs: Schedule / Catalog / Availability / Calendar / Import
 docs/           PRD + MkDocs documentation source (incl. windows.md)
 raw/            constraints spec + example Technion skeleton
 environment.yml conda env (Python 3.14)
@@ -57,7 +64,7 @@ mkdocs.yml      HTML docs config
 conda env create -f environment.yml
 conda activate schedy
 cd backend && pip install -e .
-pytest                 # 56 passing
+pytest                 # 61 passing
 ```
 
 ## Run
@@ -69,23 +76,31 @@ uvicorn schedy.api:create_app --factory --app-dir backend --port 8000
 # Frontend (Node 20+)
 cd frontend && npm install && npm run dev      # http://localhost:5173
 
-# Single-process (serve built UI from the API)
-cd frontend && npm run build && cd ..
+# Single-process — one command (build the UI once, then launch + open browser)
+cd frontend && npm install && npm run build && cd ..
+python backend/launcher.py                      # serves UI + API on :8000, opens browser
+
+# …or run the server directly in single-process mode
 SCHEDY_STATIC=frontend/dist uvicorn schedy.api:create_app --factory --app-dir backend --port 8000
 
 # Docs
 mkdocs serve           # or: mkdocs build -> site/
 ```
 
+**First run:** open the app, go to **Catalog → Load sample catalog** (or click
+the prompt on the empty Schedule tab), then **Solve** to see a full timetable.
+
 Packaging a one-click Windows app: see [docs/windows.md](docs/windows.md).
 
 ## Status
 
 Backend engine complete and tested (domain, calendar, evaluator, parser,
-validator, CP-SAT solver, catalog, store, API, exporters). Frontend is functional
-— tabbed app with the interactive editable grid, full catalog editor, and
-skeleton import. Next: per-person availability grids, calendar/blocks/swaps UI,
-multi-box block rendering, and a Hebrew-capable PDF font.
+validator, CP-SAT solver, catalog, store, API, exporters). Frontend is a
+functional MVP — tabbed app with the interactive editable grid (multi-box blocks
++ blackout/external overlay), full catalog editor with sample data, per-person
+availability, semester calendar analysis, skeleton import, and Hebrew PDF export.
+Next candidates: richer skeleton→solve wiring (editable import, lecture/lab
+sections & times) and a native CP-SAT encoding for cross-day labs.
 
 Documentation: [docs/index.md](docs/index.md) · full spec & status:
 [docs/PRD.md](docs/PRD.md).

@@ -29,7 +29,16 @@ def main() -> None:
     os.environ.setdefault("SCHEDY_DB", os.path.join(db_dir, "schedy.sqlite"))
 
     # Serve the bundled built frontend (PyInstaller puts it under _MEIPASS/dist).
-    os.environ.setdefault("SCHEDY_STATIC", os.path.join(_resource_dir(), "dist"))
+    # In a plain source checkout there is no bundled dist, so fall back to the
+    # repo's frontend/dist (built via `npm run build`) — this makes
+    # `python backend/launcher.py` a one-command local launch as well.
+    if "SCHEDY_STATIC" not in os.environ:
+        bundled = os.path.join(_resource_dir(), "dist")
+        repo_dist = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
+        chosen = bundled if os.path.isdir(bundled) else repo_dist
+        if os.path.isdir(chosen):
+            os.environ["SCHEDY_STATIC"] = chosen
 
     port = int(os.environ.get("SCHEDY_PORT", "8000"))
     threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
