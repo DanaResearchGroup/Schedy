@@ -96,6 +96,11 @@ def create_app(store: Store | None = None) -> FastAPI:
         return {"deleted": number}
 
     # ---- availability ---------------------------------------------- #
+    @app.get("/availability")
+    def get_availability() -> dict:
+        """Stored unavailability: person -> list of [day, box] cells they can't teach."""
+        return store.get_setting("availability", {}) or {}
+
     @app.put("/availability")
     def set_availability(payload: dict = Body(...)) -> dict:
         store.set_setting("availability", payload)

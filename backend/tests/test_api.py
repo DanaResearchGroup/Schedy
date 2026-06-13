@@ -165,3 +165,18 @@ def test_delete_course(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     assert client.delete("/catalog/courses/00540319").status_code == 200
     assert client.get("/catalog/courses").json() == []
+
+
+def test_availability_round_trips_and_constrains_solve(client):
+    # Empty before anything is stored.
+    assert client.get("/availability").json() == {}
+
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    # Block dr_a out of the entire first three days so the lecture must land Wed/Thu.
+    blocked = [[d, box] for d in range(3) for box in range(10)]
+    assert client.put("/availability", json={"dr_a": blocked}).status_code == 200
+    assert client.get("/availability").json() == {"dr_a": blocked}
+
+    r = client.post("/solve", json={"time_limit_s": 5}).json()
+    assert r["solved"]
+    assert r["placements"]["00540319-lec"]["day"] >= 3
