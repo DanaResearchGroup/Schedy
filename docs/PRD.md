@@ -177,7 +177,7 @@ Weights are tunable by the planner.
 
 ## Implementation Status
 
-> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **61 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → solve → edit → CSV/PDF pipeline.
+> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **67 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV/PDF pipeline.
 
 ### What is built
 
@@ -209,12 +209,12 @@ Bilingual Hebrew-RTL / English throughout.
 ### Honest caveats
 
 - **Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.** It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as `lab_cross_day_unsatisfiable` for manual fix. Consistent with the best-effort design (the evaluator is the single source of truth), but the solver does not *natively* guarantee this hard constraint.
-- **Skeleton import is review-only for non-exercise data.** Offered exercise *group codes* drive the solve (one session per offered group), but lecture/lab *sections* and the parsed skeleton *times* are not yet consumed, and the import table is not editable.
+- **Skeleton day/time → hard fixed placement (option a).** When the skeleton gives a session a concrete, grid-aligned weekday/time, that `(day, box)` is pinned as a hard constraint in CP-SAT and flagged `fixed_placement` by the evaluator if moved; the grid locks such blocks (🔒). Room stays solver-chosen (skeleton room strings aren't mapped to our inventory yet); off-grid/out-of-range times are left free. Validated on the real Technion fixture (96% of timed rows pin). **Still open:** the import table is read-only (no edit-then-solve), and labs are not pinned (cross-day alternative semantics).
 - **Two design questions remain open** (see Further Notes): whether ChemE–Chemistry is a full program or a track within ChemE, and confirmation of the color→role mapping. Both affect cohort enumeration and should be resolved before populating a real catalog.
 
 ### Suggested next steps
 
-1. Richer skeleton→solve wiring: make the import table editable and feed lecture/lab sections and parsed times into the solve (decide whether times become hard placements, soft hints, or editable defaults).
+1. Make the import table editable (correct day/time/group, persist back to `offered_rows`) — parsed times already feed the solve as hard fixed placements; this adds human review/correction before solving. Then extend pinning to labs and map skeleton room strings to the room inventory.
 2. A native CP-SAT encoding (or guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.
 3. Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy) and populate a real catalog.
 4. PDF polish: per-cohort/per-room timetable pages (grid layout) rather than a single flat table.
