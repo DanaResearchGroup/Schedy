@@ -28,10 +28,12 @@ then hands the planner an **editable, live-validated** result.
   teach; blocks become hard constraints on re-solve.
 - **Semester calendar** — semester dates, blocked days, and day-substitutions;
   Analyze reports teaching-day counts, uneven sessions, and order inversions.
-- **Skeleton import** — upload the Technion XLSX; it's parsed, filtered to your
-  catalog, and its actual offered groups drive the solve.
+- **Skeleton import** — upload the Technion XLSX; it's parsed and filtered to your
+  catalog in an **editable** table; offered groups drive the solve and any
+  grid-aligned day/time is **pinned** as a hard fixed placement (🔒).
 - **Bilingual** Hebrew (RTL) / English UI.
-- **Exports** — printable PDF timetables (with Hebrew course names) + flat CSV.
+- **Exports** — printable PDF timetables: one weekly grid page **per cohort**
+  (Hebrew course names, spanning blocks) or a flat assignments list, plus CSV.
 
 ## Layout
 
@@ -50,7 +52,7 @@ backend/        Python engine + FastAPI API
     exporters.py         CSV + PDF
     api.py               FastAPI orchestration
     sample_data.py       illustrative demo catalog
-  tests/                 61 tests
+  tests/                 70 tests
 frontend/       React + TS + Vite — tabs: Schedule / Catalog / Availability / Calendar / Import
 docs/           PRD + MkDocs documentation source (incl. windows.md)
 raw/            constraints spec + example Technion skeleton
@@ -64,7 +66,7 @@ mkdocs.yml      HTML docs config
 conda env create -f environment.yml
 conda activate schedy
 cd backend && pip install -e .
-pytest                 # 61 passing
+pytest                 # 70 passing
 ```
 
 ## Run
@@ -98,9 +100,10 @@ Backend engine complete and tested (domain, calendar, evaluator, parser,
 validator, CP-SAT solver, catalog, store, API, exporters). Frontend is a
 functional MVP — tabbed app with the interactive editable grid (multi-box blocks
 + blackout/external overlay), full catalog editor with sample data, per-person
-availability, semester calendar analysis, skeleton import, and Hebrew PDF export.
-Next candidates: richer skeleton→solve wiring (editable import, lecture/lab
-sections & times) and a native CP-SAT encoding for cross-day labs.
+availability, semester calendar analysis, an editable skeleton import that pins
+fixed times, and per-cohort PDF grid export with Hebrew names. Next candidates:
+pin labs / map skeleton room strings to the room inventory, and a native CP-SAT
+encoding for cross-day labs.
 
 Documentation: [docs/index.md](docs/index.md) · full spec & status:
 [docs/PRD.md](docs/PRD.md).

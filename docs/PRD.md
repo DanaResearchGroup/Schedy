@@ -177,7 +177,7 @@ Weights are tunable by the planner.
 
 ## Implementation Status
 
-> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **67 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV/PDF pipeline.
+> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **70 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
 
 ### What is built
 
@@ -200,7 +200,11 @@ Implemented from the ground up, committed module-by-module. Stack as specified: 
 - **Catalog** — full course editor + one-click "Load sample catalog".
 - **Availability** — per-person click grid → hard `person_unavailable` walls on re-solve.
 - **Calendar** — semester dates, blocked days, day-substitutions; Analyze → per-weekday teaching counts, uneven sessions, order inversions.
-- **Import** — Technion XLSX upload, parsed and filtered to the catalog.
+- **Import** — Technion XLSX upload, parsed and filtered to the catalog into an
+  editable table (day/time/group); grid-aligned times pin as hard placements (🔒).
+
+Exports: CSV and a printable PDF — one weekly Sun–Thu grid page **per cohort**
+(Hebrew names, spanning blocks), or a flat assignments list.
 
 Bilingual Hebrew-RTL / English throughout.
 
