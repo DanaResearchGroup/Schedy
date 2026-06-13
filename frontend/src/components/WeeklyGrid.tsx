@@ -4,6 +4,7 @@ import { DAY_NAMES, boxLabel, type Lang } from "../i18n";
 
 const BOXES = 10; // 08:30..18:30
 const DAYS = 5; // Sun..Thu
+const ROW_H = 46; // px per academic-hour row (keep in sync with table.grid td height)
 
 const ROOM_NAME = Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
 const TYPE_ABBR: Record<string, string> = { lecture: "L", exercise: "T", lab: "Lab" };
@@ -59,17 +60,25 @@ export function WeeklyGrid({
               const sids = byCell.get(`${day}:${box}`) ?? [];
               return (
                 <td key={day} onDragOver={(e) => e.preventDefault()} onDrop={onDrop(day, box)}>
-                  {sids.map((sid) => {
+                  {sids.map((sid, i) => {
                     const m = sessions[sid];
                     const role = m?.role ?? "core";
+                    const span = Math.max(1, m?.length_boxes ?? 1);
                     const cls = [
                       "block", `role-${role}`,
                       conflicted.has(sid) ? "conflict" : soft.has(sid) ? "soft" : "",
                       selectedId === sid ? "selected" : "",
                     ].join(" ").trim();
+                    // Span this session's hours by absolutely sizing it to its
+                    // box length; share the cell width with any siblings.
+                    const style = {
+                      height: span * ROW_H - 4,
+                      width: `calc(${100 / sids.length}% - 4px)`,
+                      insetInlineStart: `calc(${(100 * i) / sids.length}% + 2px)`,
+                    } as const;
                     return (
                       <div
-                        key={sid} className={cls} draggable
+                        key={sid} className={cls} draggable style={style}
                         onDragStart={(e) => e.dataTransfer.setData("text/session", sid)}
                         onClick={() => onSelect(sid)}
                         title={m ? `${m.course_number} ${m.type}` : sid}

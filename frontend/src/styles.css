@@ -79,15 +79,18 @@ table.grid { width: 100%; border-collapse: separate; border-spacing: 0; }
 table.grid th, table.grid td {
   border: 1px solid var(--border); padding: 2px; vertical-align: top; height: 46px;
 }
+table.grid tbody td { position: relative; }
 table.grid th { background: #f8fafc; color: var(--ink); font-weight: 600; font-size: 0.85rem; padding: 0.4rem; }
 .time-col { width: 92px; font-size: 0.72rem; color: var(--muted); background: #f8fafc; text-align: center; }
 
 .block {
-  border-radius: 6px; font-size: 0.72rem; padding: 3px 5px; margin: 2px;
+  position: absolute; top: 2px; overflow: hidden;
+  border-radius: 6px; font-size: 0.72rem; padding: 3px 5px;
   border: 1px solid var(--role-core-bd); background: var(--role-core); cursor: pointer;
   transition: box-shadow 0.1s, transform 0.05s;
 }
-.block:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.18); }
+.block:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.18); z-index: 3; }
+.block.selected, .block.conflict { z-index: 2; }
 .block.role-core { background: var(--role-core); border-color: var(--role-core-bd); }
 .block.role-elective { background: var(--role-elective); border-color: var(--role-elective-bd); }
 .block.role-replacement { background: var(--role-replacement); border-color: var(--role-replacement-bd); }
