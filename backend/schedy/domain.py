@@ -159,6 +159,15 @@ class Session:
     # to. Sessions sharing a lab_group are day-alternatives; each served cohort
     # must keep >=1 attainable alternative (cross-day satisfiability).
     lab_group: str | None = None
+    # Skeleton-fixed placement (option a): when the imported university skeleton
+    # gives this session a concrete weekday/time, it is pinned there — a hard
+    # constraint for the solver and the editor. Room is still solver-chosen.
+    fixed_day: int | None = None
+    fixed_box: int | None = None
+
+    @property
+    def is_fixed(self) -> bool:
+        return self.fixed_day is not None or self.fixed_box is not None
 
     @property
     def people(self) -> tuple[str, ...]:

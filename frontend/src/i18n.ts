@@ -105,6 +105,7 @@ export const STRINGS = {
   loadSample: { he: "טען קטלוג לדוגמה", en: "Load sample catalog" },
   blackoutLegend: { he: "חלון חסום", en: "Blackout" },
   externalLegend: { he: "קורס חיצוני", en: "External" },
+  fixedTag: { he: "מקובע (שלד)", en: "fixed (skeleton)" },
   emptyCatalog: {
     he: "הקטלוג ריק — הוסף קורס או טען קטלוג לדוגמה כדי להתחיל",
     en: "Catalog is empty — add a course or load the sample catalog to get started",

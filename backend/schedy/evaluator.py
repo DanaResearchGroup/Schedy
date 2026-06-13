@@ -96,6 +96,7 @@ def evaluate(problem: Problem, schedule: Schedule) -> EvaluationResult:
     _check_pairwise(placed, w, violations)
     _check_vs_fixed_events(problem, placed, w, violations)
     _check_single_session(problem, placed, w, violations)
+    _check_fixed_placement(placed, violations)
     _check_lecture_before_exercise(placed, w, violations)
     _check_lab_cross_day(problem, placed, violations)
 
@@ -262,6 +263,24 @@ def _check_single_session(problem, placed, w, out: list[Violation]) -> None:
                     f"Remote session {s.id} sits in the middle of the day.",
                     (s.id,), weight=w.zoom_timing,
                 ))
+
+
+# --------------------------------------------------------------------------- #
+# Skeleton-fixed placement: a pinned session must stay on its (day, box)
+# --------------------------------------------------------------------------- #
+
+def _check_fixed_placement(placed, out: list[Violation]) -> None:
+    for pl in placed:
+        s = pl.session
+        if (s.fixed_day is not None and pl.day != s.fixed_day) or \
+           (s.fixed_box is not None and pl.start_box != s.fixed_box):
+            out.append(Violation(
+                "fixed_placement", HARD,
+                f"{s.id} is pinned by the skeleton to "
+                f"day {s.fixed_day} box {s.fixed_box} but sits at "
+                f"day {pl.day} box {pl.start_box}.",
+                (s.id,),
+            ))
 
 
 # --------------------------------------------------------------------------- #

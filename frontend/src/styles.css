@@ -98,6 +98,8 @@ table.grid th { background: #f8fafc; color: var(--ink); font-weight: 600; font-s
 .block.conflict { outline: 2px solid var(--conflict); outline-offset: -2px; }
 .block.soft { outline: 2px dashed var(--soft); outline-offset: -2px; }
 .block.selected { box-shadow: 0 0 0 2px var(--primary); }
+.block.fixed { cursor: default; border-style: solid; border-width: 1px 1px 1px 3px; }
+.b-lock { font-size: 0.6rem; }
 /* immovable walls (blackouts + external courses) drawn behind the blocks */
 .wall {
   position: absolute; top: 2px; inset-inline: 2px; z-index: 0; overflow: hidden;

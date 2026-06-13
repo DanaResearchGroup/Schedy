@@ -63,6 +63,7 @@ export interface SessionMeta {
   lecturers: string[];
   tas: string[];
   is_remote: boolean;
+  fixed: boolean;
 }
 
 export interface SolveResult {

@@ -73,6 +73,7 @@ def _session_meta(problem) -> dict:
             "lecturers": list(s.lecturer_ids),
             "tas": list(s.ta_ids),
             "is_remote": s.is_remote,
+            "fixed": s.is_fixed,
         }
     return out
 

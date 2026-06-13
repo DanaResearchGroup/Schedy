@@ -11,6 +11,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .domain import (
+    BOXES_PER_DAY,
+    BOX_MINUTES,
+    DAY_START_MIN,
+    NUM_DAYS,
     Cohort,
     CourseRole,
     FixedEvent,
@@ -57,7 +61,11 @@ class Course:
         return frozenset(Cohort(p, self.year) for p in self.programs)
 
 
-def _course_sessions(c: Course, offered_groups: list[str] | None = None) -> list[Session]:
+def _course_sessions(
+    c: Course,
+    offered_groups: list[str] | None = None,
+    placements: dict[tuple[str, str, str | None], tuple[int, int]] | None = None,
+) -> list[Session]:
     cohorts = c.cohorts
     out: list[Session] = []
     common = dict(
@@ -67,18 +75,23 @@ def _course_sessions(c: Course, offered_groups: list[str] | None = None) -> list
         lecturer_ids=tuple(c.lecturer_ids),
     )
     if c.lecture_boxes > 0:
+        fd, fb = _fixed_for(placements, c.number, "lecture", None)
         out.append(Session(id=f"{c.number}-lec", type=SessionType.LECTURE,
-                           length_boxes=c.lecture_boxes, **common))
+                           length_boxes=c.lecture_boxes,
+                           fixed_day=fd, fixed_box=fb, **common))
 
     # Exercise sessions: when the imported skeleton supplies the actual offered
     # groups for this course, create one session per offered group (using its real
-    # group code). Otherwise fall back to the catalog's declared count.
+    # group code). Otherwise fall back to the catalog's declared count. A skeleton
+    # group that also carries a time is pinned to that slot (hard).
     if offered_groups:
         for code in offered_groups:
             safe = code.replace(" ", "_")
+            fd, fb = _fixed_for(placements, c.number, "exercise", code)
             out.append(Session(
                 id=f"{c.number}-ex-{safe}", type=SessionType.EXERCISE,
                 length_boxes=c.exercise_boxes, group=code,
+                fixed_day=fd, fixed_box=fb,
                 ta_ids=tuple(c.ta_ids), **common))
     else:
         for g in range(c.num_exercise_groups):
@@ -106,6 +119,63 @@ def _external_event(c: Course) -> FixedEvent | None:
         day=c.ext_day, start_min=c.ext_start_min, end_min=c.ext_end_min,
         cohorts=c.cohorts, room_id=c.ext_room, is_external_course=True,
     )
+
+
+def _start_box(start_min: int | None) -> int | None:
+    """Box index for a skeleton start minute, or None if it can't sit on the grid.
+
+    We only pin a session when its university start time lands exactly on the
+    department's hourly box grid (08:30, 09:30, …); off-grid or out-of-range times
+    are left free for the solver rather than silently snapped.
+    """
+    if start_min is None:
+        return None
+    offset = start_min - DAY_START_MIN
+    if offset < 0 or offset % BOX_MINUTES != 0:
+        return None
+    box = offset // BOX_MINUTES
+    return box if 0 <= box < BOXES_PER_DAY else None
+
+
+def offered_placements(
+    offered_rows: list[dict],
+) -> dict[tuple[str, str, str | None], tuple[int, int]]:
+    """Map (course_number, event_type, group_code) -> (day, start_box).
+
+    Only skeleton rows that carry a concrete weekday and a grid-aligned start time
+    produce an entry (the first occurrence wins). These drive the hard fixed
+    placements (option a): a placed session must sit exactly here.
+    """
+    out: dict[tuple[str, str, str | None], tuple[int, int]] = {}
+    for r in offered_rows:
+        etype = r.get("event_type")
+        if etype not in ("lecture", "exercise", "lab"):
+            continue
+        day = r.get("day")
+        if day is None or not (0 <= day < NUM_DAYS):
+            continue
+        box = _start_box(r.get("start_min"))
+        if box is None:
+            continue
+        out.setdefault((r["course_number"], etype, r.get("group_code")), (day, box))
+    return out
+
+
+def _fixed_for(
+    placements: dict[tuple[str, str, str | None], tuple[int, int]] | None,
+    number: str, etype: str, group: str | None,
+) -> tuple[int | None, int | None]:
+    """Resolve a session's fixed (day, box) from the skeleton placement map."""
+    if not placements:
+        return (None, None)
+    key = (number, etype, group)
+    if key in placements:
+        return placements[key]
+    if group is None:  # lecture: accept the first offered row of this type
+        for (n, t, _g), v in placements.items():
+            if n == number and t == etype:
+                return v
+    return (None, None)
 
 
 def offered_exercise_groups(offered_rows: list[dict]) -> dict[str, list[str]]:
@@ -146,13 +216,15 @@ def expand(
     sessions: list[Session] = []
     fixed: list[FixedEvent] = list(standing_blackouts()) if include_blackouts else []
     groups_by_course = offered_exercise_groups(offered_rows) if offered_rows else {}
+    placements = offered_placements(offered_rows) if offered_rows else {}
     for c in courses:
         if c.is_external:
             fe = _external_event(c)
             if fe:
                 fixed.append(fe)
         else:
-            sessions.extend(_course_sessions(c, groups_by_course.get(c.number)))
+            sessions.extend(
+                _course_sessions(c, groups_by_course.get(c.number), placements))
     return Problem(
         sessions=sessions,
         fixed_events=fixed,

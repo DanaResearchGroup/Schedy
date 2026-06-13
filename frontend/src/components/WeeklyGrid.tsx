@@ -1,6 +1,6 @@
 import type { FixedEvent, Placement, SessionMeta, Violation } from "../types";
 import { ROOMS } from "../types";
-import { DAY_NAMES, boxLabel, type Lang } from "../i18n";
+import { DAY_NAMES, boxLabel, t, type Lang } from "../i18n";
 
 const BOXES = 10; // 08:30..18:30
 const DAYS = 5; // Sun..Thu
@@ -81,8 +81,9 @@ export function WeeklyGrid({
                     const m = sessions[sid];
                     const role = m?.role ?? "core";
                     const span = Math.max(1, m?.length_boxes ?? 1);
+                    const fixed = m?.fixed ?? false;
                     const cls = [
-                      "block", `role-${role}`,
+                      "block", `role-${role}`, fixed ? "fixed" : "",
                       conflicted.has(sid) ? "conflict" : soft.has(sid) ? "soft" : "",
                       selectedId === sid ? "selected" : "",
                     ].join(" ").trim();
@@ -95,13 +96,16 @@ export function WeeklyGrid({
                     } as const;
                     return (
                       <div
-                        key={sid} className={cls} draggable style={style}
-                        onDragStart={(e) => e.dataTransfer.setData("text/session", sid)}
+                        key={sid} className={cls} draggable={!fixed} style={style}
+                        onDragStart={(e) => fixed
+                          ? e.preventDefault()
+                          : e.dataTransfer.setData("text/session", sid)}
                         onClick={() => onSelect(sid)}
-                        title={m ? `${m.course_number} ${m.type}` : sid}
+                        title={m ? `${m.course_number} ${m.type}${fixed ? ` · ${t("fixedTag", lang)}` : ""}` : sid}
                       >
                         <div className="b-top">
                           <span className="b-course">{m?.course_number ?? sid}</span>
+                          {fixed && <span className="b-lock" title={t("fixedTag", lang)}>🔒</span>}
                           {m?.group && <span className="b-group">{m.group}</span>}
                         </div>
                         <div className="b-sub">

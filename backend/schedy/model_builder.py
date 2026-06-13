@@ -96,6 +96,7 @@ class ModelBuilder:
         self._hard_person()
         self._hard_same_course_ta()
         self._hard_fixed_events()
+        self._hard_fixed_placements()
         self._hard_availability()
         self._objective()
 
@@ -183,6 +184,16 @@ class ModelBuilder:
                 m.Add(v.abs_end <= b0).OnlyEnforceIf(before)
                 m.Add(v.abs_start >= b1).OnlyEnforceIf(after)
                 m.AddBoolOr([before, after])
+
+    def _hard_fixed_placements(self) -> None:
+        """Pin skeleton-fixed sessions to their (day, box) — room stays free."""
+        m = self.model
+        for s in self.problem.sessions:
+            v = self.vars[s.id]
+            if s.fixed_day is not None:
+                m.Add(v.day == s.fixed_day)
+            if s.fixed_box is not None:
+                m.Add(v.start == s.fixed_box)
 
     def _hard_availability(self) -> None:
         m = self.model
