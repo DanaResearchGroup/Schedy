@@ -24,7 +24,7 @@ from .calendar_engine import (
     realize,
     teaching_days_by_template,
 )
-from .domain import Schedule, SessionType
+from .domain import BOX_MINUTES, BOXES_PER_DAY, DAY_START_MIN, Schedule, SessionType
 from .evaluator import evaluate
 from .exporters import to_csv, to_pdf
 from .parser import parse_rows, parse_skeleton
@@ -74,6 +74,25 @@ def _session_meta(problem) -> dict:
             "tas": list(s.ta_ids),
             "is_remote": s.is_remote,
         }
+    return out
+
+
+def _fixed_event_dicts(problem) -> list[dict]:
+    """Immovable walls (blackouts + external courses) snapped to the box grid."""
+    import math
+    out: list[dict] = []
+    for fe in problem.fixed_events:
+        start_box = max(0, (fe.start_min - DAY_START_MIN) // BOX_MINUTES)
+        end_box = math.ceil((fe.end_min - DAY_START_MIN) / BOX_MINUTES)
+        if start_box >= BOXES_PER_DAY:
+            continue
+        length = min(max(1, end_box - start_box), BOXES_PER_DAY - start_box)
+        out.append({
+            "id": fe.id, "label": fe.label, "day": fe.day,
+            "start_box": int(start_box), "length_boxes": int(length),
+            "kind": "blackout" if fe.is_blackout else "external",
+            "cohorts": sorted(c.label for c in fe.cohorts),
+        })
     return out
 
 
@@ -276,6 +295,11 @@ def create_app(store: Store | None = None) -> FastAPI:
             "sessions": _session_meta(problem),
             "violations": _violation_dicts(result.evaluation),
         }
+
+    @app.get("/fixed-events")
+    def fixed_events() -> list[dict]:
+        """The immovable walls (blackouts + external courses) the grid overlays."""
+        return _fixed_event_dicts(_problem(store))
 
     # ---- live re-validation (the editor backstop) ------------------- #
     @app.post("/evaluate")

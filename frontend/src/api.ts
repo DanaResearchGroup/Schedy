@@ -2,6 +2,7 @@ import type {
   Availability,
   CalendarAnalysis,
   Course,
+  FixedEvent,
   OfferedRow,
   Placement,
   SemesterCalendar,
@@ -58,6 +59,8 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ time_limit_s: timeLimit }),
     }).then(json<SolveResult>),
+
+  fixedEvents: () => fetch(`${BASE}/fixed-events`).then(json<FixedEvent[]>),
 
   evaluate: (placements: Record<string, Placement>) =>
     fetch(`${BASE}/evaluate`, {

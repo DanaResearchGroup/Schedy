@@ -98,6 +98,22 @@ table.grid th { background: #f8fafc; color: var(--ink); font-weight: 600; font-s
 .block.conflict { outline: 2px solid var(--conflict); outline-offset: -2px; }
 .block.soft { outline: 2px dashed var(--soft); outline-offset: -2px; }
 .block.selected { box-shadow: 0 0 0 2px var(--primary); }
+/* immovable walls (blackouts + external courses) drawn behind the blocks */
+.wall {
+  position: absolute; top: 2px; inset-inline: 2px; z-index: 0; overflow: hidden;
+  border-radius: 6px; font-size: 0.66rem; padding: 3px 5px; pointer-events: none;
+}
+.wall-label { color: #475569; font-weight: 600; }
+.wall-blackout {
+  background: repeating-linear-gradient(135deg, #eef2f7, #eef2f7 6px, #e2e8f0 6px, #e2e8f0 12px);
+  border: 1px dashed #cbd5e1;
+}
+.wall-external {
+  background: repeating-linear-gradient(135deg, #fef9e7, #fef9e7 6px, #fdf0c8 6px, #fdf0c8 12px);
+  border: 1px dashed #e8d27a;
+}
+.wall-external .wall-label { color: #92400e; }
+
 .b-top { display: flex; justify-content: space-between; gap: 4px; font-weight: 600; }
 .b-group { color: var(--muted); font-weight: 500; }
 .b-sub { display: flex; gap: 5px; color: var(--muted); font-size: 0.68rem; margin-top: 1px; }
@@ -137,6 +153,17 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .cal-issues { list-style: none; padding: 0; margin: 0 0 0.5rem; }
 .cal-issues li { padding: 0.4rem 0.2rem; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
 .cal-issues li.warn .kind { color: var(--soft); font-weight: 700; }
+
+/* ---- legend ---- */
+.legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.6rem; font-size: 0.75rem; color: var(--muted); }
+.leg-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.leg-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); display: inline-block; }
+.leg-swatch.role-core { background: var(--role-core); border-color: var(--role-core-bd); }
+.leg-swatch.role-elective { background: var(--role-elective); border-color: var(--role-elective-bd); }
+.leg-swatch.role-replacement { background: var(--role-replacement); border-color: var(--role-replacement-bd); }
+.leg-swatch.role-lab { background: var(--role-lab); border-color: var(--role-lab-bd); }
+.leg-wall-bk { background: repeating-linear-gradient(135deg, #eef2f7, #eef2f7 3px, #e2e8f0 3px, #e2e8f0 6px); border-color: #cbd5e1; }
+.leg-wall-ext { background: repeating-linear-gradient(135deg, #fef9e7, #fef9e7 3px, #fdf0c8 3px, #fdf0c8 6px); border-color: #e8d27a; }
 
 /* ---- catalog ---- */
 .catalog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }

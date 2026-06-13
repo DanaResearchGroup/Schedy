@@ -1,4 +1,4 @@
-import type { Placement, SessionMeta, Violation } from "../types";
+import type { FixedEvent, Placement, SessionMeta, Violation } from "../types";
 import { ROOMS } from "../types";
 import { DAY_NAMES, boxLabel, type Lang } from "../i18n";
 
@@ -13,6 +13,7 @@ interface Props {
   placements: Record<string, Placement>;
   sessions: Record<string, SessionMeta>;
   violations: Violation[];
+  walls: FixedEvent[];
   lang: Lang;
   selectedId: string | null;
   onMove: (sessionId: string, day: number, startBox: number) => void;
@@ -23,7 +24,7 @@ interface Props {
 // room), colored by role, draggable to move (keeping room), and clickable to
 // inspect. Hard-conflicted blocks glow red.
 export function WeeklyGrid({
-  placements, sessions, violations, lang, selectedId, onMove, onSelect,
+  placements, sessions, violations, walls, lang, selectedId, onMove, onSelect,
 }: Props) {
   const conflicted = new Set(
     violations.filter((v) => v.severity === "hard").flatMap((v) => v.session_ids),
@@ -36,6 +37,12 @@ export function WeeklyGrid({
   for (const [sid, p] of Object.entries(placements)) {
     const key = `${p.day}:${p.start_box}`;
     byCell.set(key, [...(byCell.get(key) ?? []), sid]);
+  }
+
+  const wallsByCell = new Map<string, FixedEvent[]>();
+  for (const w of walls) {
+    const key = `${w.day}:${w.start_box}`;
+    wallsByCell.set(key, [...(wallsByCell.get(key) ?? []), w]);
   }
 
   const onDrop = (day: number, box: number) => (e: React.DragEvent) => {
@@ -58,8 +65,18 @@ export function WeeklyGrid({
             <td className="time-col">{boxLabel(box)}</td>
             {Array.from({ length: DAYS }, (_, day) => {
               const sids = byCell.get(`${day}:${box}`) ?? [];
+              const cellWalls = wallsByCell.get(`${day}:${box}`) ?? [];
               return (
                 <td key={day} onDragOver={(e) => e.preventDefault()} onDrop={onDrop(day, box)}>
+                  {cellWalls.map((w) => (
+                    <div
+                      key={w.id} className={`wall wall-${w.kind}`}
+                      style={{ height: Math.max(1, w.length_boxes) * ROW_H - 4 }}
+                      title={w.label}
+                    >
+                      <span className="wall-label">{w.label}</span>
+                    </div>
+                  ))}
                   {sids.map((sid, i) => {
                     const m = sessions[sid];
                     const role = m?.role ?? "core";

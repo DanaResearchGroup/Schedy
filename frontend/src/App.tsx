@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
-import type { Course, Placement, SessionMeta, Violation } from "./types";
-import { t, type Lang } from "./i18n";
+import type { Course, FixedEvent, Placement, SessionMeta, Violation } from "./types";
+import { ROLE_LABEL, t, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
@@ -25,6 +25,7 @@ export default function App() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [placements, setPlacements] = useState<Record<string, Placement> | null>(null);
   const [sessions, setSessions] = useState<Record<string, SessionMeta>>({});
+  const [walls, setWalls] = useState<FixedEvent[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export default function App() {
         setSessions(r.sessions);
         setViolations(r.violations);
         setSelected(null);
+        api.fixedEvents().then(setWalls).catch(() => setWalls([]));
       } else setError(`No solution (${r.status})`);
     } catch (e) {
       setError(String(e));
@@ -95,6 +97,17 @@ export default function App() {
     }
     return out;
   }, [placements, sessions, view]);
+
+  // Blackouts are global; external-course walls belong to cohorts. Filter them
+  // to match the active view so the overlay stays consistent with the blocks.
+  const shownWalls = useMemo(() => {
+    if (view === "all") return walls;
+    const [kind, val] = view.split(":");
+    return walls.filter((w) =>
+      w.kind === "blackout" ? true
+      : kind === "cohort" ? w.cohorts.includes(val)
+      : false);
+  }, [walls, view]);
 
   const hardCount = violations.filter((v) => v.severity === "hard").length;
   const selectedViolations = selected
@@ -175,10 +188,22 @@ export default function App() {
 
           {placements ? (
             <div className="schedule-body">
-              <WeeklyGrid
-                placements={shownPlacements} sessions={sessions} violations={violations}
-                lang={lang} selectedId={selected} onMove={onMove} onSelect={setSelected}
-              />
+              <div className="grid-wrap">
+                <WeeklyGrid
+                  placements={shownPlacements} sessions={sessions} violations={violations}
+                  walls={shownWalls} lang={lang} selectedId={selected}
+                  onMove={onMove} onSelect={setSelected}
+                />
+                <div className="legend">
+                  {(["core", "elective", "replacement", "lab"] as const).map((r) => (
+                    <span key={r} className="leg-item">
+                      <span className={`leg-swatch role-${r}`} />{ROLE_LABEL[r][lang]}
+                    </span>
+                  ))}
+                  <span className="leg-item"><span className="leg-swatch leg-wall-bk" />{t("blackoutLegend", lang)}</span>
+                  <span className="leg-item"><span className="leg-swatch leg-wall-ext" />{t("externalLegend", lang)}</span>
+                </div>
+              </div>
               <aside className="detail">
                 {selected ? (
                   <>

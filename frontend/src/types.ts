@@ -79,6 +79,16 @@ export interface SolveResult {
 // person id -> list of [day, box] cells the person is NOT available to teach.
 export type Availability = Record<string, [number, number][]>;
 
+export interface FixedEvent {
+  id: string;
+  label: string;
+  day: number;
+  start_box: number;
+  length_boxes: number;
+  kind: "blackout" | "external";
+  cohorts: string[];
+}
+
 export interface SemesterCalendar {
   start: string; // ISO date (YYYY-MM-DD)
   end: string; // ISO date, inclusive

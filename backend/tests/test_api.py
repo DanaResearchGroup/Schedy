@@ -184,6 +184,16 @@ def test_seed_catalog_loads_and_solves(client):
     assert len(solved["placements"]) > 15
 
 
+def test_fixed_events_overlay(client):
+    client.post("/catalog/seed")
+    events = client.get("/fixed-events").json()
+    kinds = {e["kind"] for e in events}
+    assert "blackout" in kinds  # standing Wed-afternoon + Mon-seminar
+    assert "external" in kinds  # the seeded Calculus wall
+    wed = next(e for e in events if "Wed" in e["label"])
+    assert wed["day"] == 3 and wed["start_box"] == 4 and wed["length_boxes"] == 2
+
+
 def test_calendar_round_trips_and_analyzes(client):
     assert client.get("/calendar").json() == {}
     # Analyze before any calendar is a 404.
