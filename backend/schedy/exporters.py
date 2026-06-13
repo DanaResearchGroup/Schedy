@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 from dataclasses import dataclass
 
 from .domain import (
@@ -20,6 +21,50 @@ from .domain import (
     Schedule,
     box_label,
 )
+
+_FONTS_DIR = os.path.join(os.path.dirname(__file__), "assets", "fonts")
+_PDF_FONT = "DejaVuSans"        # bundled, carries Hebrew glyphs (RTL via python-bidi)
+_PDF_FONT_BOLD = "DejaVuSans-Bold"
+_fonts_registered = False
+
+
+def _ensure_fonts() -> bool:
+    """Register the bundled Hebrew-capable font with reportlab once.
+
+    Returns True if the font is available; callers fall back to a built-in font
+    (Hebrew will not render) when it is not.
+    """
+    global _fonts_registered
+    if _fonts_registered:
+        return True
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    reg = os.path.join(_FONTS_DIR, "DejaVuSans.ttf")
+    bold = os.path.join(_FONTS_DIR, "DejaVuSans-Bold.ttf")
+    if not os.path.isfile(reg):
+        return False
+    pdfmetrics.registerFont(TTFont(_PDF_FONT, reg))
+    if os.path.isfile(bold):
+        pdfmetrics.registerFont(TTFont(_PDF_FONT_BOLD, bold))
+    _fonts_registered = True
+    return True
+
+
+def _rtl(text: str) -> str:
+    """Reorder a (possibly Hebrew) string for visual display in the PDF.
+
+    reportlab does not run the Unicode bidi algorithm, so right-to-left text must
+    be pre-shaped. python-bidi handles mixed Hebrew/Latin/digits correctly; if it
+    is unavailable we return the text unchanged.
+    """
+    if not text:
+        return text
+    try:
+        from bidi import get_display
+    except Exception:  # noqa: BLE001 — optional dependency, degrade gracefully
+        return text
+    return get_display(text)
 
 
 @dataclass(frozen=True)
@@ -78,24 +123,50 @@ def to_csv(problem: Problem, schedule: Schedule) -> str:
     return buf.getvalue()
 
 
-def to_pdf(problem: Problem, schedule: Schedule, title: str = "Schedy timetable") -> bytes:
-    """Printable PDF table of all assignments."""
+def to_pdf(
+    problem: Problem,
+    schedule: Schedule,
+    title: str = "Schedy timetable",
+    course_names: dict[str, str] | None = None,
+) -> bytes:
+    """Printable PDF table of all assignments.
+
+    `course_names` maps course number -> display name (Hebrew preferred); when
+    given, a Name column is added and rendered right-to-left via the bundled
+    Hebrew font. Without it (or the font), the export still works in ASCII.
+    """
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
     from reportlab.lib.styles import getSampleStyleSheet
 
+    has_font = _ensure_fonts()
+    show_name = bool(course_names) and has_font
+    body_font = _PDF_FONT if has_font else "Helvetica"
+    head_font = _PDF_FONT_BOLD if has_font else "Helvetica-Bold"
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
     styles = getSampleStyleSheet()
-    data = [["Course", "Type", "Group", "Day", "Time", "Room", "Cohorts"]]
+
+    header = ["Course"]
+    if show_name:
+        header.append("Name")
+    header += ["Type", "Group", "Day", "Time", "Room", "Cohorts"]
+    data = [header]
     for r in assignment_rows(problem, schedule):
-        data.append([r.course_number, r.session_type, r.group, r.day, r.time,
-                     r.room, r.cohorts])
+        row = [r.course_number]
+        if show_name:
+            row.append(_rtl((course_names or {}).get(r.course_number, "")))
+        row += [r.session_type, r.group, r.day, r.time, r.room, r.cohorts]
+        data.append(row)
+
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b6cb0")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), head_font),
+        ("FONTNAME", (0, 1), (-1, -1), body_font),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1),

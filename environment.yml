@@ -14,3 +14,4 @@ dependencies:
   - mkdocs-material>=9.5 # HTML documentation site
   - pip:
       - ortools>=9.11    # CP-SAT solver (not on conda-forge for all platforms)
+      - python-bidi>=0.6 # RTL reordering for Hebrew names in the PDF export

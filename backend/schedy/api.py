@@ -323,7 +323,11 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.get("/export/pdf")
     def export_pdf() -> Response:
         problem, sched = _last_schedule()
-        return Response(to_pdf(problem, sched), media_type="application/pdf")
+        names = {c.number: (c.name_he or c.name_en) for c in store.list_courses()}
+        return Response(
+            to_pdf(problem, sched, course_names=names),
+            media_type="application/pdf",
+        )
 
     # ---- serve the built frontend (single-process / packaged mode) -- #
     # When a built SPA is present, serve it at "/" so the planner runs one

@@ -54,3 +54,12 @@ def test_pdf_export_smoke():
     pdf = to_pdf(problem, sched, title="Test")
     assert pdf[:4] == b"%PDF"
     assert len(pdf) > 500
+
+
+def test_pdf_export_with_hebrew_names():
+    problem, sched = _problem()
+    # Hebrew course name exercises the bundled font + RTL reordering path.
+    pdf = to_pdf(problem, sched, title="Test",
+                 course_names={"00540319": "תרמודינמיקה א׳"})
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 500
