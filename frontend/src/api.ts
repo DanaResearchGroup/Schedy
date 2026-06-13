@@ -1,4 +1,5 @@
 import type {
+  Availability,
   Course,
   OfferedRow,
   Placement,
@@ -57,6 +58,15 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ placements }),
     }).then(json<EvalResult>),
+
+  getAvailability: () => fetch(`${BASE}/availability`).then(json<Availability>),
+
+  setAvailability: (availability: Availability) =>
+    fetch(`${BASE}/availability`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(availability),
+    }).then(json<{ people: string[] }>),
 
   uploadSkeleton: (file: File) => {
     const fd = new FormData();

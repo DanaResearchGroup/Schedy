@@ -5,8 +5,17 @@ import { t, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
+import { AvailabilityPanel } from "./components/AvailabilityPanel";
 
-type Tab = "schedule" | "catalog" | "import";
+type Tab = "schedule" | "catalog" | "availability" | "import";
+
+const TABS = ["schedule", "catalog", "availability", "import"] as const;
+const TAB_KEY = {
+  schedule: "tabSchedule",
+  catalog: "tabCatalog",
+  availability: "tabAvailability",
+  import: "tabImport",
+} as const;
 
 export default function App() {
   const [lang, setLang] = useState<Lang>("he");
@@ -95,10 +104,10 @@ export default function App() {
       <header>
         <div className="brand">⬡ <strong>Schedy</strong></div>
         <nav className="tabs">
-          {(["schedule", "catalog", "import"] as Tab[]).map((tb) => (
+          {TABS.map((tb) => (
             <button key={tb} className={tab === tb ? "tab active" : "tab"}
               onClick={() => setTab(tb)}>
-              {t(tb === "schedule" ? "tabSchedule" : tb === "catalog" ? "tabCatalog" : "tabImport", lang)}
+              {t(TAB_KEY[tb], lang)}
             </button>
           ))}
         </nav>
@@ -118,6 +127,10 @@ export default function App() {
             onDelete={(n) => api.deleteCourse(n).then(refresh)}
           />
         </div>
+      )}
+
+      {tab === "availability" && (
+        <div className="panel"><AvailabilityPanel courses={courses} lang={lang} /></div>
       )}
 
       {tab === "import" && <div className="panel"><ImportPanel lang={lang} /></div>}

@@ -62,6 +62,20 @@ export const STRINGS = {
   day: { he: "יום", en: "Day" },
   time: { he: "שעה", en: "Time" },
   group: { he: "קבוצה", en: "Group" },
+  tabAvailability: { he: "זמינות", en: "Availability" },
+  person: { he: "סגל", en: "Person" },
+  availabilityHint: {
+    he: "לחץ על משבצת כדי לסמן שהמרצה/מתרגל אינו זמין באותה שעה. משבצות מסומנות הופכות לאילוץ קשה בפתרון.",
+    en: "Click a cell to mark the lecturer/TA as unavailable then. Blocked cells become hard constraints when solving.",
+  },
+  clearBlocks: { he: "נקה", en: "Clear" },
+  saving: { he: "שומר…", en: "Saving…" },
+  available: { he: "זמין", en: "Available" },
+  unavailable: { he: "לא זמין", en: "Unavailable" },
+  noPeople: {
+    he: "לא הוגדרו מרצים או מתרגלים בקטלוג",
+    en: "No lecturers or TAs defined in the catalog yet",
+  },
 } as const;
 
 export const ROLE_LABEL: Record<string, Record<Lang, string>> = {

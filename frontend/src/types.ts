@@ -76,6 +76,9 @@ export interface SolveResult {
   violations: Violation[];
 }
 
+// person id -> list of [day, box] cells the person is NOT available to teach.
+export type Availability = Record<string, [number, number][]>;
+
 export interface OfferedRow {
   course_number: string;
   event_type: string | null;
