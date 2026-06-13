@@ -1,0 +1,693 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Department course-scheduling auto-solver">
+      
+      
+      
+      
+        <link rel="prev" href="../constraints/">
+      
+      
+        <link rel="next" href="../PRD/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Windows & packaging - Schedy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#running-packaging-schedy-on-windows" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Schedy" class="md-header__button md-logo" aria-label="Schedy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Schedy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Windows & packaging
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Schedy" class="md-nav__button md-logo" aria-label="Schedy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Schedy
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Constraints reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windows & packaging
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windows & packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-run-on-a-windows-dev-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Run on a Windows dev machine
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-package-a-one-click-exe-recommended-pyinstaller" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Package a one-click .exe (recommended: PyInstaller)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Package a one-click .exe (recommended: PyInstaller)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#build-steps-on-a-windows-machine-in-the-schedy-env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build steps (on a Windows machine, in the schedy env)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-a-desktop-shortcut-launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: a desktop shortcut / launcher
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-alternative-conda-env-bat-no-pyinstaller" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Alternative: conda env + .bat (no PyInstaller)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-gaps-to-address-before-shipping-to-end-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known gaps to address before shipping to end users
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-platform-packaging-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-platform packaging note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="running-packaging-schedy-on-windows">Running &amp; packaging Schedy on Windows<a class="headerlink" href="#running-packaging-schedy-on-windows" title="Permanent link">&para;</a></h1>
+<p>Schedy is cross-platform — every dependency (OR-Tools, FastAPI, uvicorn, openpyxl,
+reportlab, SQLite) ships Windows wheels, and the React frontend is OS-agnostic.
+This page covers two things:</p>
+<ol>
+<li><strong>Running it on a developer's Windows machine</strong> (conda + Node).</li>
+<li><strong>Packaging a one-click app</strong> for a non-technical planner — a single <code>.exe</code>
+   that needs neither Python, conda, nor Node installed.</li>
+</ol>
+<p>The key idea for both: <strong>FastAPI serves the <em>built</em> frontend itself</strong>, so the
+planner runs <strong>one</strong> process and opens a browser. No Node at runtime.</p>
+<hr />
+<h2 id="1-run-on-a-windows-dev-machine">1. Run on a Windows dev machine<a class="headerlink" href="#1-run-on-a-windows-dev-machine" title="Permanent link">&para;</a></h2>
+<p>Install <a href="https://github.com/conda-forge/miniforge">Miniforge</a> and
+<a href="https://nodejs.org">Node 20+</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="c"># from the repo root (PowerShell)</span>
+<span class="n">conda</span> <span class="n">env</span> <span class="n">create</span> <span class="o">-f</span> <span class="n">environment</span><span class="p">.</span><span class="n">yml</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">schedy</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="n">backend</span>
+
+<span class="c"># build the frontend once -&gt; frontend/dist</span>
+<span class="nb">cd </span><span class="n">frontend</span>
+<span class="n">npm</span> <span class="n">install</span>
+<span class="n">npm</span> <span class="n">run</span> <span class="n">build</span>
+<span class="nb">cd </span><span class="p">..</span>
+
+<span class="c"># run single-process: FastAPI serves API + the built SPA</span>
+<span class="nv">$env:SCHEDY_STATIC</span> <span class="p">=</span> <span class="s2">&quot;frontend\dist&quot;</span>
+<span class="n">uvicorn</span> <span class="n">schedy</span><span class="p">.</span><span class="n">api</span><span class="p">:</span><span class="n">create_app</span> <span class="p">-</span><span class="n">-factory</span> <span class="p">-</span><span class="n">-app-dir</span> <span class="n">backend</span> <span class="p">-</span><span class="n">-port</span> <span class="n">8000</span>
+<span class="c"># open http://localhost:8000</span>
+</code></pre></div>
+<p>For active frontend development use two processes instead (Vite proxies <code>/api</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="n">uvicorn</span> <span class="n">schedy</span><span class="p">.</span><span class="n">api</span><span class="p">:</span><span class="n">create_app</span> <span class="p">-</span><span class="n">-factory</span> <span class="p">-</span><span class="n">-app-dir</span> <span class="n">backend</span> <span class="p">-</span><span class="n">-port</span> <span class="n">8000</span>
+<span class="c"># in another terminal:</span>
+<span class="nb">cd </span><span class="n">frontend</span><span class="p">;</span> <span class="n">npm</span> <span class="n">run</span> <span class="n">dev</span>        <span class="c"># http://localhost:5173</span>
+</code></pre></div>
+<blockquote>
+<p><strong>How the API base is resolved.</strong> In dev the frontend calls <code>/api/*</code> and Vite
+proxies to the backend. The production build (<code>frontend/.env.production</code> sets
+<code>VITE_API_BASE=</code>) calls the same origin that serves it, so no proxy is needed.</p>
+</blockquote>
+<hr />
+<h2 id="2-package-a-one-click-exe-recommended-pyinstaller">2. Package a one-click <code>.exe</code> (recommended: PyInstaller)<a class="headerlink" href="#2-package-a-one-click-exe-recommended-pyinstaller" title="Permanent link">&para;</a></h2>
+<p>This produces a self-contained folder the planner can copy and double-click.
+<code>backend/launcher.py</code> is the entry point: it starts the server, serves the
+bundled SPA, opens the browser, and stores the catalog under
+<code>%APPDATA%\Schedy\schedy.sqlite</code>.</p>
+<h3 id="build-steps-on-a-windows-machine-in-the-schedy-env">Build steps (on a Windows machine, in the <code>schedy</code> env)<a class="headerlink" href="#build-steps-on-a-windows-machine-in-the-schedy-env" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">conda</span> <span class="n">activate</span> <span class="n">schedy</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="n">backend</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">pyinstaller</span>
+
+<span class="c"># 1. Build the frontend</span>
+<span class="nb">cd </span><span class="n">frontend</span><span class="p">;</span> <span class="n">npm</span> <span class="n">install</span><span class="p">;</span> <span class="n">npm</span> <span class="n">run</span> <span class="n">build</span><span class="p">;</span> <span class="nb">cd </span><span class="p">..</span>
+
+<span class="c"># 2. Bundle backend + built frontend into one folder</span>
+<span class="n">pyinstaller</span> <span class="n">backend</span><span class="p">\</span><span class="n">launcher</span><span class="p">.</span><span class="n">py</span> <span class="p">^</span>
+  <span class="p">-</span><span class="n">-name</span> <span class="n">Schedy</span> <span class="p">^</span>
+  <span class="p">-</span><span class="n">-collect-all</span> <span class="n">ortools</span> <span class="p">^</span>
+  <span class="p">-</span><span class="n">-collect-all</span> <span class="n">reportlab</span> <span class="p">^</span>
+  <span class="p">-</span><span class="n">-collect-submodules</span> <span class="n">uvicorn</span> <span class="p">^</span>
+  <span class="p">-</span><span class="n">-add-data</span> <span class="s2">&quot;frontend\dist;dist&quot;</span> <span class="p">^</span>
+  <span class="p">-</span><span class="n">-noconfirm</span>
+</code></pre></div>
+<p>Notes on the flags:</p>
+<ul>
+<li><code>--collect-all ortools</code> — OR-Tools ships native binaries and data the analysis
+  step misses; this grabs them. (Same reason for <code>reportlab</code>.)</li>
+<li><code>--collect-submodules uvicorn</code> — uvicorn imports its workers/loops lazily.</li>
+<li><code>--add-data "frontend\dist;dist"</code> — bundles the built SPA; <code>launcher.py</code> reads
+  it from <code>sys._MEIPASS\dist</code>. <strong>The <code>;</code> separator is Windows-specific</strong> (use <code>:</code>
+  on macOS/Linux).</li>
+<li>Add <code>--noconsole</code> once stable to hide the terminal window (keep the console
+  while testing so you can see errors).</li>
+</ul>
+<p>The result is <code>dist\Schedy\Schedy.exe</code> plus its dependency folder. Zip
+<code>dist\Schedy\</code> and hand it over. The planner double-clicks <code>Schedy.exe</code>; a browser
+opens at <code>http://127.0.0.1:8000</code>.</p>
+<h3 id="optional-a-desktop-shortcut-launcher">Optional: a desktop shortcut / launcher<a class="headerlink" href="#optional-a-desktop-shortcut-launcher" title="Permanent link">&para;</a></h3>
+<p>Create <code>Schedy.bat</code> next to the exe if you prefer a visible launcher:</p>
+<div class="highlight"><pre><span></span><code><span class="p">@</span><span class="k">echo</span> off
+<span class="k">start</span> <span class="s2">&quot;&quot;</span> <span class="s2">&quot;</span><span class="nv">%~dp0</span><span class="s2">Schedy.exe&quot;</span>
+</code></pre></div>
+<hr />
+<h2 id="3-alternative-conda-env-bat-no-pyinstaller">3. Alternative: conda env + <code>.bat</code> (no PyInstaller)<a class="headerlink" href="#3-alternative-conda-env-bat-no-pyinstaller" title="Permanent link">&para;</a></h2>
+<p>Simpler to produce, but the target machine needs Miniforge installed. Ship the
+repo + a launcher:</p>
+<div class="highlight"><pre><span></span><code><span class="p">@</span><span class="k">echo</span> off
+<span class="k">call</span> conda activate schedy
+<span class="k">set</span> <span class="nv">SCHEDY_STATIC</span><span class="p">=</span><span class="nv">%~dp0</span>frontend\dist
+<span class="k">start</span> <span class="s2">&quot;&quot;</span> http://localhost:8000
+uvicorn schedy.api:create_app --factory --app-dir <span class="s2">&quot;</span><span class="nv">%~dp0</span><span class="s2">backend&quot;</span> --port 8000
+</code></pre></div>
+<hr />
+<h2 id="known-gaps-to-address-before-shipping-to-end-users">Known gaps to address before shipping to end users<a class="headerlink" href="#known-gaps-to-address-before-shipping-to-end-users" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Hebrew text in PDF export.</strong> The current <code>reportlab</code> export uses Helvetica,
+  which cannot render Hebrew glyphs (a gap on <em>every</em> OS, not just Windows).
+  Before relying on PDF, embed a Hebrew-capable TTF (e.g. Noto Sans Hebrew) and
+  apply RTL shaping. CSV and the on-screen grid are unaffected.</li>
+<li><strong>Port already in use.</strong> If <code>8000</code> is taken, set <code>SCHEDY_PORT</code> before launch.</li>
+<li><strong>Antivirus / SmartScreen.</strong> Unsigned PyInstaller exes may trigger SmartScreen
+  on first run. For wide distribution, code-sign the executable.</li>
+<li><strong>Catalog location.</strong> Data lives at <code>%APPDATA%\Schedy\schedy.sqlite</code>. Document
+  this for backups; deleting it resets the catalog.</li>
+</ul>
+<h2 id="cross-platform-packaging-note">Cross-platform packaging note<a class="headerlink" href="#cross-platform-packaging-note" title="Permanent link">&para;</a></h2>
+<p>PyInstaller is <strong>not</strong> a cross-compiler — build the Windows artifact <em>on</em> Windows
+(a Windows VM or CI runner is fine). The same <code>launcher.py</code> + <code>--add-data</code> recipe
+produces a macOS/Linux bundle when run on those platforms (swap <code>;</code> for <code>:</code>).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
