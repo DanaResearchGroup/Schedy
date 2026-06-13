@@ -1,8 +1,10 @@
 import type {
   Availability,
+  CalendarAnalysis,
   Course,
   OfferedRow,
   Placement,
+  SemesterCalendar,
   SessionMeta,
   SolveResult,
   Violation,
@@ -67,6 +69,17 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(availability),
     }).then(json<{ people: string[] }>),
+
+  getCalendar: () => fetch(`${BASE}/calendar`).then(json<Partial<SemesterCalendar>>),
+
+  setCalendar: (cal: SemesterCalendar) =>
+    fetch(`${BASE}/calendar`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cal),
+    }).then(json<{ ok: boolean }>),
+
+  analyzeCalendar: () => fetch(`${BASE}/calendar/analyze`).then(json<CalendarAnalysis>),
 
   uploadSkeleton: (file: File) => {
     const fd = new FormData();

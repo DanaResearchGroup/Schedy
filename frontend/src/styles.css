@@ -112,6 +112,32 @@ table.avail-grid td.avail-cell:hover { background: #f1f5f9; }
 table.avail-grid td.avail-cell.blocked { background: #fee2e2; }
 table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 
+/* ---- calendar ---- */
+.cal-form { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 1rem; }
+.cal-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem; color: var(--muted); }
+.cal-form input, .cal-add input, .cal-sub input, .cal-sub select {
+  padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; color: var(--ink);
+}
+.cal-section { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; }
+.cal-section legend { font-size: 0.8rem; color: var(--muted); padding: 0 0.3rem; }
+.cal-add { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.cal-sub { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem;
+  padding: 0.15rem 0.2rem 0.15rem 0.55rem; border-radius: 999px; background: #fee2e2; color: #991b1b;
+}
+.chip-x { border: none; background: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.2rem; }
+.cal-analysis { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
+.stat { font-size: 0.85rem; color: var(--muted); }
+.stat b { font-size: 1.3rem; color: var(--ink); margin-inline-end: 0.3rem; }
+.weekday-counts { max-width: 520px; text-align: center; }
+.weekday-counts td { text-align: center; font-weight: 600; }
+.cal-issues { list-style: none; padding: 0; margin: 0 0 0.5rem; }
+.cal-issues li { padding: 0.4rem 0.2rem; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+.cal-issues li.warn .kind { color: var(--soft); font-weight: 700; }
+
 /* ---- catalog ---- */
 .catalog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .course-list { list-style: none; padding: 0; margin: 0; }

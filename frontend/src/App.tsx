@@ -6,14 +6,16 @@ import { WeeklyGrid } from "./components/WeeklyGrid";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
+import { CalendarPanel } from "./components/CalendarPanel";
 
-type Tab = "schedule" | "catalog" | "availability" | "import";
+type Tab = "schedule" | "catalog" | "availability" | "calendar" | "import";
 
-const TABS = ["schedule", "catalog", "availability", "import"] as const;
+const TABS = ["schedule", "catalog", "availability", "calendar", "import"] as const;
 const TAB_KEY = {
   schedule: "tabSchedule",
   catalog: "tabCatalog",
   availability: "tabAvailability",
+  calendar: "tabCalendar",
   import: "tabImport",
 } as const;
 
@@ -132,6 +134,8 @@ export default function App() {
       {tab === "availability" && (
         <div className="panel"><AvailabilityPanel courses={courses} lang={lang} /></div>
       )}
+
+      {tab === "calendar" && <div className="panel"><CalendarPanel lang={lang} /></div>}
 
       {tab === "import" && <div className="panel"><ImportPanel lang={lang} /></div>}
 

@@ -76,6 +76,32 @@ export const STRINGS = {
     he: "לא הוגדרו מרצים או מתרגלים בקטלוג",
     en: "No lecturers or TAs defined in the catalog yet",
   },
+  tabCalendar: { he: "לוח שנה", en: "Calendar" },
+  calendarHint: {
+    he: "הגדר את תאריכי הסמסטר, ימים חסומים והחלפות ימים, ואז נתח.",
+    en: "Define semester dates, blocked days, and day-substitutions, then Analyze.",
+  },
+  semesterStart: { he: "תחילת סמסטר", en: "Semester start" },
+  semesterEnd: { he: "סוף סמסטר (כולל)", en: "Semester end (inclusive)" },
+  blockedDates: { he: "ימים חסומים", en: "Blocked dates" },
+  substitutions: { he: "החלפות ימים", en: "Day substitutions" },
+  runsAs: { he: "רץ כמו", en: "runs as" },
+  addItem: { he: "הוסף", en: "Add" },
+  analyze: { he: "נתח", en: "Analyze" },
+  analyzing: { he: "מנתח…", en: "Analyzing…" },
+  teachingDaysLabel: { he: "ימי לימוד", en: "Teaching days" },
+  weeksLabel: { he: "שבועות", en: "Weeks" },
+  blockedLabel: { he: "חסומים", en: "Blocked" },
+  perWeekday: { he: "ימי לימוד לפי יום", en: "Teaching days per weekday" },
+  lostSessions: { he: "מפגשים חסרים", en: "Uneven sessions" },
+  orderInversions: { he: "היפוך סדר הרצאה/תרגול", en: "Order inversions" },
+  noIssues: { he: "לא נמצאו בעיות", en: "No issues found" },
+  solveForDeficits: {
+    he: 'הרץ "פתור" לניתוח חוסרים ברמת המפגש',
+    en: "Run Solve for per-session deficit analysis",
+  },
+  deficitLabel: { he: "חוסר", en: "deficit" },
+  weekLabel: { he: "שבוע", en: "Week" },
 } as const;
 
 export const ROLE_LABEL: Record<string, Record<Lang, string>> = {

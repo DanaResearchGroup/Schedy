@@ -79,6 +79,41 @@ export interface SolveResult {
 // person id -> list of [day, box] cells the person is NOT available to teach.
 export type Availability = Record<string, [number, number][]>;
 
+export interface SemesterCalendar {
+  start: string; // ISO date (YYYY-MM-DD)
+  end: string; // ISO date, inclusive
+  blocked_dates: string[];
+  substitutions: Record<string, number>; // ISO date -> weekday template 0..4
+}
+
+export interface LostSession {
+  session_id: string;
+  course_number: string;
+  weekday_template: number;
+  realized: number;
+  baseline: number;
+  deficit: number;
+}
+
+export interface OrderInversion {
+  course_number: string;
+  week_index: number;
+  lecture_date: string;
+  exercise_date: string;
+  exercise_group: string | null;
+}
+
+export interface CalendarAnalysis {
+  total_days: number;
+  teaching_days: number;
+  weeks: number;
+  template_counts: Record<string, number>;
+  substituted_days: { date: string; template: number | null }[];
+  blocked_count: number;
+  lost_sessions: LostSession[];
+  order_inversions: OrderInversion[];
+}
+
 export interface OfferedRow {
   course_number: string;
   event_type: string | null;
