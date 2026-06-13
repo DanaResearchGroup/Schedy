@@ -855,7 +855,7 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 </ul>
 <h2 id="implementation-status">Implementation Status<a class="headerlink" href="#implementation-status" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p>Updated 2026-06-01. Initial build complete: full backend engine implemented and tested, frontend scaffolded. <strong>47 tests passing on Python 3.14</strong>; the API boots and runs a live catalog → solve → CSV/PDF export pipeline.</p>
+<p>Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. <strong>61 tests passing on Python 3.14</strong>; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → solve → edit → CSV/PDF pipeline.</p>
 </blockquote>
 <h3 id="what-is-built">What is built<a class="headerlink" href="#what-is-built" title="Permanent link">&para;</a></h3>
 <p>Implemented from the ground up, committed module-by-module. Stack as specified: Python 3.14 · OR-Tools CP-SAT · FastAPI · SQLite · React/TypeScript.</p>
@@ -897,27 +897,35 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 <tr>
 <td><code>catalog.py</code> / <code>store.py</code> / <code>api.py</code> / <code>exporters.py</code></td>
 <td>✅</td>
-<td>Course aggregate → Problem; SQLite persistence; FastAPI orchestration; CSV + PDF export</td>
+<td>Course aggregate → Problem; SQLite persistence; FastAPI orchestration; CSV + Hebrew-capable PDF export</td>
+</tr>
+<tr>
+<td><code>sample_data.py</code></td>
+<td>✅</td>
+<td>Illustrative demo catalog (both programs, years 1–4, cross-day lab, electives, Zoom, computer-farm, external wall); <code>POST /catalog/seed</code></td>
 </tr>
 </tbody>
 </table>
-<p><strong>Frontend (<code>frontend/</code>):</strong> runnable Vite + React + TS scaffold — weekly grid (hard conflicts glow red), catalog panel, solve flow, export links, bilingual Hebrew-RTL / English. Validated by inspection only.</p>
-<p><strong>Project infrastructure:</strong> <code>environment.yml</code> (conda, Python 3.14), MkDocs Material HTML documentation (builds clean under <code>--strict</code>), git history with one commit per module.</p>
+<p><strong>Frontend (<code>frontend/</code>):</strong> built and running (Vite + React + TS), single-process via FastAPI <code>StaticFiles</code>. Tabs:
+- <strong>Schedule</strong> — drag-drop weekly grid with live re-validation; blocks colored by role and sized to their length; blackout + external-course walls overlaid; per-cohort/room/lecturer views; role/wall legend; CSV/PDF export; one-click sample-and-solve on the empty state.
+- <strong>Catalog</strong> — full course editor + one-click "Load sample catalog".
+- <strong>Availability</strong> — per-person click grid → hard <code>person_unavailable</code> walls on re-solve.
+- <strong>Calendar</strong> — semester dates, blocked days, day-substitutions; Analyze → per-weekday teaching counts, uneven sessions, order inversions.
+- <strong>Import</strong> — Technion XLSX upload, parsed and filtered to the catalog.</p>
+<p>Bilingual Hebrew-RTL / English throughout.</p>
+<p><strong>Project infrastructure:</strong> <code>environment.yml</code> (conda, Python 3.14), GitHub Actions (CI, CodeQL, MkDocs → gh-pages), MkDocs Material docs (builds clean under <code>--strict</code>), <code>launcher.py</code> one-command local/desktop launch, git history with one commit per feature.</p>
 <h3 id="honest-caveats">Honest caveats<a class="headerlink" href="#honest-caveats" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Frontend is a scaffold, not built or run.</strong> Node was not installed in the build environment, so the React app is validated by inspection only. Drag-and-drop grid editing, per-cohort/room/lecturer views, availability grids, and the import-review and calendar UIs are stubbed for the next pass.</li>
-<li><strong>Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.</strong> It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as <code>lab_cross_day_unsatisfiable</code> for manual fix. This is consistent with the best-effort design (the evaluator is the single source of truth), but it means the solver does not <em>natively</em> guarantee this hard constraint.</li>
+<li><strong>Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.</strong> It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as <code>lab_cross_day_unsatisfiable</code> for manual fix. Consistent with the best-effort design (the evaluator is the single source of truth), but the solver does not <em>natively</em> guarantee this hard constraint.</li>
+<li><strong>Skeleton import is review-only for non-exercise data.</strong> Offered exercise <em>group codes</em> drive the solve (one session per offered group), but lecture/lab <em>sections</em> and the parsed skeleton <em>times</em> are not yet consumed, and the import table is not editable.</li>
 <li><strong>Two design questions remain open</strong> (see Further Notes): whether ChemE–Chemistry is a full program or a track within ChemE, and confirmation of the color→role mapping. Both affect cohort enumeration and should be resolved before populating a real catalog.</li>
-<li><strong><code>num_exercise_groups</code> is currently a catalog attribute</strong>, not derived from the imported skeleton. The skeleton-driven expansion (create one exercise session per <em>offered</em> group) is not yet wired into the solve path.</li>
 </ul>
 <h3 id="suggested-next-steps">Suggested next steps<a class="headerlink" href="#suggested-next-steps" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Install Node 20+ and run the frontend (<code>npm install &amp;&amp; npm run dev</code>) against the API to validate the scaffold end-to-end.</li>
-<li>Build drag-and-drop editing of placements on the weekly grid with live re-validation (the evaluator already supports per-edit checking).</li>
-<li>Wire the skeleton import-review screen: import → parse → human-review/correct → validate against checklist → solve.</li>
-<li>Add the per-cohort / per-room / per-lecturer grid views and the per-person availability grids.</li>
-<li>Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy).</li>
-<li>Consider a CP-SAT encoding (or a guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.</li>
+<li>Richer skeleton→solve wiring: make the import table editable and feed lecture/lab sections and parsed times into the solve (decide whether times become hard placements, soft hints, or editable defaults).</li>
+<li>A native CP-SAT encoding (or guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.</li>
+<li>Resolve the two open design questions (ChemE–Chemistry program-vs-track; color taxonomy) and populate a real catalog.</li>
+<li>PDF polish: per-cohort/per-room timetable pages (grid layout) rather than a single flat table.</li>
 </ol>
 
 
