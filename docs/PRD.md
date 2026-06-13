@@ -177,7 +177,7 @@ Weights are tunable by the planner.
 
 ## Implementation Status
 
-> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **70 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
+> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **73 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
 
 ### What is built
 
@@ -212,7 +212,7 @@ Bilingual Hebrew-RTL / English throughout.
 
 ### Honest caveats
 
-- **Lab cross-day satisfiability is enforced in the evaluator as a post-hoc check, not inside CP-SAT.** It does not linearise cleanly; the solver may return a schedule that the evaluator then flags as `lab_cross_day_unsatisfiable` for manual fix. Consistent with the best-effort design (the evaluator is the single source of truth), but the solver does not *natively* guarantee this hard constraint.
+- **Lab cross-day satisfiability uses a guided-repair loop.** Cross-day lab alternatives are excluded from the strict per-cohort no-overlap (a lab may overlap the cohort's course on its "off" day) and governed by the "≥1 clash-free day per cohort" rule. The base model omits that rule (it bloats the model and rarely binds); when the evaluator flags `lab_cross_day_unsatisfiable`, the solver encodes the constraint natively for the offending lab groups and re-solves (up to N rounds), falling back to the best-effort flagged schedule only if no clash-free arrangement exists.
 - **Skeleton day/time → hard fixed placement (option a).** When the skeleton gives a session a concrete, grid-aligned weekday/time, that `(day, box)` is pinned as a hard constraint in CP-SAT and flagged `fixed_placement` by the evaluator if moved; the grid locks such blocks (🔒). The import table is editable (correct day/time/group before solving). Validated on the real Technion fixture (96% of timed rows pin). **By design:** labs are never pinned (the skeleton carries no labs — labs are department-scheduled), and the skeleton's *room* strings are university-wide locations, ignored for solving (the solver assigns our six rooms; no room collisions are expected).
 - **Two design questions remain open** (see Further Notes): whether ChemE–Chemistry is a full program or a track within ChemE, and confirmation of the color→role mapping. Both affect cohort enumeration and should be resolved before populating a real catalog.
 
