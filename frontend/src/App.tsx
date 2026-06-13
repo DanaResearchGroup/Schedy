@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import type { Course, FixedEvent, Placement, SessionMeta, Violation } from "./types";
-import { ROLE_LABEL, t, type Lang } from "./i18n";
+import { ROOMS } from "./types";
+import { boxLabel, DAY_NAMES, ROLE_LABEL, t, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
@@ -9,6 +10,15 @@ import { AvailabilityPanel } from "./components/AvailabilityPanel";
 import { CalendarPanel } from "./components/CalendarPanel";
 
 type Tab = "schedule" | "catalog" | "availability" | "calendar" | "import";
+
+const ROOM_NAME: Record<string, string> =
+  Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
+
+function timeRange(startBox: number, len: number): string {
+  const a = boxLabel(startBox).split("-")[0];
+  const b = boxLabel(startBox + Math.max(1, len) - 1).split("-")[1];
+  return `${a}-${b}`;
+}
 
 const TABS = ["schedule", "catalog", "availability", "calendar", "import"] as const;
 const TAB_KEY = {
@@ -208,15 +218,32 @@ export default function App() {
               <aside className="detail">
                 {selected ? (
                   <>
-                    <h3>{selected}</h3>
-                    {sessions[selected] && (
-                      <ul className="meta">
-                        <li>{sessions[selected].course_number} · {sessions[selected].type}</li>
-                        <li>{sessions[selected].cohorts.join(", ")}</li>
-                        {sessions[selected].lecturers.length > 0 &&
-                          <li>👤 {sessions[selected].lecturers.join(", ")}</li>}
-                      </ul>
-                    )}
+                    {(() => {
+                      const m = sessions[selected];
+                      const p = placements?.[selected];
+                      const course = courses.find((c) => c.number === m?.course_number);
+                      const name = course && (lang === "he" ? course.name_he : course.name_en);
+                      return (
+                        <>
+                          <h3>
+                            {name || m?.course_number || selected}
+                            {m?.fixed && <span title={t("fixedTag", lang)}> 🔒</span>}
+                          </h3>
+                          {m && (
+                            <ul className="meta">
+                              <li>{m.course_number} · {m.type}{m.group ? ` · ${m.group}` : ""}</li>
+                              {p && (
+                                <li>🗓 {DAY_NAMES[lang][p.day]} {timeRange(p.start_box, m.length_boxes)}</li>
+                              )}
+                              {p && <li>📍 {ROOM_NAME[p.room_id] ?? p.room_id}</li>}
+                              <li>{m.cohorts.join(", ")}</li>
+                              {m.lecturers.length > 0 && <li>👤 {m.lecturers.join(", ")}</li>}
+                              {m.tas.length > 0 && <li>🎓 {m.tas.join(", ")}</li>}
+                            </ul>
+                          )}
+                        </>
+                      );
+                    })()}
                     {selectedViolations.length > 0 ? (
                       <ul className="violations">
                         {selectedViolations.map((v, i) => (
