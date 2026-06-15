@@ -17,6 +17,7 @@ from fastapi import Body, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import catalog as catalog_mod
+from .archive import Archive
 from .calendar_engine import (
     SemesterCalendar,
     lost_sessions,
@@ -352,6 +353,137 @@ def create_app(store: Store | None = None) -> FastAPI:
             "sessions": _session_meta(problem),
             "violations": _violation_dicts(evaluation),
         }
+
+    # ---- saved schedules (archive) ---------------------------------- #
+    def _saves_dir() -> str:
+        """The managed folder for saved schedules — user-chosen, else default.
+
+        Default sits beside the DB (``%APPDATA%\\Schedy\\saves`` on Windows,
+        ``~/Schedy/saves`` on Unix); overridable via the UI or ``SCHEDY_SAVES``.
+        """
+        configured = store.get_setting("saves_dir")
+        if configured:
+            return configured
+        env = os.environ.get("SCHEDY_SAVES")
+        if env:
+            return env
+        db = getattr(store, "path", None) or os.environ.get("SCHEDY_DB", "schedy.sqlite")
+        parent = os.path.dirname(os.path.abspath(db)) or "."
+        return os.path.join(parent, "saves")
+
+    def _archive() -> Archive:
+        return Archive(_saves_dir())
+
+    def _schedule_stats(placements: dict) -> dict:
+        """At-a-glance numbers stored with a save, for comparison in the list."""
+        problem = _problem(store)
+        known = {s.id for s in problem.sessions}
+        sched = Schedule()
+        for sid, p in placements.items():
+            if sid in known:
+                sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+        ev = evaluate(problem, sched)
+        return {
+            "sessions": len(sched.placements),
+            "hard": len([v for v in ev.violations if v.severity == "hard"]),
+            "soft_penalty": ev.soft_penalty,
+        }
+
+    def _current_snapshot() -> dict:
+        """A self-contained freeze of the working state: catalog + settings + plan."""
+        return {
+            "placements": store.get_setting("last_schedule") or {},
+            "courses": [course_to_dict(c) for c in store.list_courses()],
+            "offered_rows": store.get_setting("offered_rows"),
+            "availability": store.get_setting("availability"),
+            "calendar": store.get_setting("calendar"),
+        }
+
+    @app.get("/config")
+    def get_config() -> dict:
+        return {"saves_dir": _saves_dir()}
+
+    @app.put("/config")
+    def put_config(payload: dict = Body(...)) -> dict:
+        path = (payload.get("saves_dir") or "").strip()
+        if path:
+            try:
+                os.makedirs(path, exist_ok=True)
+            except OSError as exc:  # noqa: BLE001
+                raise HTTPException(400, f"cannot use that folder: {exc}")
+            store.set_setting("saves_dir", path)
+        else:
+            store.set_setting("saves_dir", None)  # revert to default
+        return {"saves_dir": _saves_dir()}
+
+    @app.get("/schedules")
+    def list_schedules() -> list[dict]:
+        return [m.as_dict() for m in _archive().list()]
+
+    @app.post("/schedules")
+    def save_schedule(payload: dict = Body(...)) -> dict:
+        name = (payload.get("name") or "").strip()
+        if not name:
+            raise HTTPException(400, "a name is required")
+        placements = store.get_setting("last_schedule")
+        if not placements:
+            raise HTTPException(400, "nothing to save; solve first")
+        meta = _archive().save(
+            name, _current_snapshot(), _schedule_stats(placements),
+            note=(payload.get("note") or None))
+        return meta.as_dict()
+
+    @app.post("/schedules/{save_id}/load")
+    def load_schedule(save_id: str) -> dict:
+        doc = _archive().get(save_id)
+        if not doc:
+            raise HTTPException(404, "no such saved schedule")
+        snap = doc.get("payload", {})
+        # Replace the working state with the frozen scenario.
+        for c in store.list_courses():
+            store.delete_course(c.number)
+        for cd in snap.get("courses", []):
+            store.upsert_course(course_from_dict(cd))
+        store.set_setting("offered_rows", snap.get("offered_rows"))
+        store.set_setting("availability", snap.get("availability"))
+        store.set_setting("calendar", snap.get("calendar"))
+        placements = snap.get("placements") or {}
+        store.set_setting("last_schedule", placements)
+        # Return a render-ready schedule (same shape as /solve) so the UI can
+        # paint it immediately.
+        problem = _problem(store)
+        known = {s.id for s in problem.sessions}
+        sched = Schedule()
+        for sid, p in placements.items():
+            if sid in known:
+                sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+        ev = evaluate(problem, sched)
+        return {
+            "status": "LOADED", "solved": True,
+            "feasible": ev.is_feasible, "soft_penalty": ev.soft_penalty,
+            "placements": {
+                sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
+                for sid, pl in sched.placements.items()
+            },
+            "sessions": _session_meta(problem),
+            "violations": _violation_dicts(ev),
+        }
+
+    @app.put("/schedules/{save_id}")
+    def rename_schedule(save_id: str, payload: dict = Body(...)) -> dict:
+        name = (payload.get("name") or "").strip()
+        if not name:
+            raise HTTPException(400, "a name is required")
+        meta = _archive().rename(save_id, name)
+        if not meta:
+            raise HTTPException(404, "no such saved schedule")
+        return meta.as_dict()
+
+    @app.delete("/schedules/{save_id}")
+    def delete_schedule(save_id: str) -> dict:
+        if not _archive().delete(save_id):
+            raise HTTPException(404, "no such saved schedule")
+        return {"deleted": save_id}
 
     # ---- export ----------------------------------------------------- #
     def _last_schedule() -> tuple[Any, Schedule]:

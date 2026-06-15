@@ -5,6 +5,7 @@ import type {
   FixedEvent,
   OfferedRow,
   Placement,
+  SavedMeta,
   SemesterCalendar,
   SessionMeta,
   SolveResult,
@@ -109,4 +110,37 @@ export const api = {
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: (layout: "cohort" | "flat" = "cohort") =>
     `${BASE}/export/pdf?layout=${layout}`,
+
+  // ---- saved schedules (archive) ---- //
+  getConfig: () => fetch(`${BASE}/config`).then(json<{ saves_dir: string }>),
+
+  setSavesDir: (saves_dir: string) =>
+    fetch(`${BASE}/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ saves_dir }),
+    }).then(json<{ saves_dir: string }>),
+
+  listSchedules: () => fetch(`${BASE}/schedules`).then(json<SavedMeta[]>),
+
+  saveSchedule: (name: string, note?: string) =>
+    fetch(`${BASE}/schedules`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, note }),
+    }).then(json<SavedMeta>),
+
+  loadSchedule: (id: string) =>
+    fetch(`${BASE}/schedules/${encodeURIComponent(id)}/load`, { method: "POST" })
+      .then(json<SolveResult>),
+
+  renameSchedule: (id: string, name: string) =>
+    fetch(`${BASE}/schedules/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then(json<SavedMeta>),
+
+  deleteSchedule: (id: string) =>
+    fetch(`${BASE}/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }).then(json),
 };

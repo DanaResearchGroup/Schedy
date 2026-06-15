@@ -129,6 +129,34 @@ export const STRINGS = {
     he: "הקטלוג ריק — הוסף קורס או טען קטלוג לדוגמה כדי להתחיל",
     en: "Catalog is empty — add a course or load the sample catalog to get started",
   },
+  tabSchedules: { he: "שמורים", en: "Saved" },
+  saveSchedule: { he: "שמור מערכת נוכחית", en: "Save current schedule" },
+  saveAs: { he: "שמור בשם…", en: "Save current as…" },
+  scheduleName: { he: "שם המערכת", en: "Schedule name" },
+  noteOptional: { he: "הערה (לא חובה)", en: "Note (optional)" },
+  savedSchedules: { he: "מערכות שמורות", en: "Saved schedules" },
+  noSaved: { he: "אין מערכות שמורות עדיין", en: "No saved schedules yet" },
+  load: { he: "טען", en: "Load" },
+  rename: { he: "שנה שם", en: "Rename" },
+  delete: { he: "מחק", en: "Delete" },
+  savesFolder: { he: "תיקיית השמירה", en: "Saves folder" },
+  savesFolderHint: {
+    he: "כל מערכת נשמרת כקובץ נפרד בתיקייה זו. ניתן להצביע על תיקייה מסונכרנת או כונן רשת.",
+    en: "Each schedule is saved as its own file in this folder. Point it at a synced folder or network drive if you like.",
+  },
+  change: { he: "שנה", en: "Change" },
+  loadConfirm: {
+    he: "טעינה תחליף את המצב הנוכחי (לא נשמר). להמשיך?",
+    en: "Loading replaces the current working state (unsaved). Continue?",
+  },
+  deleteConfirm: { he: "למחוק מערכת שמורה זו?", en: "Delete this saved schedule?" },
+  sessionsShort: { he: "מפגשים", en: "sessions" },
+  hardShort: { he: "קשות", en: "hard" },
+  saved: { he: "נשמר", en: "Saved" },
+  needSolveToSave: {
+    he: "פתור מערכת לפני שמירה",
+    en: "Solve a schedule before saving",
+  },
 } as const;
 
 export const ROLE_LABEL: Record<string, Record<Lang, string>> = {

@@ -9,8 +9,10 @@ import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
 import { CalendarPanel } from "./components/CalendarPanel";
+import { SchedulesPanel } from "./components/SchedulesPanel";
+import type { SolveResult } from "./types";
 
-type Tab = "schedule" | "catalog" | "availability" | "calendar" | "import";
+type Tab = "schedule" | "catalog" | "availability" | "calendar" | "import" | "schedules";
 
 const ROOM_NAME: Record<string, string> =
   Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
@@ -21,13 +23,14 @@ function timeRange(startBox: number, len: number): string {
   return `${a}-${b}`;
 }
 
-const TABS = ["schedule", "catalog", "availability", "calendar", "import"] as const;
+const TABS = ["schedule", "catalog", "availability", "calendar", "import", "schedules"] as const;
 const TAB_KEY = {
   schedule: "tabSchedule",
   catalog: "tabCatalog",
   availability: "tabAvailability",
   calendar: "tabCalendar",
   import: "tabImport",
+  schedules: "tabSchedules",
 } as const;
 
 export default function App() {
@@ -40,6 +43,7 @@ export default function App() {
   const [violations, setViolations] = useState<Violation[]>([]);
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [view, setView] = useState<string>("all");
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
@@ -52,22 +56,40 @@ export default function App() {
   const refresh = () => api.listCourses().then(setCourses).catch((e) => setError(String(e)));
   useEffect(() => { refresh(); }, []);
 
+  // Paint a solved/loaded schedule onto the grid (shared by Solve and Load).
+  const applyResult = (r: SolveResult) => {
+    setPlacements(r.placements);
+    setSessions(r.sessions);
+    setViolations(r.violations);
+    setSelected(null);
+    api.fixedEvents().then(setWalls).catch(() => setWalls([]));
+  };
+
   const solve = async () => {
     setSolving(true);
     setError(null);
     try {
       const r = await api.solve(10);
-      if (r.solved) {
-        setPlacements(r.placements);
-        setSessions(r.sessions);
-        setViolations(r.violations);
-        setSelected(null);
-        api.fixedEvents().then(setWalls).catch(() => setWalls([]));
-      } else setError(`No solution (${r.status})`);
+      if (r.solved) applyResult(r);
+      else setError(`No solution (${r.status})`);
     } catch (e) {
       setError(String(e));
     } finally {
       setSolving(false);
+    }
+  };
+
+  // Toolbar shortcut: save the current schedule under a name (a managed file).
+  const saveCurrent = async () => {
+    const name = window.prompt(t("scheduleName", lang));
+    if (name == null || !name.trim()) return;
+    try {
+      await api.saveSchedule(name.trim());
+      setError(null);
+      setSaveMsg(t("saved", lang));
+      window.setTimeout(() => setSaveMsg(null), 2000);
+    } catch (e) {
+      setError(String(e));
     }
   };
 
@@ -192,6 +214,15 @@ export default function App() {
 
       {tab === "import" && <div className="panel"><ImportPanel lang={lang} /></div>}
 
+      {tab === "schedules" && (
+        <div className="panel">
+          <SchedulesPanel
+            lang={lang} canSave={placements != null}
+            onLoaded={(r) => { applyResult(r); setTab("schedule"); }}
+          />
+        </div>
+      )}
+
       {tab === "schedule" && (
         <div className="panel">
           <div className="toolbar">
@@ -233,6 +264,9 @@ export default function App() {
                 <span className={hardCount ? "badge bad" : "badge ok"}>
                   {hardCount ? `${hardCount} ⚠` : t("feasible", lang)}
                 </span>
+                <button className="ghost" onClick={saveCurrent} title={t("saveSchedule", lang)}>
+                  💾 {saveMsg ?? t("save", lang)}
+                </button>
                 <a className="ghost" href={api.exportCsvUrl()}>CSV</a>
                 <a className="ghost" href={api.exportPdfUrl("cohort")}>{t("pdfGrid", lang)}</a>
                 <a className="ghost" href={api.exportPdfUrl("flat")}>{t("pdfList", lang)}</a>

@@ -127,6 +127,14 @@ export interface CalendarAnalysis {
   order_inversions: OrderInversion[];
 }
 
+export interface SavedMeta {
+  id: string;
+  name: string;
+  created_at: string; // ISO timestamp
+  stats: { sessions?: number; hard?: number; soft_penalty?: number };
+  note: string | null;
+}
+
 export interface OfferedRow {
   course_number: string;
   event_type: string | null;

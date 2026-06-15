@@ -44,6 +44,7 @@ class Store:
     def __init__(self, path: str = "schedy.sqlite"):
         # check_same_thread=False: the local FastAPI app serves requests from a
         # threadpool; a single planner means no real concurrency to guard against.
+        self.path = path  # used to site the default saved-schedules folder
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(_SCHEMA)

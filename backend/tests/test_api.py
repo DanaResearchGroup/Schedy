@@ -174,6 +174,76 @@ def test_delete_course(client):
     assert client.get("/catalog/courses").json() == []
 
 
+def test_saved_schedules_lifecycle(client):
+    client.post("/catalog/seed")
+    solved = client.post("/solve", json={"time_limit_s": 15}).json()
+    assert solved["solved"], solved.get("status")
+    n_sessions = len(solved["placements"])
+
+    # Save the current solution as a named, self-contained scenario.
+    saved = client.post("/schedules", json={"name": "2026 Spring", "note": "final"}).json()
+    assert saved["name"] == "2026 Spring"
+    assert saved["id"] and saved["created_at"]
+    assert saved["stats"]["sessions"] == n_sessions
+    assert saved["stats"]["hard"] == 0
+    sid = saved["id"]
+
+    # The list is lightweight (stats, no payload) and shows our save.
+    lst = client.get("/schedules").json()
+    assert len(lst) == 1 and lst[0]["name"] == "2026 Spring"
+    assert lst[0]["stats"]["sessions"] == n_sessions
+    assert "payload" not in lst[0]
+
+    # Editing the live catalog must NOT disturb the frozen save.
+    victim = client.get("/catalog/courses").json()[0]["number"]
+    client.delete(f"/catalog/courses/{victim}")
+    assert all(c["number"] != victim for c in client.get("/catalog/courses").json())
+
+    # Loading restores the frozen scenario and returns a render-ready schedule.
+    loaded = client.post(f"/schedules/{sid}/load").json()
+    assert loaded["solved"] is True
+    assert len(loaded["placements"]) == n_sessions
+    assert "sessions" in loaded
+    # the deleted course is back — catalog was restored from the snapshot.
+    assert any(c["number"] == victim for c in client.get("/catalog/courses").json())
+
+    # Rename, then delete.
+    renamed = client.put(f"/schedules/{sid}", json={"name": "2026 Spring — final"}).json()
+    assert renamed["name"] == "2026 Spring — final"
+    new_id = renamed["id"]
+    assert client.get("/schedules").json()[0]["name"] == "2026 Spring — final"
+    assert client.delete(f"/schedules/{new_id}").status_code == 200
+    assert client.get("/schedules").json() == []
+
+
+def test_save_schedule_guards(client):
+    # Nothing solved yet -> nothing to save.
+    client.post("/catalog/seed")
+    assert client.post("/schedules", json={"name": "x"}).status_code == 400
+    # A name is required even once a schedule exists.
+    client.post("/solve", json={"time_limit_s": 10})
+    assert client.post("/schedules", json={"name": "  "}).status_code == 400
+    # Unknown ids are 404s.
+    assert client.post("/schedules/nope/load").status_code == 404
+    assert client.delete("/schedules/nope").status_code == 404
+
+
+def test_config_saves_dir_roundtrip(client, tmp_path):
+    # Defaults to a folder beside the DB; can be pointed anywhere writable.
+    default_dir = client.get("/config").json()["saves_dir"]
+    assert default_dir.endswith("saves")
+    target = str(tmp_path / "my-saves")
+    out = client.put("/config", json={"saves_dir": target}).json()
+    assert out["saves_dir"] == target
+    assert os.path.isdir(target)  # created on set
+    # Saves now land in the chosen folder.
+    client.post("/catalog/seed")
+    client.post("/solve", json={"time_limit_s": 10})
+    client.post("/schedules", json={"name": "here"})
+    import glob
+    assert glob.glob(os.path.join(target, "*.schedy.json"))
+
+
 def test_seed_catalog_loads_and_solves(client):
     assert client.get("/catalog/courses").json() == []
     r = client.post("/catalog/seed").json()
