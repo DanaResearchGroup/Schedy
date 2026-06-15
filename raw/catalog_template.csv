@@ -1,0 +1,3 @@
+number,name_he,name_en,programs,year,role,lecture_boxes,num_exercise_groups,exercise_boxes,lab_boxes,lab_days,expected_enrollment,needs_computer_farm,is_remote,is_external,ext_day,ext_start_min,ext_end_min,ext_room,lecturer_ids,ta_ids
+00540315,תרמודינמיקה א׳,Thermodynamics A,ChemE,2,core,2,2,1,2,0;3,70,false,false,false,,,,,prof_bar,ta_hedva;ta_yossi
+01040031,חשבון 1,Calculus 1 (external),ChemE;BioChemE,1,core,0,0,1,0,,0,false,false,true,1,510,630,Math building,,

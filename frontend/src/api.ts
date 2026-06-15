@@ -57,6 +57,17 @@ export const api = {
       json<{ seeded: number }>,
     ),
 
+  exportCatalogUrl: () => `${BASE}/catalog/export.csv`,
+  catalogTemplateUrl: () => `${BASE}/catalog/template.csv`,
+
+  importCatalog: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetch(`${BASE}/catalog/import`, { method: "POST", body: fd }).then(
+      json<{ imported: number }>,
+    );
+  },
+
   solve: (timeLimit = 10) =>
     fetch(`${BASE}/solve`, {
       method: "POST",

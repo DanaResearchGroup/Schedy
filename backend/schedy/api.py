@@ -17,6 +17,7 @@ from fastapi import Body, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import catalog as catalog_mod
+from . import catalog_io
 from .archive import Archive
 from .calendar_engine import (
     SemesterCalendar,
@@ -153,6 +154,44 @@ def create_app(store: Store | None = None) -> FastAPI:
         for c in courses:
             store.upsert_course(c)
         return {"seeded": len(courses)}
+
+    # ---- catalog file import/export -------------------------------- #
+    def _csv_download(text: str, filename: str) -> Response:
+        return Response(
+            ("﻿" + text).encode("utf-8"),  # BOM so Excel renders Hebrew
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    @app.get("/catalog/export.csv")
+    def export_catalog() -> Response:
+        """Download the whole catalog as a CSV (versionable, Excel-editable)."""
+        return _csv_download(catalog_io.to_csv(store.list_courses()), "schedy-catalog.csv")
+
+    @app.get("/catalog/template.csv")
+    def catalog_template() -> Response:
+        """Download a documented example file showing the required format."""
+        return _csv_download(catalog_io.template_csv(), "schedy-catalog-template.csv")
+
+    @app.post("/catalog/import")
+    async def import_catalog(file: UploadFile = File(...)) -> dict:
+        """Load a catalog version from a CSV/Excel file, replacing the current one."""
+        data = await file.read()
+        name = (file.filename or "").lower()
+        try:
+            if name.endswith((".xlsx", ".xls")):
+                courses = catalog_io.from_xlsx_bytes(data)
+            else:
+                courses = catalog_io.from_csv(data.decode("utf-8-sig"))
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"could not parse catalog file: {exc}")
+        if not courses:
+            raise HTTPException(400, "no courses found in the file")
+        for c in store.list_courses():
+            store.delete_course(c.number)
+        for c in courses:
+            store.upsert_course(c)
+        return {"imported": len(courses)}
 
     # ---- availability ---------------------------------------------- #
     @app.get("/availability")

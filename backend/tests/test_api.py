@@ -215,6 +215,35 @@ def test_solve_returns_session_metadata(client):
     assert meta["lab_group"] is None
 
 
+def test_catalog_export_template_and_import(client):
+    client.post("/catalog/seed")
+    n = len(client.get("/catalog/courses").json())
+
+    exp = client.get("/catalog/export.csv")
+    assert exp.status_code == 200
+    assert exp.content[:3] == b"\xef\xbb\xbf"  # Excel-friendly BOM
+    assert "filename=" in exp.headers.get("content-disposition", "")
+
+    tpl = client.get("/catalog/template.csv")
+    assert tpl.status_code == 200 and "number" in tpl.text
+
+    # Wipe the catalog, then re-import the exported file -> fully restored.
+    for c in client.get("/catalog/courses").json():
+        client.delete(f"/catalog/courses/{c['number']}")
+    assert client.get("/catalog/courses").json() == []
+
+    r = client.post("/catalog/import",
+                    files={"file": ("catalog.csv", exp.content, "text/csv")})
+    assert r.status_code == 200 and r.json()["imported"] == n
+    assert len(client.get("/catalog/courses").json()) == n
+
+
+def test_catalog_import_empty_file_is_rejected(client):
+    r = client.post("/catalog/import",
+                    files={"file": ("x.csv", b"number,year\n", "text/csv")})
+    assert r.status_code == 400
+
+
 def test_delete_course(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     assert client.delete("/catalog/courses/00540319").status_code == 200

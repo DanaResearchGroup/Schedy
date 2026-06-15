@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { api } from "../api";
 import type { Course } from "../types";
 import { ROLE_LABEL, t, type Lang } from "../i18n";
 import { CourseForm, blankCourse } from "./CourseForm";
@@ -9,13 +10,21 @@ interface Props {
   onAdd: (c: Course) => void;
   onDelete: (n: string) => void;
   onSeed: () => void;
+  onImport: (file: File) => void;
 }
 
 // Catalog manager: a list of courses with add / edit / delete, backed by the
 // full CourseForm. Editing an existing course locks its number (the primary key).
-export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed }: Props) {
+export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed, onImport }: Props) {
   const [draft, setDraft] = useState<Course | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (f: File | undefined) => {
+    if (!f) return;
+    if (courses.length > 0 && !window.confirm(t("importCatalogConfirm", lang))) return;
+    onImport(f);
+  };
 
   const startNew = () => { setDraft(blankCourse()); setIsNew(true); };
   const startEdit = (c: Course) => { setDraft({ ...c }); setIsNew(false); };
@@ -28,6 +37,13 @@ export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed }: Props) 
         <h2>{t("catalog", lang)}</h2>
         {!draft && (
           <div className="catalog-actions">
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" hidden
+              onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
+            <a className="ghost" href={api.catalogTemplateUrl()} download>{t("downloadTemplate", lang)}</a>
+            <button className="ghost" onClick={() => fileRef.current?.click()}>{t("importCatalogLabel", lang)}</button>
+            {courses.length > 0 && (
+              <a className="ghost" href={api.exportCatalogUrl()} download>{t("exportCatalog", lang)}</a>
+            )}
             {courses.length === 0 && (
               <button className="ghost" onClick={onSeed}>{t("loadSample", lang)}</button>
             )}

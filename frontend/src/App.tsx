@@ -265,6 +265,7 @@ export default function App() {
             onAdd={(c) => api.upsertCourse(c).then(refresh).catch((e) => setError(String(e)))}
             onDelete={(n) => api.deleteCourse(n).then(refresh)}
             onSeed={() => api.seedCatalog().then(refresh).catch((e) => setError(String(e)))}
+            onImport={(f) => api.importCatalog(f).then(refresh).catch((e) => setError(String(e)))}
           />
         </div>
       )}
