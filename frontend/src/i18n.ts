@@ -138,6 +138,21 @@ export const STRINGS = {
   },
   tabSchedules: { he: "שמורים", en: "Saved" },
   tabChecklist: { he: "בדיקת קורסים", en: "Course check" },
+  tabPeople: { he: "סגל", en: "Faculty" },
+  peopleHint: {
+    he: "הגדר את חברי הסגל והמתרגלים פעם אחת, כדי למנוע כפילויות בשמות ולשייך אילוצים לאדם הנכון.",
+    en: "Define lecturers and TAs once, so names don't get spelled differently and constraints attach to the right person.",
+  },
+  addPerson: { he: "הוסף איש סגל", en: "Add person" },
+  personName: { he: "שם", en: "Name" },
+  kindCol: { he: "תפקיד", en: "Type" },
+  kindFaculty: { he: "חבר/ת סגל", en: "Faculty member" },
+  kindGrad: { he: "סטודנט/ית מחקר", en: "Grad student" },
+  importFromCourses: { he: "ייבא מהקורסים", en: "Import from courses" },
+  noPeopleYet: {
+    he: "טרם הוגדר סגל — הוסף אנשים או ייבא מהקורסים.",
+    en: "No faculty defined yet — add people or import from courses.",
+  },
   coiTitle: { he: "קורסים שלנו לבדיקה", en: "Our courses to verify" },
   coiHint: {
     he: "הגדר את מספרי הקורסים שמעניינים אותנו. נוודא שכל אחד מופיע בשלד שיובא. ניתן לעדכן בכל סמסטר.",

@@ -120,6 +120,25 @@ def test_evaluate_live_revalidation(client):
 REAL_XLSX = os.path.join(os.path.dirname(__file__), "..", "..", "raw", "30.4.26.XLSX")
 
 
+def test_people_registry_roundtrip_and_import(client):
+    client.post("/catalog/courses", json={
+        **_core("00540319", "prof_levi"), "ta_ids": ["ta_adi"],
+    })
+    assert client.get("/people").json() == []
+    # Import from the catalog: lecturers -> faculty, TAs -> grad.
+    imported = client.post("/people/import-from-catalog").json()
+    by_id = {p["id"]: p for p in imported}
+    assert by_id["prof_levi"]["kind"] == "faculty"
+    assert by_id["ta_adi"]["kind"] == "grad"
+    # Add a manual person (no id -> derived) and persist.
+    saved = client.put("/people", json={
+        "items": imported + [{"name": "Dana Cohen", "kind": "grad"}],
+    }).json()
+    manual = next(p for p in saved if p["name"] == "Dana Cohen")
+    assert manual["id"] and manual["kind"] == "grad"
+    assert client.get("/people").json() == saved
+
+
 def test_courses_of_interest_roundtrip(client):
     assert client.get("/courses-of-interest").json() == []
     items = [{"number": "00540319", "name": "Thermo"}, {"number": "01250300", "name": ""}]

@@ -5,6 +5,7 @@ import type {
   CourseOfInterest,
   FixedEvent,
   OfferedRow,
+  Person,
   Placement,
   SavedMeta,
   ScheduleDiff,
@@ -118,6 +119,18 @@ export const api = {
     fetch(`${BASE}/skeleton/course-numbers`).then(
       json<{ imported: boolean; numbers: string[] }>,
     ),
+
+  getPeople: () => fetch(`${BASE}/people`).then(json<Person[]>),
+
+  setPeople: (items: Person[]) =>
+    fetch(`${BASE}/people`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    }).then(json<Person[]>),
+
+  importPeopleFromCatalog: () =>
+    fetch(`${BASE}/people/import-from-catalog`, { method: "POST" }).then(json<Person[]>),
 
   getCoursesOfInterest: () =>
     fetch(`${BASE}/courses-of-interest`).then(json<CourseOfInterest[]>),

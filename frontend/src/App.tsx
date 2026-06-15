@@ -12,10 +12,11 @@ import { AvailabilityPanel } from "./components/AvailabilityPanel";
 import { CalendarPanel } from "./components/CalendarPanel";
 import { SchedulesPanel } from "./components/SchedulesPanel";
 import { ChecklistPanel } from "./components/ChecklistPanel";
+import { PeoplePanel } from "./components/PeoplePanel";
 import type { SolveResult } from "./types";
 
 type Tab =
-  | "schedule" | "catalog" | "availability" | "calendar"
+  | "schedule" | "catalog" | "people" | "availability" | "calendar"
   | "import" | "checklist" | "schedules";
 
 const ROOM_NAME: Record<string, string> =
@@ -27,10 +28,11 @@ function timeRange(startBox: number, len: number): string {
   return `${a}-${b}`;
 }
 
-const TABS = ["schedule", "catalog", "availability", "calendar", "import", "checklist", "schedules"] as const;
+const TABS = ["schedule", "catalog", "people", "availability", "calendar", "import", "checklist", "schedules"] as const;
 const TAB_KEY = {
   schedule: "tabSchedule",
   catalog: "tabCatalog",
+  people: "tabPeople",
   availability: "tabAvailability",
   calendar: "tabCalendar",
   import: "tabImport",
@@ -266,6 +268,8 @@ export default function App() {
           />
         </div>
       )}
+
+      {tab === "people" && <div className="panel"><PeoplePanel lang={lang} /></div>}
 
       {tab === "availability" && (
         <div className="panel"><AvailabilityPanel courses={courses} lang={lang} /></div>

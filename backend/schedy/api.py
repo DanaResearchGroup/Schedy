@@ -307,6 +307,43 @@ def create_app(store: Store | None = None) -> FastAPI:
         nums = store.get_setting("skeleton_course_numbers")
         return {"imported": nums is not None, "numbers": nums or []}
 
+    @app.get("/people")
+    def get_people() -> list[dict]:
+        """The faculty registry: canonical lecturers & TAs (name + kind)."""
+        return store.get_setting("people") or []
+
+    @app.put("/people")
+    def put_people(payload: dict = Body(...)) -> list[dict]:
+        import re
+        out: list[dict] = []
+        used: set[str] = set()
+        for it in payload.get("items", []):
+            name = str(it.get("name", "")).strip()
+            kind = it.get("kind") if it.get("kind") in ("faculty", "grad") else "faculty"
+            pid = str(it.get("id", "")).strip() or re.sub(r"\s+", "-", name.lower()).strip("-")
+            if not pid:
+                continue  # nothing to key on
+            base, n = pid, 2
+            while pid in used:
+                pid, n = f"{base}-{n}", n + 1
+            used.add(pid)
+            out.append({"id": pid, "name": name or pid, "kind": kind})
+        store.set_setting("people", out)
+        return out
+
+    @app.post("/people/import-from-catalog")
+    def import_people_from_catalog() -> list[dict]:
+        """Seed/merge the registry from staff already named on courses."""
+        by_id = {p["id"]: p for p in (store.get_setting("people") or [])}
+        for c in store.list_courses():
+            for lid in c.lecturer_ids:
+                by_id.setdefault(lid, {"id": lid, "name": lid, "kind": "faculty"})
+            for tid in c.ta_ids:
+                by_id.setdefault(tid, {"id": tid, "name": tid, "kind": "grad"})
+        merged = list(by_id.values())
+        store.set_setting("people", merged)
+        return merged
+
     @app.get("/courses-of-interest")
     def get_courses_of_interest() -> list[dict]:
         """Our course numbers to verify against the skeleton (editable per term)."""

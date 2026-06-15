@@ -133,6 +133,14 @@ export interface CourseOfInterest {
   name: string;
 }
 
+export type PersonKind = "faculty" | "grad";
+
+export interface Person {
+  id: string;
+  name: string;
+  kind: PersonKind;
+}
+
 export interface SavedMeta {
   id: string;
   name: string;
