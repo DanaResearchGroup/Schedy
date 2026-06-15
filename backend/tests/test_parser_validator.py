@@ -70,6 +70,19 @@ def test_missing_course_column_raises():
         parse_rows(["foo", "bar"], [["a", "b"]])
 
 
+def test_visual_timetable_grid_gives_a_clear_error():
+    # A hand-made draft timetable: day-name headers across the top, time ranges
+    # down column A, free-text course names in the cells. Not a registration
+    # export -> the error must say so, not just "missing column".
+    header = [None, "ראשון", None, "שני", "שלישי", "רביעי", "חמישי"]
+    rows = [
+        ["8:30-9:30", "אלגברה ה.2", "", "חדו\"א 1", "פיזיקה 1 ת 21", "", ""],
+        ["9:30-10:30", "", "", "", "ה.1", "", ""],
+    ]
+    with pytest.raises(ValueError, match="timetable grid"):
+        parse_rows(header, rows)
+
+
 # --------------------------------------------------------------------------- #
 # Validator
 # --------------------------------------------------------------------------- #

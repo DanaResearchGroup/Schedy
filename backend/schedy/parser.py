@@ -95,6 +95,22 @@ def parse_rows(
             day_cols[_HEB_DAYS[label]] = col
 
     if idx["course_number"] is None:
+        # A visual draft timetable (day headers across the top, time ranges down
+        # the first column, free-text course names in the cells) has no column
+        # structure at all — detect it and say so, rather than a cryptic
+        # "missing column". Signals: >=2 day-name header cells, and/or time
+        # ranges in the first column of the data rows.
+        day_headers = sum(1 for raw in header if _norm(raw) in _HEB_DAYS)
+        timed_first_col = sum(
+            1 for row in rows[:12]
+            if row and _parse_time(_norm(row[0]))
+        )
+        if day_headers >= 2 or timed_first_col >= 2:
+            raise ValueError(
+                "this looks like a visual weekly timetable grid (day headers + "
+                "time rows), not a Technion registration export; upload the "
+                "registration XLSX (with a 'מקצוע' course-number column)"
+            )
         raise ValueError("skeleton header missing course-number column ('מקצוע')")
 
     def get(row, key) -> str:
