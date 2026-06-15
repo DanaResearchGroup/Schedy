@@ -4,6 +4,7 @@ import type { Course, FixedEvent, Placement, SessionMeta, Violation } from "./ty
 import { ROOMS } from "./types";
 import { boxLabel, DAY_NAMES, ROLE_LABEL, t, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
+import { RoomBoards } from "./components/RoomBoards";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
@@ -40,6 +41,7 @@ export default function App() {
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<string>("all");
+  const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,9 +71,14 @@ export default function App() {
     }
   };
 
-  const onMove = async (sid: string, day: number, startBox: number) => {
+  // room is supplied by the per-room boards (drag across cards reassigns it);
+  // the weekly grid omits it and the session keeps its current room.
+  const onMove = async (sid: string, day: number, startBox: number, room?: string) => {
     if (!placements) return;
-    const next = { ...placements, [sid]: { ...placements[sid], day, start_box: startBox } };
+    const next = {
+      ...placements,
+      [sid]: { ...placements[sid], day, start_box: startBox, ...(room ? { room_id: room } : {}) },
+    };
     setPlacements(next);
     try {
       const r = await api.evaluate(next);
@@ -171,21 +178,29 @@ export default function App() {
             </button>
             {placements && (
               <>
-                <label className="view">
-                  {t("view", lang)}:
-                  <select value={view} onChange={(e) => setView(e.target.value)}>
-                    <option value="all">{t("allSessions", lang)}</option>
-                    <optgroup label={t("byCohort", lang)}>
-                      {cohorts.map((c) => <option key={c} value={`cohort:${c}`}>{c}</option>)}
-                    </optgroup>
-                    <optgroup label={t("byRoom", lang)}>
-                      {rooms.map((r) => <option key={r} value={`room:${r}`}>{r}</option>)}
-                    </optgroup>
-                    <optgroup label={t("byLecturer", lang)}>
-                      {lecturers.map((l) => <option key={l} value={`lecturer:${l}`}>{l}</option>)}
-                    </optgroup>
-                  </select>
-                </label>
+                <div className="seg" role="group">
+                  <button className={layout === "grid" ? "seg-btn active" : "seg-btn"}
+                    onClick={() => setLayout("grid")}>{t("layoutGrid", lang)}</button>
+                  <button className={layout === "rooms" ? "seg-btn active" : "seg-btn"}
+                    onClick={() => setLayout("rooms")}>{t("layoutRooms", lang)}</button>
+                </div>
+                {layout === "grid" && (
+                  <label className="view">
+                    {t("view", lang)}:
+                    <select value={view} onChange={(e) => setView(e.target.value)}>
+                      <option value="all">{t("allSessions", lang)}</option>
+                      <optgroup label={t("byCohort", lang)}>
+                        {cohorts.map((c) => <option key={c} value={`cohort:${c}`}>{c}</option>)}
+                      </optgroup>
+                      <optgroup label={t("byRoom", lang)}>
+                        {rooms.map((r) => <option key={r} value={`room:${r}`}>{r}</option>)}
+                      </optgroup>
+                      <optgroup label={t("byLecturer", lang)}>
+                        {lecturers.map((l) => <option key={l} value={`lecturer:${l}`}>{l}</option>)}
+                      </optgroup>
+                    </select>
+                  </label>
+                )}
                 <div className="spacer" />
                 <span className={hardCount ? "badge bad" : "badge ok"}>
                   {hardCount ? `${hardCount} ⚠` : t("feasible", lang)}
@@ -200,11 +215,19 @@ export default function App() {
           {placements ? (
             <div className="schedule-body">
               <div className="grid-wrap">
-                <WeeklyGrid
-                  placements={shownPlacements} sessions={sessions} violations={violations}
-                  walls={shownWalls} lang={lang} selectedId={selected}
-                  onMove={onMove} onSelect={setSelected}
-                />
+                {layout === "rooms" ? (
+                  <RoomBoards
+                    placements={placements} sessions={sessions} violations={violations}
+                    walls={walls} lang={lang} selectedId={selected}
+                    onMove={onMove} onSelect={setSelected}
+                  />
+                ) : (
+                  <WeeklyGrid
+                    placements={shownPlacements} sessions={sessions} violations={violations}
+                    walls={shownWalls} lang={lang} selectedId={selected}
+                    onMove={onMove} onSelect={setSelected}
+                  />
+                )}
                 <div className="legend">
                   {(["core", "elective", "replacement", "lab"] as const).map((r) => (
                     <span key={r} className="leg-item">

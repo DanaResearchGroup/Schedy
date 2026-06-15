@@ -57,6 +57,8 @@ export const STRINGS = {
   byCohort: { he: "לפי מחזור", en: "By cohort" },
   byRoom: { he: "לפי חדר", en: "By room" },
   byLecturer: { he: "לפי מרצה", en: "By lecturer" },
+  layoutGrid: { he: "רשת", en: "Grid" },
+  layoutRooms: { he: "חדרים", en: "Rooms" },
   details: { he: "פרטים", en: "Details" },
   type: { he: "סוג אירוע", en: "Type" },
   day: { he: "יום", en: "Day" },
@@ -128,6 +130,14 @@ export const ROLE_LABEL: Record<string, Record<Lang, string>> = {
 export const DAY_NAMES: Record<Lang, string[]> = {
   en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
   he: ["ראשון", "שני", "שלישי", "רביעי", "חמישי"],
+};
+
+// Compact weekday labels for dense grids (e.g. per-room boards). Hebrew uses the
+// conventional ordinal letters (א=Sun … ה=Thu); English uses two letters to keep
+// Tuesday/Thursday distinct.
+export const DAY_ABBR: Record<Lang, string[]> = {
+  en: ["Su", "Mo", "Tu", "We", "Th"],
+  he: ["א", "ב", "ג", "ד", "ה"],
 };
 
 export function boxLabel(box: number): string {
