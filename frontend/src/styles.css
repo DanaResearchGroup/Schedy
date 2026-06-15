@@ -114,7 +114,9 @@ button.link { border: none; background: none; color: var(--conflict); padding: 0
   display: inline-flex; align-items: center; gap: 0.35rem; cursor: grab;
   border: 1px solid var(--role-core-bd); background: var(--role-core);
   border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.72rem;
+  user-select: none; -webkit-user-select: none;
 }
+.parked-chip * { pointer-events: none; }
 .parked-chip:active { cursor: grabbing; }
 .parked-chip .b-group { color: var(--muted); }
 .badge { padding: 0.25rem 0.7rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
@@ -146,9 +148,14 @@ table.grid td.cell-bad { background: #fee2e2; box-shadow: inset 0 0 0 1px var(--
 .block {
   position: absolute; top: 2px; overflow: hidden;
   border-radius: 6px; font-size: 0.72rem; padding: 3px 5px;
-  border: 1px solid var(--role-core-bd); background: var(--role-core); cursor: pointer;
+  border: 1px solid var(--role-core-bd); background: var(--role-core); cursor: grab;
   transition: box-shadow 0.1s, transform 0.05s;
+  /* The whole block is the drag handle: disable text selection so a mousedown
+     anywhere inside starts the element drag, not a text selection. */
+  user-select: none; -webkit-user-select: none;
 }
+.block:active { cursor: grabbing; }
+.block * { pointer-events: none; } /* clicks/drags register on the block itself */
 .block:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.18); z-index: 3; }
 .block.selected, .block.conflict { z-index: 2; }
 .block.role-core { background: var(--role-core); border-color: var(--role-core-bd); }
