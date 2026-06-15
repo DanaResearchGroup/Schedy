@@ -132,9 +132,8 @@ export function RoomBoards({
     } as const;
     return (
       <div
-        key={sid} className={cls} draggable={!fixed} style={style}
+        key={sid} className={cls} draggable style={style}
         onDragStart={(e) => {
-          if (fixed) { e.preventDefault(); return; }
           e.dataTransfer.setData("text/session", sid);
           startDrag(sid);
         }}
@@ -146,7 +145,7 @@ export function RoomBoards({
       >
         <div className="b-top">
           <span className="b-course">{m?.course_number ?? sid}</span>
-          {fixed && <span className="b-lock" title={t("fixedTag", lang)}>🔒</span>}
+          {fixed && <span className="b-lock" title={t("fixedTag", lang)}>⚓</span>}
         </div>
         {m && names?.[m.course_number] && (
           <div className="b-name" dir="rtl">{shortName(names[m.course_number])}</div>

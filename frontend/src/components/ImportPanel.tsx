@@ -14,7 +14,7 @@ function isPinnable(r: OfferedRow): boolean {
 // Skeleton import + review/correct: upload the Technion XLSX (the backend parses
 // and filters it to the catalog), then hand-edit the parsed rows — day, start
 // time, group — before they drive the solve. Rows with a grid-aligned day+time
-// are pinned (🔒) as hard fixed placements (option a). Save persists to the
+// are anchored (⚓) for the solver (option a). Save persists to the
 // backend; the next Solve uses the corrected rows.
 export function ImportPanel({ lang }: { lang: Lang }) {
   const [rows, setRows] = useState<OfferedRow[] | null>(null);
@@ -146,7 +146,7 @@ export function ImportPanel({ lang }: { lang: Lang }) {
       ) : (
         <>
           <h3>
-            {t("offeredSessions", lang)} ({rows.length}) · 🔒 {pinnedCount}
+            {t("offeredSessions", lang)} ({rows.length}) · ⚓ {pinnedCount}
           </h3>
           <p className="muted">{t("pinnedHint", lang)}</p>
           <table className="data editable">
@@ -158,7 +158,7 @@ export function ImportPanel({ lang }: { lang: Lang }) {
                 <th>{t("day", lang)}</th>
                 <th>{t("time", lang)}</th>
                 <th>{t("room", lang)}</th>
-                <th aria-label="pinned">🔒</th>
+                <th aria-label="anchor">⚓</th>
                 <th></th>
               </tr>
             </thead>
@@ -184,7 +184,7 @@ export function ImportPanel({ lang }: { lang: Lang }) {
                       onChange={(e) => setStart(i, e.target.value, r)} />
                   </td>
                   <td>{r.room || "—"}</td>
-                  <td>{isPinnable(r) ? "🔒" : ""}</td>
+                  <td>{isPinnable(r) ? "⚓" : ""}</td>
                   <td>
                     <button className="link" title="delete" onClick={() => removeRow(i)}>✕</button>
                   </td>

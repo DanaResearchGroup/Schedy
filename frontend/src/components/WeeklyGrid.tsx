@@ -111,9 +111,8 @@ export function WeeklyGrid({
                     } as const;
                     return (
                       <div
-                        key={sid} className={cls} draggable={!fixed} style={style}
+                        key={sid} className={cls} draggable style={style}
                         onDragStart={(e) => {
-                          if (fixed) { e.preventDefault(); return; }
                           e.dataTransfer.setData("text/session", sid);
                           setDragSid(sid);
                         }}
@@ -125,7 +124,7 @@ export function WeeklyGrid({
                       >
                         <div className="b-top">
                           <span className="b-course">{m?.course_number ?? sid}</span>
-                          {fixed && <span className="b-lock" title={t("fixedTag", lang)}>🔒</span>}
+                          {fixed && <span className="b-lock" title={t("fixedTag", lang)}>⚓</span>}
                           {m?.group && <span className="b-group">{m.group}</span>}
                         </div>
                         {name && <div className="b-name" dir="rtl">{shortName(name)}</div>}

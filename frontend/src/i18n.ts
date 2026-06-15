@@ -125,12 +125,12 @@ export const STRINGS = {
   loadSample: { he: "טען קטלוג לדוגמה", en: "Load sample catalog" },
   blackoutLegend: { he: "חלון חסום", en: "Blackout" },
   externalLegend: { he: "קורס חיצוני", en: "External" },
-  fixedTag: { he: "מקובע (שלד)", en: "fixed (skeleton)" },
+  fixedTag: { he: "עוגן (שלד)", en: "anchor (skeleton)" },
   pdfGrid: { he: "PDF מערכת", en: "PDF grid" },
   pdfList: { he: "PDF רשימה", en: "PDF list" },
   pinnedHint: {
-    he: "🔒 שורות עם יום ושעה מהשלד יקובעו כאילוץ קשה בפתרון.",
-    en: "🔒 rows with a skeleton day + time are pinned as a hard constraint when solving.",
+    he: "⚓ שורות עם יום ושעה מהשלד מעוגנות עבור הפותר (אפשר עדיין להזיז ידנית).",
+    en: "⚓ rows with a skeleton day + time are anchored for the solver (you can still move them manually).",
   },
   emptyCatalog: {
     he: "הקטלוג ריק — הוסף קורס או טען קטלוג לדוגמה כדי להתחיל",

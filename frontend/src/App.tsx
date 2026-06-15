@@ -383,7 +383,7 @@ export default function App() {
                         <>
                           <h3>
                             {name || m?.course_number || selected}
-                            {m?.fixed && <span title={t("fixedTag", lang)}> 🔒</span>}
+                            {m?.fixed && <span title={t("fixedTag", lang)}> ⚓</span>}
                           </h3>
                           {m && (
                             <ul className="meta">

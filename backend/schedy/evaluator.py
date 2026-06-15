@@ -273,15 +273,19 @@ def _check_single_session(problem, placed, w, out: list[Violation]) -> None:
 # --------------------------------------------------------------------------- #
 
 def _check_fixed_placement(placed, out: list[Violation]) -> None:
+    # An anchor constrains the SOLVER (it won't move an anchored session). The
+    # user may still drag it in the editor; that's allowed, so a manual move off
+    # the skeleton slot is a soft, non-blocking notice (weight 0) — the solver
+    # re-anchors it on the next solve.
     for pl in placed:
         s = pl.session
         if (s.fixed_day is not None and pl.day != s.fixed_day) or \
            (s.fixed_box is not None and pl.start_box != s.fixed_box):
             out.append(Violation(
-                "fixed_placement", HARD,
-                f"{s.id} is pinned by the skeleton to "
-                f"day {s.fixed_day} box {s.fixed_box} but sits at "
-                f"day {pl.day} box {pl.start_box}.",
+                "fixed_placement", SOFT,
+                f"{s.id} was moved off its skeleton anchor "
+                f"(day {s.fixed_day} box {s.fixed_box}); the solver will "
+                f"re-anchor it on re-solve.",
                 (s.id,),
             ))
 

@@ -41,19 +41,22 @@ def exercise(sid, course="C1", cohorts=frozenset({CHEME2}), group="SE011", **kw)
 # Clean baseline
 # --------------------------------------------------------------------------- #
 
-def test_fixed_placement_flagged_when_moved_and_clean_when_kept():
+def test_anchor_moved_is_a_soft_notice_not_hard():
     fx = lecture("fx", fixed_day=1, fixed_box=2)
-    # Placed exactly at its fixed slot -> no fixed_placement violation.
+    # Placed exactly at its anchor -> no notice.
     kept = Schedule()
     kept.place("fx", day=1, start_box=2, room_id="hall1")
     assert "fixed_placement" not in kinds(evaluate(Problem(sessions=[fx]), kept))
-    # Moved away (e.g. dragged in the editor) -> hard fixed_placement violation.
+    # The user dragged the anchor off its skeleton slot: allowed (the solver
+    # still re-anchors on solve), so it's a soft, non-blocking notice — never a
+    # hard, feasibility-breaking error.
     moved = Schedule()
     moved.place("fx", day=0, start_box=0, room_id="hall1")
     res = evaluate(Problem(sessions=[fx]), moved)
     assert "fixed_placement" in kinds(res)
-    assert all(v.severity == "hard"
+    assert all(v.severity == "soft"
                for v in res.violations if v.kind == "fixed_placement")
+    assert res.is_feasible  # the anchor notice doesn't break feasibility
 
 
 def test_no_violations_for_disjoint_schedule():
