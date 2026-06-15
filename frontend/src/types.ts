@@ -128,6 +128,11 @@ export interface CalendarAnalysis {
   order_inversions: OrderInversion[];
 }
 
+export interface CourseOfInterest {
+  number: string;
+  name: string;
+}
+
 export interface SavedMeta {
   id: string;
   name: string;

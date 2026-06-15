@@ -120,6 +120,29 @@ def test_evaluate_live_revalidation(client):
 REAL_XLSX = os.path.join(os.path.dirname(__file__), "..", "..", "raw", "30.4.26.XLSX")
 
 
+def test_courses_of_interest_roundtrip(client):
+    assert client.get("/courses-of-interest").json() == []
+    items = [{"number": "00540319", "name": "Thermo"}, {"number": "01250300", "name": ""}]
+    client.put("/courses-of-interest", json={"items": items})
+    assert client.get("/courses-of-interest").json() == items
+
+
+@pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
+def test_skeleton_course_numbers_are_unfiltered(client):
+    # The check must see the FULL university-wide skeleton, not just our catalog.
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    assert client.get("/skeleton/course-numbers").json()["imported"] is False
+    with open(REAL_XLSX, "rb") as f:
+        client.post("/skeleton/upload", files={"file": ("s.xlsx", f)})
+    cn = client.get("/skeleton/course-numbers").json()
+    assert cn["imported"] is True
+    # many courses present even though our catalog has just one
+    assert len(cn["numbers"]) > 5
+    # clearing the import forgets the skeleton entirely
+    client.delete("/skeleton/rows")
+    assert client.get("/skeleton/course-numbers").json()["imported"] is False
+
+
 @pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
 def test_skeleton_upload_filters_to_catalog(client):
     # Catalog knows course 00940411 -> upload filters the skeleton to it.

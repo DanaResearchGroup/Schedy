@@ -236,6 +236,18 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .dropzone:hover { border-color: var(--primary); }
 .dropzone.over { border-color: var(--primary); background: #eef2ff; color: var(--primary); font-weight: 600; }
 
+/* ---- courses-of-interest checklist ---- */
+.checklist-panel { max-width: 760px; }
+.check-banner { border-radius: 10px; padding: 0.8rem 1rem; margin: 0.6rem 0 1rem; font-size: 0.95rem; }
+.check-banner.neutral { background: #f1f5f9; color: var(--muted); }
+.check-banner.ok { background: #dcfce7; color: #166534; font-size: 1.05rem; }
+.check-banner.missing { background: #fee2e2; color: #991b1b; border: 2px solid var(--conflict); font-size: 1.1rem; }
+.check-banner.missing .missing-nums { margin-top: 0.3rem; font-weight: 700; font-size: 1rem; }
+.coi-table td { vertical-align: middle; }
+.coi-status .ok { color: var(--ok); font-weight: 600; }
+.coi-status .bad { color: var(--conflict); font-weight: 700; }
+.coi-bad td { background: #fef2f2; }
+
 /* ---- saved schedules ---- */
 .schedules-panel { display: flex; flex-direction: column; gap: 1.3rem; max-width: 900px; }
 .schedules-panel section { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; }

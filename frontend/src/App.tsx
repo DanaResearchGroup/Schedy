@@ -11,9 +11,12 @@ import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
 import { CalendarPanel } from "./components/CalendarPanel";
 import { SchedulesPanel } from "./components/SchedulesPanel";
+import { ChecklistPanel } from "./components/ChecklistPanel";
 import type { SolveResult } from "./types";
 
-type Tab = "schedule" | "catalog" | "availability" | "calendar" | "import" | "schedules";
+type Tab =
+  | "schedule" | "catalog" | "availability" | "calendar"
+  | "import" | "checklist" | "schedules";
 
 const ROOM_NAME: Record<string, string> =
   Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
@@ -24,13 +27,14 @@ function timeRange(startBox: number, len: number): string {
   return `${a}-${b}`;
 }
 
-const TABS = ["schedule", "catalog", "availability", "calendar", "import", "schedules"] as const;
+const TABS = ["schedule", "catalog", "availability", "calendar", "import", "checklist", "schedules"] as const;
 const TAB_KEY = {
   schedule: "tabSchedule",
   catalog: "tabCatalog",
   availability: "tabAvailability",
   calendar: "tabCalendar",
   import: "tabImport",
+  checklist: "tabChecklist",
   schedules: "tabSchedules",
 } as const;
 
@@ -264,6 +268,8 @@ export default function App() {
       {tab === "calendar" && <div className="panel"><CalendarPanel lang={lang} /></div>}
 
       {tab === "import" && <div className="panel"><ImportPanel lang={lang} /></div>}
+
+      {tab === "checklist" && <div className="panel"><ChecklistPanel lang={lang} /></div>}
 
       {tab === "schedules" && (
         <div className="panel">

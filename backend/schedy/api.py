@@ -247,11 +247,18 @@ def create_app(store: Store | None = None) -> FastAPI:
             tmp.write(data)
             path = tmp.name
         try:
-            offered = parse_skeleton(path, relevant)
+            # Parse the whole skeleton once; keep the full course-number set (for
+            # the courses-of-interest check against the university-wide file),
+            # then filter to our catalog for the rows that drive the solve.
+            all_offered = parse_skeleton(path, None)
+            offered = [s for s in all_offered
+                       if relevant is None or s.course_number in relevant]
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(400, f"could not parse skeleton: {exc}")
         finally:
             os.unlink(path)
+        store.set_setting("skeleton_course_numbers",
+                          sorted({s.course_number for s in all_offered}))
         store.set_setting("offered_rows", [
             {"course_number": s.course_number,
              "event_type": s.event_type.value if s.event_type else None,
@@ -287,7 +294,33 @@ def create_app(store: Store | None = None) -> FastAPI:
     def clear_skeleton_rows() -> dict:
         """Remove all imported skeleton rows (a fresh import starts clean)."""
         store.set_setting("offered_rows", [])
+        store.set_setting("skeleton_course_numbers", None)
         return {"count": 0, "offered": []}
+
+    @app.get("/skeleton/course-numbers")
+    def skeleton_course_numbers() -> dict:
+        """Every course number in the imported (university-wide) skeleton.
+
+        Powers the courses-of-interest check, which must see the full file —
+        not the catalog-filtered subset that drives the solve.
+        """
+        nums = store.get_setting("skeleton_course_numbers")
+        return {"imported": nums is not None, "numbers": nums or []}
+
+    @app.get("/courses-of-interest")
+    def get_courses_of_interest() -> list[dict]:
+        """Our course numbers to verify against the skeleton (editable per term)."""
+        return store.get_setting("courses_of_interest") or []
+
+    @app.put("/courses-of-interest")
+    def put_courses_of_interest(payload: dict = Body(...)) -> list[dict]:
+        items = []
+        for it in payload.get("items", []):
+            number = str(it.get("number", "")).strip()
+            if number:
+                items.append({"number": number, "name": str(it.get("name", "")).strip()})
+        store.set_setting("courses_of_interest", items)
+        return items
 
     @app.post("/skeleton/validate")
     def skeleton_validate(payload: dict = Body(...)) -> dict:

@@ -2,6 +2,7 @@ import type {
   Availability,
   CalendarAnalysis,
   Course,
+  CourseOfInterest,
   FixedEvent,
   OfferedRow,
   Placement,
@@ -111,6 +112,21 @@ export const api = {
     fetch(`${BASE}/skeleton/rows`, { method: "DELETE" }).then(
       json<{ count: number; offered: OfferedRow[] }>,
     ),
+
+  skeletonCourseNumbers: () =>
+    fetch(`${BASE}/skeleton/course-numbers`).then(
+      json<{ imported: boolean; numbers: string[] }>,
+    ),
+
+  getCoursesOfInterest: () =>
+    fetch(`${BASE}/courses-of-interest`).then(json<CourseOfInterest[]>),
+
+  setCoursesOfInterest: (items: CourseOfInterest[]) =>
+    fetch(`${BASE}/courses-of-interest`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    }).then(json<CourseOfInterest[]>),
 
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: (layout: "cohort" | "flat" = "cohort") =>
