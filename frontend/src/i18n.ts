@@ -64,6 +64,8 @@ export const STRINGS = {
   byLecturer: { he: "לפי מרצה", en: "By lecturer" },
   layoutGrid: { he: "רשת", en: "Grid" },
   layoutRooms: { he: "חדרים", en: "Rooms" },
+  undo: { he: "בטל", en: "Undo" },
+  redo: { he: "בצע שוב", en: "Redo" },
   seats: { he: "מקומות", en: "seats" },
   free: { he: "פנוי", en: "free" },
   parked: { he: "ממתינים לשיבוץ", en: "Parked" },

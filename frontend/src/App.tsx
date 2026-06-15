@@ -47,6 +47,10 @@ export default function App() {
   const [view, setView] = useState<string>("all");
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
+  // Undo/redo stack of placement snapshots; idx points at the current state.
+  const [hist, setHist] = useState<{ stack: Record<string, Placement>[]; idx: number }>(
+    { stack: [], idx: -1 },
+  );
 
   useEffect(() => {
     document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
@@ -56,14 +60,66 @@ export default function App() {
   const refresh = () => api.listCourses().then(setCourses).catch((e) => setError(String(e)));
   useEffect(() => { refresh(); }, []);
 
+  // Ctrl/Cmd+Z to undo, Ctrl+Y or Ctrl/Cmd+Shift+Z to redo (Schedule tab only).
+  useEffect(() => {
+    if (tab !== "schedule") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   // Paint a solved/loaded schedule onto the grid (shared by Solve and Load).
   const applyResult = (r: SolveResult) => {
     setPlacements(r.placements);
     setSessions(r.sessions);
     setViolations(r.violations);
     setSelected(null);
+    setHist({ stack: [r.placements], idx: 0 }); // a fresh schedule resets history
     api.fixedEvents().then(setWalls).catch(() => setWalls([]));
   };
+
+  const evaluateAndSet = async (next: Record<string, Placement>) => {
+    try {
+      const r = await api.evaluate(next);
+      setViolations(r.violations);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // Apply an edit and record it on the undo stack (truncating any redo tail).
+  const commit = (next: Record<string, Placement>) => {
+    setPlacements(next);
+    setHist((h) => ({ stack: [...h.stack.slice(0, h.idx + 1), next], idx: h.idx + 1 }));
+    evaluateAndSet(next);
+  };
+
+  const undo = () => {
+    if (hist.idx <= 0) return;
+    const idx = hist.idx - 1;
+    const p = hist.stack[idx];
+    setHist({ ...hist, idx });
+    setPlacements(p);
+    setSelected(null);
+    evaluateAndSet(p);
+  };
+
+  const redo = () => {
+    if (hist.idx >= hist.stack.length - 1) return;
+    const idx = hist.idx + 1;
+    const p = hist.stack[idx];
+    setHist({ ...hist, idx });
+    setPlacements(p);
+    setSelected(null);
+    evaluateAndSet(p);
+  };
+  const canUndo = hist.idx > 0;
+  const canRedo = hist.idx < hist.stack.length - 1;
 
   const solve = async () => {
     setSolving(true);
@@ -95,35 +151,22 @@ export default function App() {
 
   // room is supplied by the per-room boards (drag across cards reassigns it);
   // the weekly grid omits it and the session keeps its current room.
-  const onMove = async (sid: string, day: number, startBox: number, room?: string) => {
+  const onMove = (sid: string, day: number, startBox: number, room?: string) => {
     if (!placements) return;
-    const next = {
+    commit({
       ...placements,
       [sid]: { ...placements[sid], day, start_box: startBox, ...(room ? { room_id: room } : {}) },
-    };
-    setPlacements(next);
-    try {
-      const r = await api.evaluate(next);
-      setViolations(r.violations);
-    } catch (e) {
-      setError(String(e));
-    }
+    });
   };
 
   // Park a session: drop it from all rooms (unplaced) so it can be set aside
   // while rebalancing. Re-validate without it; Solve re-places everything.
-  const onPark = async (sid: string) => {
+  const onPark = (sid: string) => {
     if (!placements) return;
     const next = { ...placements };
     delete next[sid];
-    setPlacements(next);
     if (selected === sid) setSelected(null);
-    try {
-      const r = await api.evaluate(next);
-      setViolations(r.violations);
-    } catch (e) {
-      setError(String(e));
-    }
+    commit(next);
   };
 
   // Sessions with no current placement — shown in the Parked lane (rooms view).
@@ -236,6 +279,12 @@ export default function App() {
                     onClick={() => setLayout("grid")}>{t("layoutGrid", lang)}</button>
                   <button className={layout === "rooms" ? "seg-btn active" : "seg-btn"}
                     onClick={() => setLayout("rooms")}>{t("layoutRooms", lang)}</button>
+                </div>
+                <div className="seg" role="group">
+                  <button className="seg-btn" disabled={!canUndo} onClick={undo}
+                    title={`${t("undo", lang)} (Ctrl+Z)`}>↶ {t("undo", lang)}</button>
+                  <button className="seg-btn" disabled={!canRedo} onClick={redo}
+                    title={`${t("redo", lang)} (Ctrl+Y)`}>↷ {t("redo", lang)}</button>
                 </div>
                 {layout === "grid" && (
                   <label className="view">
