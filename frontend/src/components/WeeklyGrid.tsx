@@ -10,6 +10,11 @@ const ROW_H = 46; // px per academic-hour row (keep in sync with table.grid td h
 const ROOM_NAME = Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
 const TYPE_ABBR: Record<string, string> = { lecture: "L", exercise: "T", lab: "Lab" };
 
+// Hard cap on the in-block course name; CSS ellipsis trims further per slot width.
+const MAX_NAME = 22;
+const shortName = (s?: string) =>
+  !s ? "" : s.length > MAX_NAME ? `${s.slice(0, MAX_NAME - 1)}…` : s;
+
 interface Props {
   placements: Record<string, Placement>;
   sessions: Record<string, SessionMeta>;
@@ -17,6 +22,7 @@ interface Props {
   walls: FixedEvent[];
   lang: Lang;
   selectedId: string | null;
+  names?: Record<string, string>;
   onMove: (sessionId: string, day: number, startBox: number) => void;
   onSelect: (sessionId: string) => void;
   validateDrop?: (sessionId: string, day: number, startBox: number) => boolean;
@@ -26,7 +32,7 @@ interface Props {
 // room), colored by role, draggable to move (keeping room), and clickable to
 // inspect. Hard-conflicted blocks glow red.
 export function WeeklyGrid({
-  placements, sessions, violations, walls, lang, selectedId, onMove, onSelect, validateDrop,
+  placements, sessions, violations, walls, lang, selectedId, names, onMove, onSelect, validateDrop,
 }: Props) {
   const [dragSid, setDragSid] = useState<string | null>(null);
   const conflicted = new Set(
@@ -90,6 +96,7 @@ export function WeeklyGrid({
                     const role = m?.role ?? "core";
                     const span = Math.max(1, m?.length_boxes ?? 1);
                     const fixed = m?.fixed ?? false;
+                    const name = m ? names?.[m.course_number] : undefined;
                     const cls = [
                       "block", `role-${role}`, fixed ? "fixed" : "",
                       conflicted.has(sid) ? "conflict" : soft.has(sid) ? "soft" : "",
@@ -112,13 +119,16 @@ export function WeeklyGrid({
                         }}
                         onDragEnd={() => setDragSid(null)}
                         onClick={() => onSelect(sid)}
-                        title={m ? `${m.course_number} ${m.type}${fixed ? ` · ${t("fixedTag", lang)}` : ""}` : sid}
+                        title={m
+                          ? `${m.course_number} ${name || ""} ${m.type}${fixed ? ` · ${t("fixedTag", lang)}` : ""}`.trim()
+                          : sid}
                       >
                         <div className="b-top">
                           <span className="b-course">{m?.course_number ?? sid}</span>
                           {fixed && <span className="b-lock" title={t("fixedTag", lang)}>🔒</span>}
                           {m?.group && <span className="b-group">{m.group}</span>}
                         </div>
+                        {name && <div className="b-name" dir="rtl">{shortName(name)}</div>}
                         <div className="b-sub">
                           <span className="b-type">{m ? TYPE_ABBR[m.type] : ""}</span>
                           <span className="b-room">{ROOM_NAME[placements[sid].room_id] ?? ""}</span>

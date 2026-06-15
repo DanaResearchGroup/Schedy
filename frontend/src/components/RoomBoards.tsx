@@ -11,6 +11,11 @@ const TOTAL_BOXES = DAYS * BOXES;
 
 const TYPE_ABBR: Record<string, string> = { lecture: "L", exercise: "T", lab: "Lab" };
 
+// Room-board cells are narrow; a short cap plus CSS ellipsis keeps names tidy.
+const MAX_NAME = 16;
+const shortName = (s?: string) =>
+  !s ? "" : s.length > MAX_NAME ? `${s.slice(0, MAX_NAME - 1)}…` : s;
+
 // What a session needs from a room — captured on drag-start so the boards can
 // dim rooms that can't host it before the planner drops.
 interface DragNeed {
@@ -26,6 +31,7 @@ interface Props {
   parked: string[];
   lang: Lang;
   selectedId: string | null;
+  names?: Record<string, string>;
   onMove: (sessionId: string, day: number, startBox: number, room: string) => void;
   onPark: (sessionId: string) => void;
   onSelect: (sessionId: string) => void;
@@ -45,7 +51,7 @@ function fits(room: { capacity: number; farm?: boolean }, need: DragNeed | null)
 // until dropped back onto a room. Externals live in university-wide rooms, so
 // only blackouts (which close every room) are overlaid here.
 export function RoomBoards({
-  placements, sessions, violations, walls, parked, lang, selectedId,
+  placements, sessions, violations, walls, parked, lang, selectedId, names,
   onMove, onPark, onSelect, validateDrop,
 }: Props) {
   const [need, setNeed] = useState<DragNeed | null>(null);
@@ -142,6 +148,9 @@ export function RoomBoards({
           <span className="b-course">{m?.course_number ?? sid}</span>
           {fixed && <span className="b-lock" title={t("fixedTag", lang)}>🔒</span>}
         </div>
+        {m && names?.[m.course_number] && (
+          <div className="b-name" dir="rtl">{shortName(names[m.course_number])}</div>
+        )}
         <div className="b-sub">
           <span className="b-type">{m ? TYPE_ABBR[m.type] : ""}</span>
           {m?.group && <span className="b-group">{m.group}</span>}

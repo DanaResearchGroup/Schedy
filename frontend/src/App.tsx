@@ -225,6 +225,12 @@ export default function App() {
       : false);
   }, [walls, view]);
 
+  // Hebrew course names (ground-truth) for the block labels, keyed by number.
+  const courseNames = useMemo(
+    () => Object.fromEntries(courses.map((c) => [c.number, c.name_he || c.name_en || ""])),
+    [courses],
+  );
+
   const hardCount = violations.filter((v) => v.severity === "hard").length;
   const selectedViolations = selected
     ? violations.filter((v) => v.session_ids.includes(selected))
@@ -343,14 +349,14 @@ export default function App() {
                 {layout === "rooms" ? (
                   <RoomBoards
                     placements={placements} sessions={sessions} violations={violations}
-                    walls={walls} parked={parked} lang={lang} selectedId={selected}
+                    walls={walls} parked={parked} lang={lang} selectedId={selected} names={courseNames}
                     onMove={onMove} onPark={onPark} onSelect={setSelected}
                     validateDrop={validateDrop}
                   />
                 ) : (
                   <WeeklyGrid
                     placements={shownPlacements} sessions={sessions} violations={violations}
-                    walls={shownWalls} lang={lang} selectedId={selected}
+                    walls={shownWalls} lang={lang} selectedId={selected} names={courseNames}
                     onMove={onMove} onSelect={setSelected}
                     validateDrop={validateDrop}
                   />
