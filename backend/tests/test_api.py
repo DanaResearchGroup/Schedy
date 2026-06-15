@@ -244,6 +244,18 @@ def test_config_saves_dir_roundtrip(client, tmp_path):
     assert glob.glob(os.path.join(target, "*.schedy.json"))
 
 
+def test_clear_skeleton_rows(client):
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    client.app.state.store.set_setting("offered_rows", [{
+        "course_number": "00540319", "event_type": "exercise", "group_code": "SE011",
+        "name_he": "x", "name_en": "y", "day": 0, "start_min": 510, "end_min": 570,
+        "room": "", "package": "", "row": 2,
+    }])
+    assert len(client.get("/skeleton/rows").json()) == 1
+    assert client.delete("/skeleton/rows").status_code == 200
+    assert client.get("/skeleton/rows").json() == []
+
+
 def test_seed_catalog_loads_and_solves(client):
     assert client.get("/catalog/courses").json() == []
     r = client.post("/catalog/seed").json()

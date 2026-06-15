@@ -21,6 +21,7 @@ export function ImportPanel({ lang }: { lang: Lang }) {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -31,8 +32,13 @@ export function ImportPanel({ lang }: { lang: Lang }) {
   }, []);
 
   const onFile = async (f: File) => {
+    if (!/\.xlsx?$/i.test(f.name)) {
+      setError(t("dropHere", lang));
+      return;
+    }
     setBusy(true);
     setError(null);
+    setRows(null); // a new import starts clean — drop the previous data first
     try {
       const r = await api.uploadSkeleton(f);
       setRows(r.offered);
@@ -41,6 +47,25 @@ export function ImportPanel({ lang }: { lang: Lang }) {
       setError(String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) onFile(f);
+  };
+
+  const clearImport = async () => {
+    if (!window.confirm(t("clearImportConfirm", lang))) return;
+    setError(null);
+    try {
+      await api.clearSkeletonRows();
+      setRows(null);
+      setDirty(false);
+    } catch (e) {
+      setError(String(e));
     }
   };
 
@@ -79,7 +104,12 @@ export function ImportPanel({ lang }: { lang: Lang }) {
   const pinnedCount = rows?.filter(isPinnable).length ?? 0;
 
   return (
-    <div className="import">
+    <div
+      className="import"
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+    >
       <div className="toolbar">
         <input
           ref={fileRef} type="file" accept=".xlsx,.xls" hidden
@@ -90,12 +120,24 @@ export function ImportPanel({ lang }: { lang: Lang }) {
         </button>
         <div className="spacer" />
         {rows && (
-          <button className="ghost" disabled={!dirty || saving} onClick={save}>
-            {saving ? t("saving", lang) : t("save", lang)}
-          </button>
+          <>
+            <button className="ghost danger" onClick={clearImport}>{t("clearImport", lang)}</button>
+            <button className="ghost" disabled={!dirty || saving} onClick={save}>
+              {saving ? t("saving", lang) : t("save", lang)}
+            </button>
+          </>
         )}
       </div>
-      <p className="muted">{t("importHint", lang)}</p>
+
+      <div
+        className={dragOver ? "dropzone over" : "dropzone"}
+        onClick={() => fileRef.current?.click()}
+      >
+        {busy ? t("importing", lang)
+          : dragOver ? t("dropToImport", lang)
+          : t("dropHere", lang)}
+      </div>
+      <p className="muted">{t("importHint", lang)} · {t("importReplaceHint", lang)}</p>
 
       {error && <div className="error">{error}</div>}
 

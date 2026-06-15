@@ -223,6 +223,15 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .leg-wall-bk { background: repeating-linear-gradient(135deg, #eef2f7, #eef2f7 3px, #e2e8f0 3px, #e2e8f0 6px); border-color: #cbd5e1; }
 .leg-wall-ext { background: repeating-linear-gradient(135deg, #fef9e7, #fef9e7 3px, #fdf0c8 3px, #fdf0c8 6px); border-color: #e8d27a; }
 
+/* ---- skeleton import ---- */
+.dropzone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 1.4rem;
+  text-align: center; color: var(--muted); cursor: pointer; background: #fafbfc;
+  transition: background 0.1s, border-color 0.1s; margin: 0.4rem 0;
+}
+.dropzone:hover { border-color: var(--primary); }
+.dropzone.over { border-color: var(--primary); background: #eef2ff; color: var(--primary); font-weight: 600; }
+
 /* ---- saved schedules ---- */
 .schedules-panel { display: flex; flex-direction: column; gap: 1.3rem; max-width: 900px; }
 .schedules-panel section { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; }

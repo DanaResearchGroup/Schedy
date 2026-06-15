@@ -282,6 +282,12 @@ def create_app(store: Store | None = None) -> FastAPI:
         store.set_setting("offered_rows", norm)
         return {"count": len(norm), "offered": norm}
 
+    @app.delete("/skeleton/rows")
+    def clear_skeleton_rows() -> dict:
+        """Remove all imported skeleton rows (a fresh import starts clean)."""
+        store.set_setting("offered_rows", [])
+        return {"count": 0, "offered": []}
+
     @app.post("/skeleton/validate")
     def skeleton_validate(payload: dict = Body(...)) -> dict:
         offered = parse_rows(payload["header"], payload["rows"])

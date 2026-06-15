@@ -107,6 +107,11 @@ export const api = {
       body: JSON.stringify({ rows }),
     }).then(json<{ count: number; offered: OfferedRow[] }>),
 
+  clearSkeletonRows: () =>
+    fetch(`${BASE}/skeleton/rows`, { method: "DELETE" }).then(
+      json<{ count: number; offered: OfferedRow[] }>,
+    ),
+
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: (layout: "cohort" | "flat" = "cohort") =>
     `${BASE}/export/pdf?layout=${layout}`,
