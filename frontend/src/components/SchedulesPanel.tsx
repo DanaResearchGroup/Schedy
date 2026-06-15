@@ -29,17 +29,25 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cmpA, setCmpA] = useState("");
-  const [cmpB, setCmpB] = useState("");
+  const [checked, setChecked] = useState<string[]>([]); // up to 2 ids to compare
   const [diff, setDiff] = useState<ScheduleDiff | null>(null);
 
   const fmtP = (p: Placement | null) =>
     p ? `${DAY_NAMES[lang][p.day]} ${boxLabel(p.start_box).split("-")[0]} · ${ROOM_NAME[p.room_id] ?? p.room_id}` : "—";
 
+  // Toggle a save's compare checkbox, capping the selection at two.
+  const toggleCheck = (id: string) => {
+    setDiff(null);
+    setChecked((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id)
+      : prev.length >= 2 ? prev
+      : [...prev, id]);
+  };
+
   const compare = async () => {
-    if (!cmpA || !cmpB || cmpA === cmpB) return;
+    if (checked.length !== 2) return;
     setError(null);
-    try { setDiff(await api.compareSchedules(cmpA, cmpB)); }
+    try { setDiff(await api.compareSchedules(checked[0], checked[1])); }
     catch (e) { setError(String(e)); }
   };
 
@@ -128,13 +136,30 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
 
       <section className="saves-list">
         <h3>{t("savedSchedules", lang)} ({saves.length})</h3>
+        {saves.length >= 2 && (
+          <div className="compare-bar">
+            <span className="muted">{t("compareHint", lang)}</span>
+            <button className="primary" disabled={checked.length !== 2} onClick={compare}>
+              {t("compare", lang)} ({checked.length}/2)
+            </button>
+          </div>
+        )}
         {saves.length === 0 ? (
           <p className="muted">{t("noSaved", lang)}</p>
         ) : (
           <table className="saves-table">
             <tbody>
-              {saves.map((s) => (
-                <tr key={s.id}>
+              {saves.map((s) => {
+                const isChecked = checked.includes(s.id);
+                return (
+                <tr key={s.id} className={isChecked ? "row-checked" : ""}>
+                  {saves.length >= 2 && (
+                    <td className="s-check">
+                      <input type="checkbox" checked={isChecked}
+                        disabled={!isChecked && checked.length >= 2}
+                        onChange={() => toggleCheck(s.id)} />
+                    </td>
+                  )}
                   <td className="s-name">
                     {s.name}
                     {s.note && <span className="s-note"> — {s.note}</span>}
@@ -155,33 +180,17 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
                     <button className="ghost danger" onClick={() => remove(s)}>{t("delete", lang)}</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
       </section>
 
-      {saves.length >= 2 && (
+      {diff && (
         <section className="compare">
-          <h3>{t("compare", lang)}</h3>
-          <p className="muted hint">{t("compareHint", lang)}</p>
-          <div className="compare-row">
-            <select value={cmpA} onChange={(e) => setCmpA(e.target.value)}>
-              <option value="">—</option>
-              {saves.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <span className="vs">↔</span>
-            <select value={cmpB} onChange={(e) => setCmpB(e.target.value)}>
-              <option value="">—</option>
-              {saves.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <button className="primary" disabled={!cmpA || !cmpB || cmpA === cmpB} onClick={compare}>
-              {t("compare", lang)}
-            </button>
-          </div>
-
-          {diff && (
-            <div className="diff">
+          <h3>{t("compare", lang)}: {diff.a.name} ↔ {diff.b.name}</h3>
+          <div className="diff">
               <div className="diff-summary">
                 <span className="moved">{diff.summary.moved} {t("movedLabel", lang)}</span>
                 <span className="added">{diff.summary.added} {t("addedLabel", lang)}</span>
@@ -215,8 +224,7 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
                   </tbody>
                 </table>
               )}
-            </div>
-          )}
+          </div>
         </section>
       )}
     </div>
