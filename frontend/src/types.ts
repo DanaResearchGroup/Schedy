@@ -141,6 +141,24 @@ export interface SavedMeta {
   note: string | null;
 }
 
+export interface DiffChange {
+  session_id: string;
+  course_number: string;
+  name: string;
+  type: string;
+  group: string | null;
+  a: Placement | null;
+  b: Placement | null;
+  status: "moved" | "added" | "removed";
+}
+
+export interface ScheduleDiff {
+  a: { id: string; name: string; stats: SavedMeta["stats"] };
+  b: { id: string; name: string; stats: SavedMeta["stats"] };
+  summary: { moved: number; added: number; removed: number; unchanged: number };
+  changes: DiffChange[];
+}
+
 export interface OfferedRow {
   course_number: string;
   event_type: string | null;

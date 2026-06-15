@@ -244,6 +244,33 @@ def test_saved_schedules_lifecycle(client):
     assert client.get("/schedules").json() == []
 
 
+def test_compare_schedules(client):
+    client.post("/catalog/seed")
+    solved = client.post("/solve", json={"time_limit_s": 15}).json()
+    pls = solved["placements"]
+    a = client.post("/schedules", json={"name": "A"}).json()
+
+    # Move one session and remove another, then save B.
+    ids = list(pls)
+    moved_id, removed_id = ids[0], ids[1]
+    edited = {k: v for k, v in pls.items() if k != removed_id}
+    edited[moved_id] = {**pls[moved_id], "day": (pls[moved_id]["day"] + 1) % 5}
+    client.post("/evaluate", json={"placements": edited})
+    b = client.post("/schedules", json={"name": "B"}).json()
+
+    cmp = client.get(f"/schedules/compare?a={a['id']}&b={b['id']}").json()
+    assert cmp["summary"]["moved"] >= 1
+    assert cmp["summary"]["removed"] >= 1
+    statuses = {c["session_id"]: c["status"] for c in cmp["changes"]}
+    assert statuses.get(moved_id) == "moved"
+    assert statuses.get(removed_id) == "removed"
+    # changes carry a human label (course number + name)
+    moved_change = next(c for c in cmp["changes"] if c["session_id"] == moved_id)
+    assert moved_change["course_number"] and "a" in moved_change and "b" in moved_change
+
+    assert client.get("/schedules/compare?a=nope&b=nope").status_code == 404
+
+
 def test_save_schedule_guards(client):
     # Nothing solved yet -> nothing to save.
     client.post("/catalog/seed")

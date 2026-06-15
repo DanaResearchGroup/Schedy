@@ -509,6 +509,58 @@ def create_app(store: Store | None = None) -> FastAPI:
             "violations": _violation_dicts(ev),
         }
 
+    @app.get("/schedules/compare")
+    def compare_schedules(a: str, b: str) -> dict:
+        """Diff two saved schedules: which sessions moved, were added or removed.
+
+        Each save is self-contained, so sessions are rebuilt from that save's own
+        catalog to label them (and resolve Hebrew names) accurately.
+        """
+        arc = _archive()
+        da, db = arc.get(a), arc.get(b)
+        if not da or not db:
+            raise HTTPException(404, "no such saved schedule")
+
+        def info(doc):
+            payload = doc.get("payload", {})
+            courses = [course_from_dict(c) for c in payload.get("courses", [])]
+            prob = catalog_mod.expand(courses, offered_rows=payload.get("offered_rows") or None)
+            sess = {s.id: s for s in prob.sessions}
+            names = {c.number: (c.name_he or c.name_en or "") for c in courses}
+            return payload.get("placements") or {}, sess, names
+
+        pa, sa, na = info(da)
+        pb, sb, nb = info(db)
+        changes = []
+        moved = added = removed = 0
+        for sid in sorted(set(pa) | set(pb)):
+            x, y = pa.get(sid), pb.get(sid)
+            s = sa.get(sid) or sb.get(sid)
+            course_number = s.course_number if s else sid.split("-")[0]
+            if x and y:
+                if (x.get("day"), x.get("start_box"), x.get("room_id")) == \
+                   (y.get("day"), y.get("start_box"), y.get("room_id")):
+                    continue  # unchanged
+                status, moved = "moved", moved + 1
+            elif x:
+                status, removed = "removed", removed + 1
+            else:
+                status, added = "added", added + 1
+            changes.append({
+                "session_id": sid, "course_number": course_number,
+                "name": na.get(course_number) or nb.get(course_number) or "",
+                "type": s.type.value if s else "", "group": s.group if s else None,
+                "a": x, "b": y, "status": status,
+            })
+        total = len(set(pa) | set(pb))
+        return {
+            "a": {"id": da["id"], "name": da["name"], "stats": da.get("stats", {})},
+            "b": {"id": db["id"], "name": db["name"], "stats": db.get("stats", {})},
+            "summary": {"moved": moved, "added": added, "removed": removed,
+                        "unchanged": total - len(changes)},
+            "changes": changes,
+        }
+
     @app.put("/schedules/{save_id}")
     def rename_schedule(save_id: str, payload: dict = Body(...)) -> dict:
         name = (payload.get("name") or "").strip()

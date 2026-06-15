@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { SavedMeta, SolveResult } from "../types";
-import { t, type Lang } from "../i18n";
+import type { Placement, SavedMeta, ScheduleDiff, SolveResult } from "../types";
+import { ROOMS } from "../types";
+import { DAY_NAMES, boxLabel, t, type Lang } from "../i18n";
+
+const ROOM_NAME = Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
 
 interface Props {
   lang: Lang;
@@ -26,6 +29,19 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cmpA, setCmpA] = useState("");
+  const [cmpB, setCmpB] = useState("");
+  const [diff, setDiff] = useState<ScheduleDiff | null>(null);
+
+  const fmtP = (p: Placement | null) =>
+    p ? `${DAY_NAMES[lang][p.day]} ${boxLabel(p.start_box).split("-")[0]} · ${ROOM_NAME[p.room_id] ?? p.room_id}` : "—";
+
+  const compare = async () => {
+    if (!cmpA || !cmpB || cmpA === cmpB) return;
+    setError(null);
+    try { setDiff(await api.compareSchedules(cmpA, cmpB)); }
+    catch (e) { setError(String(e)); }
+  };
 
   const refresh = () =>
     Promise.all([api.listSchedules(), api.getConfig()])
@@ -144,6 +160,65 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
           </table>
         )}
       </section>
+
+      {saves.length >= 2 && (
+        <section className="compare">
+          <h3>{t("compare", lang)}</h3>
+          <p className="muted hint">{t("compareHint", lang)}</p>
+          <div className="compare-row">
+            <select value={cmpA} onChange={(e) => setCmpA(e.target.value)}>
+              <option value="">—</option>
+              {saves.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <span className="vs">↔</span>
+            <select value={cmpB} onChange={(e) => setCmpB(e.target.value)}>
+              <option value="">—</option>
+              {saves.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <button className="primary" disabled={!cmpA || !cmpB || cmpA === cmpB} onClick={compare}>
+              {t("compare", lang)}
+            </button>
+          </div>
+
+          {diff && (
+            <div className="diff">
+              <div className="diff-summary">
+                <span className="moved">{diff.summary.moved} {t("movedLabel", lang)}</span>
+                <span className="added">{diff.summary.added} {t("addedLabel", lang)}</span>
+                <span className="removed">{diff.summary.removed} {t("removedLabel", lang)}</span>
+                <span className="muted">{diff.summary.unchanged} {t("unchangedLabel", lang)}</span>
+              </div>
+              {diff.changes.length === 0 ? (
+                <p className="muted">{t("noChanges", lang)}</p>
+              ) : (
+                <table className="diff-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>{t("number", lang)}</th>
+                      <th>{diff.a.name}</th>
+                      <th>{diff.b.name}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diff.changes.map((c) => (
+                      <tr key={c.session_id} className={`diff-${c.status}`}>
+                        <td><span className={`diff-badge ${c.status}`}>{t(`${c.status}Label` as "movedLabel", lang)}</span></td>
+                        <td className="d-course">
+                          {c.course_number} <span dir="rtl" className="d-name">{c.name}</span>
+                          <span className="muted"> · {c.type}{c.group ? ` ${c.group}` : ""}</span>
+                        </td>
+                        <td>{fmtP(c.a)}</td>
+                        <td>{fmtP(c.b)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

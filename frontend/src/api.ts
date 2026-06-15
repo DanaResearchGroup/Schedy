@@ -7,6 +7,7 @@ import type {
   OfferedRow,
   Placement,
   SavedMeta,
+  ScheduleDiff,
   SemesterCalendar,
   SessionMeta,
   SolveResult,
@@ -154,6 +155,10 @@ export const api = {
   loadSchedule: (id: string) =>
     fetch(`${BASE}/schedules/${encodeURIComponent(id)}/load`, { method: "POST" })
       .then(json<SolveResult>),
+
+  compareSchedules: (a: string, b: string) =>
+    fetch(`${BASE}/schedules/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`)
+      .then(json<ScheduleDiff>),
 
   renameSchedule: (id: string, name: string) =>
     fetch(`${BASE}/schedules/${encodeURIComponent(id)}`, {

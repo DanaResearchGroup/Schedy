@@ -285,6 +285,22 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .s-actions button { padding: 0.3rem 0.7rem; font-size: 0.82rem; }
 .ghost.danger { color: var(--conflict); }
 
+/* compare / diff */
+.compare-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.compare-row select { padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; min-width: 160px; }
+.compare-row .vs { color: var(--muted); font-size: 1.1rem; }
+.diff-summary { display: flex; gap: 1rem; font-size: 0.85rem; margin-bottom: 0.6rem; }
+.diff-summary .moved { color: #b45309; font-weight: 600; }
+.diff-summary .added { color: var(--ok); font-weight: 600; }
+.diff-summary .removed { color: var(--conflict); font-weight: 600; }
+.diff-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.diff-table th, .diff-table td { padding: 0.4rem; border-bottom: 1px solid var(--border); text-align: start; }
+.diff-badge { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 999px; font-weight: 600; }
+.diff-badge.moved { background: #fef3c7; color: #92400e; }
+.diff-badge.added { background: #dcfce7; color: #166534; }
+.diff-badge.removed { background: #fee2e2; color: #991b1b; }
+.d-name { font-weight: 600; }
+
 /* ---- catalog ---- */
 .catalog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .catalog-actions { display: flex; gap: 0.5rem; }

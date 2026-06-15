@@ -178,6 +178,13 @@ export const STRINGS = {
   deleteConfirm: { he: "למחוק מערכת שמורה זו?", en: "Delete this saved schedule?" },
   sessionsShort: { he: "מפגשים", en: "sessions" },
   hardShort: { he: "קשות", en: "hard" },
+  compare: { he: "השוואה", en: "Compare" },
+  compareHint: { he: "בחר שתי מערכות שמורות כדי לראות מה השתנה", en: "Pick two saved schedules to see what changed" },
+  movedLabel: { he: "הוזזו", en: "moved" },
+  addedLabel: { he: "נוספו", en: "added" },
+  removedLabel: { he: "הוסרו", en: "removed" },
+  unchangedLabel: { he: "ללא שינוי", en: "unchanged" },
+  noChanges: { he: "אין הבדלים בין השתיים", en: "No differences between the two" },
   saved: { he: "נשמר", en: "Saved" },
   needSolveToSave: {
     he: "פתור מערכת לפני שמירה",
