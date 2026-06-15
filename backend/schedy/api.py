@@ -504,7 +504,13 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.get("/export/csv")
     def export_csv() -> Response:
         problem, sched = _last_schedule()
-        return Response(to_csv(problem, sched), media_type="text/csv")
+        # Prepend a UTF-8 BOM so Excel (esp. on Windows) renders the Hebrew
+        # course names correctly, and offer it as a named download.
+        body = ("﻿" + to_csv(problem, sched)).encode("utf-8")
+        return Response(
+            body, media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=schedy-schedule.csv"},
+        )
 
     @app.get("/export/pdf")
     def export_pdf(layout: str = "cohort") -> Response:

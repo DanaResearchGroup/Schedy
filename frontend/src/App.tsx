@@ -316,7 +316,7 @@ export default function App() {
                 <button className="ghost" onClick={saveCurrent} title={t("saveSchedule", lang)}>
                   💾 {saveMsg ?? t("save", lang)}
                 </button>
-                <a className="ghost" href={api.exportCsvUrl()}>CSV</a>
+                <a className="ghost" href={api.exportCsvUrl()} download>Excel</a>
                 <a className="ghost" href={api.exportPdfUrl("cohort")}>{t("pdfGrid", lang)}</a>
                 <a className="ghost" href={api.exportPdfUrl("flat")}>{t("pdfList", lang)}</a>
               </>

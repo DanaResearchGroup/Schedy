@@ -66,6 +66,9 @@ def test_full_pipeline_catalog_solve_export(client):
     csv = client.get("/export/csv")
     assert csv.status_code == 200
     assert "00540319" in csv.text and "00540320" in csv.text
+    # Excel-friendly: UTF-8 BOM so Hebrew renders, and a download filename.
+    assert csv.content[:3] == b"\xef\xbb\xbf"
+    assert "filename=" in csv.headers.get("content-disposition", "")
 
     pdf = client.get("/export/pdf")
     assert pdf.status_code == 200
