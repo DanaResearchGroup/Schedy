@@ -78,6 +78,12 @@ export function RoomBoards({
   }
   const available = Math.max(1, TOTAL_BOXES - blackoutBoxes);
 
+  // Department-wide rollup for the summary strip.
+  const roomsInUse = ROOMS.filter((r) => (usedByRoom.get(r.id) ?? 0) > 0).length;
+  const totalUsed = [...usedByRoom.values()].reduce((a, b) => a + b, 0);
+  const totalCap = ROOMS.length * available;
+  const deptPct = Math.round((totalUsed / totalCap) * 100);
+
   const startDrag = (sid: string) => {
     const m = sessions[sid];
     setNeed({ enrollment: m?.enrollment ?? 0, needsFarm: m?.needs_farm ?? false });
@@ -144,6 +150,11 @@ export function RoomBoards({
 
   return (
     <div className="room-boards-wrap">
+      <div className="dept-summary">
+        <span className="dept-stat"><b>{roomsInUse}/{ROOMS.length}</b> {t("statRoomsInUse", lang)}</span>
+        <span className="dept-stat"><b>{totalUsed}h</b> / {totalCap}h {t("statBooked", lang)}</span>
+        <span className="dept-stat"><b>{deptPct}%</b> {t("statUtilization", lang)}</span>
+      </div>
       <div className="room-boards">
         {ROOMS.map((rm) => {
           const used = usedByRoom.get(rm.id) ?? 0;

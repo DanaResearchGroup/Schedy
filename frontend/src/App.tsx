@@ -224,6 +224,12 @@ export default function App() {
                   </label>
                 )}
                 <div className="spacer" />
+                {parked.length > 0 && (
+                  <button className="badge warn" title={t("unplacedHint", lang)}
+                    onClick={() => setLayout("rooms")}>
+                    {parked.length} {t("unplaced", lang)}
+                  </button>
+                )}
                 <span className={hardCount ? "badge bad" : "badge ok"}>
                   {hardCount ? `${hardCount} ⚠` : t("feasible", lang)}
                 </span>
