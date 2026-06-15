@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { FixedEvent, Placement, SessionMeta, Violation } from "../types";
 import { ROOMS } from "../types";
 import { DAY_NAMES, boxLabel, t, type Lang } from "../i18n";
@@ -18,14 +19,16 @@ interface Props {
   selectedId: string | null;
   onMove: (sessionId: string, day: number, startBox: number) => void;
   onSelect: (sessionId: string) => void;
+  validateDrop?: (sessionId: string, day: number, startBox: number) => boolean;
 }
 
 // The centerpiece editable grid. Blocks are readable (course · group · type ·
 // room), colored by role, draggable to move (keeping room), and clickable to
 // inspect. Hard-conflicted blocks glow red.
 export function WeeklyGrid({
-  placements, sessions, violations, walls, lang, selectedId, onMove, onSelect,
+  placements, sessions, violations, walls, lang, selectedId, onMove, onSelect, validateDrop,
 }: Props) {
+  const [dragSid, setDragSid] = useState<string | null>(null);
   const conflicted = new Set(
     violations.filter((v) => v.severity === "hard").flatMap((v) => v.session_ids),
   );
@@ -47,6 +50,7 @@ export function WeeklyGrid({
 
   const onDrop = (day: number, box: number) => (e: React.DragEvent) => {
     e.preventDefault();
+    setDragSid(null);
     const sid = e.dataTransfer.getData("text/session");
     if (sid) onMove(sid, day, box);
   };
@@ -66,8 +70,12 @@ export function WeeklyGrid({
             {Array.from({ length: DAYS }, (_, day) => {
               const sids = byCell.get(`${day}:${box}`) ?? [];
               const cellWalls = wallsByCell.get(`${day}:${box}`) ?? [];
+              const hint = dragSid && validateDrop
+                ? (validateDrop(dragSid, day, box) ? " cell-ok" : " cell-bad")
+                : "";
               return (
-                <td key={day} onDragOver={(e) => e.preventDefault()} onDrop={onDrop(day, box)}>
+                <td key={day} className={hint.trim() || undefined}
+                  onDragOver={(e) => e.preventDefault()} onDrop={onDrop(day, box)}>
                   {cellWalls.map((w) => (
                     <div
                       key={w.id} className={`wall wall-${w.kind}`}
@@ -97,9 +105,12 @@ export function WeeklyGrid({
                     return (
                       <div
                         key={sid} className={cls} draggable={!fixed} style={style}
-                        onDragStart={(e) => fixed
-                          ? e.preventDefault()
-                          : e.dataTransfer.setData("text/session", sid)}
+                        onDragStart={(e) => {
+                          if (fixed) { e.preventDefault(); return; }
+                          e.dataTransfer.setData("text/session", sid);
+                          setDragSid(sid);
+                        }}
+                        onDragEnd={() => setDragSid(null)}
                         onClick={() => onSelect(sid)}
                         title={m ? `${m.course_number} ${m.type}${fixed ? ` · ${t("fixedTag", lang)}` : ""}` : sid}
                       >

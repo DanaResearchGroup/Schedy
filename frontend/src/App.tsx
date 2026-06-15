@@ -5,6 +5,7 @@ import { ROOMS } from "./types";
 import { boxLabel, DAY_NAMES, ROLE_LABEL, t, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
 import { RoomBoards } from "./components/RoomBoards";
+import { canDrop } from "./dropCheck";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
@@ -158,6 +159,13 @@ export default function App() {
       [sid]: { ...placements[sid], day, start_box: startBox, ...(room ? { room_id: room } : {}) },
     });
   };
+
+  // Live drop-validity preview for the grids (room defaults to the session's
+  // current room when not reassigning).
+  const validateDrop = (sid: string, day: number, box: number, room?: string) =>
+    placements
+      ? canDrop(sid, day, box, room ?? placements[sid]?.room_id, placements, sessions, walls)
+      : true;
 
   // Park a session: drop it from all rooms (unplaced) so it can be set aside
   // while rebalancing. Re-validate without it; Solve re-places everything.
@@ -331,12 +339,14 @@ export default function App() {
                     placements={placements} sessions={sessions} violations={violations}
                     walls={walls} parked={parked} lang={lang} selectedId={selected}
                     onMove={onMove} onPark={onPark} onSelect={setSelected}
+                    validateDrop={validateDrop}
                   />
                 ) : (
                   <WeeklyGrid
                     placements={shownPlacements} sessions={sessions} violations={violations}
                     walls={shownWalls} lang={lang} selectedId={selected}
                     onMove={onMove} onSelect={setSelected}
+                    validateDrop={validateDrop}
                   />
                 )}
                 <div className="legend">

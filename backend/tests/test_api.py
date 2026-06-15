@@ -169,6 +169,8 @@ def test_solve_returns_session_metadata(client):
     # Enrollment + farm need drive the per-room board's capacity hinting.
     assert meta["enrollment"] == 40
     assert meta["needs_farm"] is False
+    # lab_group lets the drop-validity preview exempt cross-day labs.
+    assert meta["lab_group"] is None
 
 
 def test_delete_course(client):

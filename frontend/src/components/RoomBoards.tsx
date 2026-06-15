@@ -29,6 +29,7 @@ interface Props {
   onMove: (sessionId: string, day: number, startBox: number, room: string) => void;
   onPark: (sessionId: string) => void;
   onSelect: (sessionId: string) => void;
+  validateDrop?: (sessionId: string, day: number, startBox: number, room: string) => boolean;
 }
 
 function fits(room: { capacity: number; farm?: boolean }, need: DragNeed | null): boolean {
@@ -45,9 +46,10 @@ function fits(room: { capacity: number; farm?: boolean }, need: DragNeed | null)
 // only blackouts (which close every room) are overlaid here.
 export function RoomBoards({
   placements, sessions, violations, walls, parked, lang, selectedId,
-  onMove, onPark, onSelect,
+  onMove, onPark, onSelect, validateDrop,
 }: Props) {
   const [need, setNeed] = useState<DragNeed | null>(null);
+  const [dragSid, setDragSid] = useState<string | null>(null);
 
   const conflicted = new Set(
     violations.filter((v) => v.severity === "hard").flatMap((v) => v.session_ids),
@@ -87,8 +89,9 @@ export function RoomBoards({
   const startDrag = (sid: string) => {
     const m = sessions[sid];
     setNeed({ enrollment: m?.enrollment ?? 0, needsFarm: m?.needs_farm ?? false });
+    setDragSid(sid);
   };
-  const endDrag = () => setNeed(null);
+  const endDrag = () => { setNeed(null); setDragSid(null); };
 
   const onCellDrop = (room: string, day: number, box: number, eligible: boolean) =>
     (e: React.DragEvent) => {
@@ -194,8 +197,11 @@ export function RoomBoards({
                       {Array.from({ length: DAYS }, (_, day) => {
                         const sids = byRoomCell.get(`${rm.id}:${day}:${box}`) ?? [];
                         const cellWalls = wallByCell.get(`${day}:${box}`) ?? [];
+                        const hint = dragSid && eligible && validateDrop
+                          ? (validateDrop(dragSid, day, box, rm.id) ? "cell-ok" : "cell-bad")
+                          : undefined;
                         return (
-                          <td key={day}
+                          <td key={day} className={hint}
                             onDragOver={(e) => { if (eligible) e.preventDefault(); }}
                             onDrop={onCellDrop(rm.id, day, box, eligible)}>
                             {cellWalls.map((w) => (

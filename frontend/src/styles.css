@@ -139,6 +139,10 @@ table.grid tbody td { position: relative; }
 table.grid th { background: #f8fafc; color: var(--ink); font-weight: 600; font-size: 0.85rem; padding: 0.4rem; }
 .time-col { width: 92px; font-size: 0.72rem; color: var(--muted); background: #f8fafc; text-align: center; }
 
+/* live drop-validity hint while dragging a session */
+table.grid td.cell-ok { background: #dcfce7; box-shadow: inset 0 0 0 1px var(--ok); }
+table.grid td.cell-bad { background: #fee2e2; box-shadow: inset 0 0 0 1px var(--conflict); cursor: no-drop; }
+
 .block {
   position: absolute; top: 2px; overflow: hidden;
   border-radius: 6px; font-size: 0.72rem; padding: 3px 5px;

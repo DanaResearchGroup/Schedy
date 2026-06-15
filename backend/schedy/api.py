@@ -77,6 +77,7 @@ def _session_meta(problem) -> dict:
             "fixed": s.is_fixed,
             "enrollment": s.expected_enrollment,
             "needs_farm": s.needs_computer_farm,
+            "lab_group": s.lab_group,
         }
     return out
 

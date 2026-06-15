@@ -66,6 +66,7 @@ export interface SessionMeta {
   fixed: boolean;
   enrollment: number;
   needs_farm: boolean;
+  lab_group: string | null;
 }
 
 export interface SolveResult {
