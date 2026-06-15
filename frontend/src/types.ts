@@ -27,13 +27,13 @@ export interface Course {
   ta_ids?: string[];
 }
 
-export const ROOMS: { id: string; name: string }[] = [
-  { id: "hall1", name: "Hall 1 (210)" },
-  { id: "room2", name: "Classroom 2 — computer farm (22)" },
-  { id: "room3", name: "Classroom 3 (50)" },
-  { id: "room4", name: "Classroom 4 (50)" },
-  { id: "room5", name: "Classroom 5 (50)" },
-  { id: "hall6", name: "Hall 6 (120)" },
+export const ROOMS: { id: string; name: string; capacity: number; farm?: boolean }[] = [
+  { id: "hall1", name: "Hall 1 (210)", capacity: 210 },
+  { id: "room2", name: "Classroom 2 — computer farm (22)", capacity: 22, farm: true },
+  { id: "room3", name: "Classroom 3 (50)", capacity: 50 },
+  { id: "room4", name: "Classroom 4 (50)", capacity: 50 },
+  { id: "room5", name: "Classroom 5 (50)", capacity: 50 },
+  { id: "hall6", name: "Hall 6 (120)", capacity: 120 },
 ];
 
 export const PROGRAMS: Program[] = ["ChemE", "BioChemE", "ChemE-Chemistry"];
@@ -64,6 +64,8 @@ export interface SessionMeta {
   tas: string[];
   is_remote: boolean;
   fixed: boolean;
+  enrollment: number;
+  needs_farm: boolean;
 }
 
 export interface SolveResult {

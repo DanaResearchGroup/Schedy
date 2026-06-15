@@ -163,6 +163,9 @@ def test_solve_returns_session_metadata(client):
     assert meta["type"] == "lecture"
     assert meta["cohorts"] == ["ChemE Y2"]
     assert meta["role"] == "core"
+    # Enrollment + farm need drive the per-room board's capacity hinting.
+    assert meta["enrollment"] == 40
+    assert meta["needs_farm"] is False
 
 
 def test_delete_course(client):

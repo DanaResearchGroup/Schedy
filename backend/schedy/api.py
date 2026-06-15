@@ -74,6 +74,8 @@ def _session_meta(problem) -> dict:
             "tas": list(s.ta_ids),
             "is_remote": s.is_remote,
             "fixed": s.is_fixed,
+            "enrollment": s.expected_enrollment,
+            "needs_farm": s.needs_computer_farm,
         }
     return out
 

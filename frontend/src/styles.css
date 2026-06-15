@@ -78,15 +78,37 @@ button.link { border: none; background: none; color: var(--conflict); padding: 0
   padding: 0.4rem 0.6rem; background: #f8fafc; border-bottom: 1px solid var(--border);
   font-size: 0.85rem; font-weight: 600;
 }
-.room-card-count {
-  color: var(--muted); font-weight: 500; font-size: 0.72rem;
-  background: #eef2f7; border-radius: 999px; padding: 0.05rem 0.5rem; min-width: 1.4rem; text-align: center;
-}
+.room-card-seats { color: var(--muted); font-weight: 500; font-size: 0.72rem; }
 .room-grid th, .room-grid td { height: 34px; font-size: 0.62rem; padding: 1px; }
 .room-grid th { padding: 0.2rem; font-size: 0.72rem; }
 .room-grid .time-col { width: 44px; font-size: 0.6rem; padding: 0; }
 .room-grid .block { font-size: 0.6rem; padding: 1px 3px; line-height: 1.2; }
 .room-grid .block .b-sub { font-size: 0.58rem; margin-top: 0; }
+
+/* per-room utilization strip */
+.room-util { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem; border-bottom: 1px solid var(--border); }
+.room-util-bar { flex: 1; height: 6px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
+.room-util-bar span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+.room-util-txt { font-size: 0.66rem; color: var(--muted); white-space: nowrap; }
+
+/* capacity hinting while dragging */
+.room-card.ineligible { opacity: 0.38; filter: saturate(0.4); }
+.room-card.drop-ok { outline: 2px solid var(--ok); outline-offset: -1px; }
+
+/* parked / unassigned lane */
+.room-boards-wrap { display: flex; flex-direction: column; gap: 0.8rem; }
+.parked-lane { border: 1px dashed var(--border); border-radius: 10px; padding: 0.5rem 0.7rem; background: #fafbfc; }
+.parked-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-bottom: 0.3rem; }
+.parked-count { color: var(--muted); font-size: 0.72rem; background: #eef2f7; border-radius: 999px; padding: 0.05rem 0.5rem; }
+.parked-hint { margin: 0; font-size: 0.76rem; color: var(--muted); }
+.parked-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.parked-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem; cursor: grab;
+  border: 1px solid var(--role-core-bd); background: var(--role-core);
+  border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.72rem;
+}
+.parked-chip:active { cursor: grabbing; }
+.parked-chip .b-group { color: var(--muted); }
 .badge { padding: 0.25rem 0.7rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
 .badge.ok { background: #dcfce7; color: #166534; }
 .badge.bad { background: #fee2e2; color: #991b1b; }

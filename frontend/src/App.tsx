@@ -88,6 +88,28 @@ export default function App() {
     }
   };
 
+  // Park a session: drop it from all rooms (unplaced) so it can be set aside
+  // while rebalancing. Re-validate without it; Solve re-places everything.
+  const onPark = async (sid: string) => {
+    if (!placements) return;
+    const next = { ...placements };
+    delete next[sid];
+    setPlacements(next);
+    if (selected === sid) setSelected(null);
+    try {
+      const r = await api.evaluate(next);
+      setViolations(r.violations);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // Sessions with no current placement — shown in the Parked lane (rooms view).
+  const parked = useMemo(
+    () => (placements ? Object.keys(sessions).filter((sid) => !placements[sid]) : []),
+    [sessions, placements],
+  );
+
   // View filter: which sessions to show on the grid.
   const { cohorts, rooms, lecturers } = useMemo(() => {
     const co = new Set<string>(), rm = new Set<string>(), le = new Set<string>();
@@ -218,8 +240,8 @@ export default function App() {
                 {layout === "rooms" ? (
                   <RoomBoards
                     placements={placements} sessions={sessions} violations={violations}
-                    walls={walls} lang={lang} selectedId={selected}
-                    onMove={onMove} onSelect={setSelected}
+                    walls={walls} parked={parked} lang={lang} selectedId={selected}
+                    onMove={onMove} onPark={onPark} onSelect={setSelected}
                   />
                 ) : (
                   <WeeklyGrid
