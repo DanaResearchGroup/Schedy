@@ -64,7 +64,6 @@ export function PeoplePanel({ lang }: { lang: Lang }) {
             <tr>
               <th>{t("personName", lang)}</th>
               <th>{t("kindCol", lang)}</th>
-              <th className="muted">id</th>
               <th></th>
             </tr>
           </thead>
@@ -83,7 +82,6 @@ export function PeoplePanel({ lang }: { lang: Lang }) {
                     <option value="grad">{t("kindGrad", lang)}</option>
                   </select>
                 </td>
-                <td className="muted p-id">{p.id || "—"}</td>
                 <td>
                   <button className="link" title="delete" onClick={() => removeRow(i)}>✕</button>
                 </td>
