@@ -342,8 +342,8 @@ export default function App() {
                   💾 {saveMsg ?? t("save", lang)}
                 </button>
                 <a className="ghost" href={api.exportCsvUrl()} download>Excel</a>
-                <a className="ghost" href={api.exportPdfUrl("cohort")}>{t("pdfGrid", lang)}</a>
-                <a className="ghost" href={api.exportPdfUrl("flat")}>{t("pdfList", lang)}</a>
+                <a className="ghost" href={api.exportPdfUrl("cohort")} target="_blank" rel="noopener">{t("pdfGrid", lang)}</a>
+                <a className="ghost" href={api.exportPdfUrl("flat")} target="_blank" rel="noopener">{t("pdfList", lang)}</a>
               </>
             )}
           </div>
