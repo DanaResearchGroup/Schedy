@@ -79,6 +79,25 @@ def test_export_before_solve_is_404(client):
     assert client.get("/export/csv").status_code == 404
 
 
+def test_export_after_deleting_a_solved_course_does_not_500(client):
+    # Solve with two courses, then delete one. The last-schedule setting still
+    # holds a placement for the removed session; the export path must ignore
+    # that stale id rather than crash with a 500.
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    client.post("/catalog/courses", json=_core("00540320", "dr_b"))
+    solved = client.post("/solve", json={"time_limit_s": 5})
+    assert solved.json()["solved"] is True
+
+    deleted = client.delete("/catalog/courses/00540319")
+    assert deleted.status_code == 200
+
+    csv = client.get("/export/csv")
+    assert csv.status_code == 200
+    assert "00540320" in csv.text          # the survivor still exports
+    assert "00540319" not in csv.text      # the deleted course is gone
+    assert client.get("/export/pdf").status_code == 200
+
+
 def test_skeleton_validate_reports_missing(client):
     header = ["מקצוע", "תיאור חבילת רישום", "סוג אירוע D", "ראשון"]
     rows = [["00540319", "SE011", "תרגול", "09:30-10:30"]]

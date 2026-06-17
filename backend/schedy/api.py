@@ -658,10 +658,13 @@ def create_app(store: Store | None = None) -> FastAPI:
         placements = store.get_setting("last_schedule")
         if not placements:
             raise HTTPException(404, "no solved schedule yet; POST /solve first")
+        problem = _problem(store)
+        known = {s.id for s in problem.sessions}
         sched = Schedule()
         for sid, p in placements.items():
-            sched.place(sid, p["day"], p["start_box"], p["room_id"])
-        return _problem(store), sched
+            if sid in known:  # ignore stale placements for since-deleted courses
+                sched.place(sid, p["day"], p["start_box"], p["room_id"])
+        return problem, sched
 
     @app.get("/export/csv")
     def export_csv() -> Response:
