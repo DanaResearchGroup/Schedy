@@ -7,6 +7,11 @@ import { WeeklyGrid } from "./components/WeeklyGrid";
 import { RoomBoards } from "./components/RoomBoards";
 import { canDrop } from "./dropCheck";
 import { CatalogPanel } from "./components/CatalogPanel";
+import { MultiSelect } from "./components/MultiSelect";
+import {
+  COURSE_GROUPS, GRAD_AUDIENCE, NO_FILTER, filterCount, filterPlacements, filterWalls,
+  type GridFilter,
+} from "./gridFilter";
 import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
 import { CalendarPanel } from "./components/CalendarPanel";
@@ -51,7 +56,7 @@ export default function App() {
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const [view, setView] = useState<string>("all");
+  const [filter, setFilter] = useState<GridFilter>(NO_FILTER);
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
   // Undo/redo stack of placement snapshots; idx points at the current state.
@@ -189,7 +194,8 @@ export default function App() {
     [sessions, placements],
   );
 
-  // View filter: which sessions to show on the grid.
+  // Filter choices offered by the current schedule. The course groups and the
+  // graduate audience are a fixed taxonomy, so they live in gridFilter.ts.
   const { cohorts, rooms, lecturers } = useMemo(() => {
     const co = new Set<string>(), rm = new Set<string>(), le = new Set<string>();
     for (const [sid, m] of Object.entries(sessions)) {
@@ -200,32 +206,14 @@ export default function App() {
     return { cohorts: [...co].sort(), rooms: [...rm].sort(), lecturers: [...le].sort() };
   }, [sessions, placements]);
 
-  const shownPlacements = useMemo(() => {
-    if (!placements || view === "all") return placements ?? {};
-    const [kind, val] = view.split(":");
-    const out: Record<string, Placement> = {};
-    for (const [sid, p] of Object.entries(placements)) {
-      const m = sessions[sid];
-      const keep =
-        kind === "cohort" ? m?.cohorts.includes(val)
-        : kind === "room" ? p.room_id === val
-        : kind === "lecturer" ? m?.lecturers.includes(val)
-        : true;
-      if (keep) out[sid] = p;
-    }
-    return out;
-  }, [placements, sessions, view]);
+  const shownPlacements = useMemo(
+    () => (placements ? filterPlacements(placements, sessions, filter) : {}),
+    [placements, sessions, filter],
+  );
 
-  // Blackouts are global; external-course walls belong to cohorts. Filter them
-  // to match the active view so the overlay stays consistent with the blocks.
-  const shownWalls = useMemo(() => {
-    if (view === "all") return walls;
-    const [kind, val] = view.split(":");
-    return walls.filter((w) =>
-      w.kind === "blackout" ? true
-      : kind === "cohort" ? w.cohorts.includes(val)
-      : false);
-  }, [walls, view]);
+  const shownWalls = useMemo(() => filterWalls(walls, filter), [walls, filter]);
+
+  const filtered = filterCount(filter) > 0;
 
   // Hebrew course names (ground-truth) for the block labels, keyed by number.
   const courseNames = useMemo(
@@ -312,23 +300,49 @@ export default function App() {
                     title={`${t("redo", lang)} (Ctrl+Y)`}>↷ {t("redo", lang)}</button>
                 </div>
                 {layout === "grid" && (
-                  <label className="view">
-                    {t("view", lang)}:
-                    <select value={view} onChange={(e) => setView(e.target.value)}>
-                      <option value="all">{t("allSessions", lang)}</option>
-                      <optgroup label={t("byCohort", lang)}>
-                        {cohorts.map((c) => <option key={c} value={`cohort:${c}`}>{c}</option>)}
-                      </optgroup>
-                      <optgroup label={t("byRoom", lang)}>
-                        {rooms.map((r) => <option key={r} value={`room:${r}`}>{r}</option>)}
-                      </optgroup>
-                      <optgroup label={t("byLecturer", lang)}>
-                        {lecturers.map((l) => <option key={l} value={`lecturer:${l}`}>{l}</option>)}
-                      </optgroup>
-                    </select>
-                  </label>
+                  <div className="filters">
+                    <MultiSelect
+                      label={t("filterCourses", lang)} allLabel={t("allCourses", lang)}
+                      options={COURSE_GROUPS.map((g) => ({
+                        value: g, label: g === "other" ? t("otherDept", lang) : `${g}…`,
+                      }))}
+                      selected={filter.groups}
+                      onChange={(groups) => setFilter({ ...filter, groups })}
+                    />
+                    <MultiSelect
+                      label={t("filterAudience", lang)} allLabel={t("allAudiences", lang)}
+                      options={[
+                        ...cohorts.map((c) => ({ value: c, label: c })),
+                        { value: GRAD_AUDIENCE, label: t("gradCourses", lang) },
+                      ]}
+                      selected={filter.audience}
+                      onChange={(audience) => setFilter({ ...filter, audience })}
+                    />
+                    <MultiSelect
+                      label={t("byRoom", lang)} allLabel={t("allRooms", lang)}
+                      options={rooms.map((r) => ({ value: r, label: ROOM_NAME[r] ?? r }))}
+                      selected={filter.rooms}
+                      onChange={(rms) => setFilter({ ...filter, rooms: rms })}
+                    />
+                    <MultiSelect
+                      label={t("byLecturer", lang)} allLabel={t("allLecturers", lang)}
+                      options={lecturers.map((l) => ({ value: l, label: l }))}
+                      selected={filter.lecturers}
+                      onChange={(lect) => setFilter({ ...filter, lecturers: lect })}
+                    />
+                    {filtered && (
+                      <button className="ghost" onClick={() => setFilter(NO_FILTER)}>
+                        ✕ {t("clearFilters", lang)}
+                      </button>
+                    )}
+                  </div>
                 )}
                 <div className="spacer" />
+                {layout === "grid" && filtered && (
+                  <span className="badge count" title={t("shownOfTotal", lang)}>
+                    {Object.keys(shownPlacements).length}/{Object.keys(placements).length}
+                  </span>
+                )}
                 {parked.length > 0 && (
                   <button className="badge warn" title={t("unplacedHint", lang)}
                     onClick={() => setLayout("rooms")}>
