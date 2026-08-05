@@ -7,6 +7,7 @@ import type {
   OfferedRow,
   Person,
   Placement,
+  RolloverCourse,
   SavedMeta,
   ScheduleDiff,
   SemesterCalendar,
@@ -96,6 +97,25 @@ export const api = {
   unpublishTerm: (term: string) =>
     fetch(`${BASE}/terms/${term}/publish?confirm=true`, { method: "DELETE" })
       .then(json<Term>),
+
+  // Phase 2 — graduate courses placed around the published week.
+  solveGrad: (timeLimit = 10) =>
+    fetch(`${BASE}/solve/grad`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ time_limit_s: timeLimit }),
+    }).then(json<SolveResult & { appended: string[] }>),
+
+  rolloverPreview: () =>
+    fetch(`${BASE}/terms/current/rollover`)
+      .then(json<{ source: string; courses: RolloverCourse[] }>),
+
+  rolloverApply: (numbers: string[]) =>
+    fetch(`${BASE}/terms/current/rollover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ numbers }),
+    }).then(json<{ added: string[] }>),
 
   listCourses: () => fetch(`${BASE}/catalog/courses`).then(json<Course[]>),
 

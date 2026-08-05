@@ -9,6 +9,7 @@ external courses become immovable `FixedEvent` walls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from .domain import (
     BOXES_PER_DAY,
@@ -42,6 +43,18 @@ _LEVEL_PREFIXES = {
 def suggest_level(number: str | None) -> CourseLevel:
     """The level a course number implies. Only ever a suggestion."""
     return _LEVEL_PREFIXES.get(str(number or "").strip()[:4], CourseLevel.UG)
+
+
+class Cadence(str, Enum):
+    """How often a course runs. Some graduate courses run every other year.
+
+    This drives *reservations* only (PRD D10): a stale flag costs an unused slot
+    in phase 1, never a wrong schedule, because the planner confirms what
+    actually runs in phase 2.
+    """
+
+    ANNUAL = "annual"
+    BIENNIAL = "biennial"
 
 
 @dataclass
@@ -87,6 +100,13 @@ class Course:
     # an existing catalog and older files need no migration; set explicitly for
     # the courses whose numbering does not follow our convention.
     level: CourseLevel | None = None
+
+    # How often it runs, and whether this term's copy is still a guess. A
+    # provisional course is last year's graduate course standing in for one not
+    # yet confirmed — it holds hours in phase 1 so joint courses are genuinely
+    # pushed out of them, and the planner replaces it with the truth in phase 2.
+    cadence: Cadence = Cadence.ANNUAL
+    provisional: bool = False
 
     @property
     def cohorts(self) -> frozenset[Cohort]:

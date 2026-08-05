@@ -70,6 +70,32 @@ export interface Course {
   skip_reason?: string;
   // Academic credit points (e.g. 2.5). Absent for pre-existing catalogs.
   credit?: number | null;
+  // Who may take it. Null/absent means "derive from the number".
+  level?: CourseLevel | null;
+  cadence?: Cadence;
+  // A rolled-over graduate course standing in for one not yet confirmed.
+  provisional?: boolean;
+}
+
+export type CourseLevel = "ug" | "joint" | "grad";
+export type Cadence = "annual" | "biennial";
+
+// Mirrors `catalog.suggest_level`: our numbering says who a course is for, and
+// anything else belongs to another faculty where no convention holds.
+const LEVEL_PREFIXES: Record<string, CourseLevel> = {
+  "0054": "ug", "0056": "joint", "0058": "grad",
+};
+
+export function suggestLevel(number: string): CourseLevel {
+  return LEVEL_PREFIXES[number.trim().slice(0, 4)] ?? "ug";
+}
+
+export const effectiveLevel = (c: Course): CourseLevel =>
+  c.level ?? suggestLevel(c.number);
+
+export interface RolloverCourse extends Course {
+  last_run: string;   // the term it was last taught in
+  due: boolean;       // its cadence says it should run this term
 }
 
 export const ROOMS: { id: string; name: string; capacity: number; farm?: boolean }[] = [

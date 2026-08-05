@@ -96,3 +96,58 @@ def test_pdf_export_with_hebrew_names():
                  course_names={"00540319": "תרמודינמיקה א׳"})
     assert pdf[:4] == b"%PDF"
     assert len(pdf) > 500
+
+
+# ---- the graduate page (PRD D11) --------------------------------------- #
+
+def _grad_problem():
+    """A graduate course (no cohort), a joint one, and an undergraduate one."""
+    from schedy.domain import CourseLevel
+    grad = Session("g-lec", "00580001", SessionType.LECTURE, 2,
+                   cohorts=frozenset(), level=CourseLevel.GRAD)
+    joint = Session("j-lec", "00560001", SessionType.LECTURE, 2,
+                    cohorts=frozenset({CHEME2}), level=CourseLevel.JOINT)
+    ug = Session("u-lec", "00540001", SessionType.LECTURE, 2,
+                 cohorts=frozenset({CHEME2}), level=CourseLevel.UG)
+    problem = Problem(sessions=[grad, joint, ug])
+    sched = Schedule()
+    sched.place("g-lec", day=0, start_box=0, room_id="hall1")
+    sched.place("j-lec", day=1, start_box=2, room_id="hall6")
+    sched.place("u-lec", day=2, start_box=4, room_id="room3")
+    return problem, sched
+
+
+def test_a_graduate_course_appears_on_no_cohort_page():
+    # It carries no cohort by design (D4) — which is exactly why it needs a page.
+    problem, sched = _grad_problem()
+    grids = cohort_grid_cells(problem, sched)
+    assert all(c.session_id != "g-lec" for cells in grids.values() for c in cells)
+
+
+def test_the_graduate_page_carries_graduate_and_joint_courses():
+    # A graduate student combines the two, so their timetable is both.
+    from schedy.exporters import GRADUATE_PAGE, graduate_grid_cells
+    problem, sched = _grad_problem()
+    cells = graduate_grid_cells(problem, sched)
+    assert {c.session_id for c in cells} == {"g-lec", "j-lec"}
+    assert GRADUATE_PAGE
+
+
+def test_the_cohort_pdf_includes_a_graduate_page():
+    problem, sched = _grad_problem()
+    from schedy.exporters import GRADUATE_PAGE, cohort_pages
+    assert GRADUATE_PAGE in cohort_pages(problem, sched)
+
+
+def test_there_is_no_graduate_page_without_graduate_courses():
+    problem, sched = _problem()   # undergraduate only
+    from schedy.exporters import GRADUATE_PAGE, cohort_pages
+    assert GRADUATE_PAGE not in cohort_pages(problem, sched)
+
+
+def test_the_graduate_page_renders():
+    problem, sched = _grad_problem()
+    pdf = to_pdf(problem, sched, layout="cohort",
+                 course_names={"00580001": "תרמודינמיקה מתקדמת"})
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 1000

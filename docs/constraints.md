@@ -33,6 +33,11 @@ overridable, since another faculty's graduate course follows no convention of ou
 Graduate students pick a few courses from a small pool, so a clash between them is
 untakeable rather than merely unfortunate. Joint courses are largely
 undergraduate-attended and behave like ordinary electives among themselves.
+A *provisional* course is last year's graduate course standing in for one not yet
+confirmed. It is an ordinary graduate course to the solver, which is the point:
+it carries this rule, so joint courses are genuinely pushed out of the hours it
+reserves rather than merely discouraged from them.
+
 Exempt: exercise groups of one course (already `ta_sessions_coincide`) and
 cross-day lab alternatives. The rule also applies against another faculty's
 graduate courses, which carry a level on their `FixedEvent` wall — they own no

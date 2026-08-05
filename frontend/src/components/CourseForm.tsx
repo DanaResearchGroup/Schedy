@@ -1,6 +1,11 @@
 import { useState } from "react";
-import type { Course, Program, Role } from "../types";
-import { PROGRAMS, ROLES, ROOMS } from "../types";
+import type { Cadence, Course, CourseLevel, Program, Role } from "../types";
+import { effectiveLevel, PROGRAMS, ROLES, ROOMS } from "../types";
+
+const LEVELS: CourseLevel[] = ["ug", "joint", "grad"];
+const LEVEL_KEY = {
+  ug: "levelUg", joint: "levelJoint", grad: "levelGrad",
+} as const;
 import {
   DAY_NAMES,
   ROLE_LABEL,
@@ -39,7 +44,12 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
 
   const csv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
-  const valid = c.number.trim() !== "" && c.programs.length > 0;
+  const level = effectiveLevel(c);
+  const isGradLevel = level === "grad" || level === "joint";
+  // A graduate student is not "ChemE Y2" (PRD D4): a graduate course belongs to
+  // no cohort, so demanding a programme would be demanding a wrong answer.
+  const valid = c.number.trim() !== ""
+    && (c.programs.length > 0 || level === "grad");
 
   return (
     <div className="form">
@@ -58,8 +68,37 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
         </label>
       </div>
 
+      {/* Who may take it, distinct from `role`, which is what it is. The number
+          suggests a level; the planner overrides it for another faculty's
+          courses, which follow no convention of ours. */}
+      <div className="row">
+        <label>{t("level", lang)}
+          <select value={level}
+            onChange={(e) => set({ level: e.target.value as CourseLevel })}>
+            {LEVELS.map((l) => (
+              <option key={l} value={l}>{t(LEVEL_KEY[l], lang)}</option>
+            ))}
+          </select>
+        </label>
+        {isGradLevel && (
+          <label>{t("cadence", lang)}
+            <select value={c.cadence ?? "annual"}
+              onChange={(e) => set({ cadence: e.target.value as Cadence })}>
+              <option value="annual">{t("cadenceAnnual", lang)}</option>
+              <option value="biennial">{t("cadenceBiennial", lang)}</option>
+            </select>
+          </label>
+        )}
+      </div>
+      {c.level == null && (
+        <p className="note">
+          {t("levelFromNumber", lang, { level: t(LEVEL_KEY[level], lang) })}
+        </p>
+      )}
+
       <fieldset>
         <legend>{t("programs", lang)}</legend>
+        {level === "grad" && <p className="note">{t("levelGradHint", lang)}</p>}
         {PROGRAMS.map((p) => (
           <label key={p} className="chk">
             <input type="checkbox" checked={c.programs.includes(p)}

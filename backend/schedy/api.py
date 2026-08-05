@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import catalog as catalog_mod
 from . import catalog_io
 from . import coi_io
+from .catalog import Cadence
 from .archive import Archive, contained
 from .calendar_engine import (
     SemesterCalendar,
@@ -236,6 +237,12 @@ def create_app(store: Store | None = None) -> FastAPI:
             store.create_term(t.year, t.semester)
         except ValueError as exc:
             raise HTTPException(409, str(exc))
+        # Pre-fill availability from the same semester last year (PRD D6): a
+        # lecturer's commitments are usually stable but not permanent, so the
+        # new term gets its own editable copy rather than sharing one.
+        previous = store.get_setting("availability", term=str(t.previous_year()))
+        if previous:
+            store.set_setting("availability", previous, term=str(t))
         return _term_row(str(t))
 
     @app.get("/terms/current")
@@ -272,6 +279,59 @@ def create_app(store: Store | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(409, str(exc))
         return _term_row(new)
+
+    # ---- rollover ---------------------------------------------------- #
+    def _rollover_candidates(term: str) -> tuple[str, list[dict]]:
+        """Graduate-level courses to stand in for this term's, and where from.
+
+        Looks back one year at a time in the *same* semester, so the planner is
+        comparing like with like. A biennial course that ran last year is listed
+        but not due — this is its off year — while one that ran two years ago is
+        both listed and due. Anything already in this term's catalog is settled
+        and needs no stand-in.
+        """
+        here = TermId.parse(term)
+        have = {c.number for c in store.list_courses(term)}
+        seen: dict[str, dict] = {}
+        source = str(here.previous_year())
+        back = here
+        for years in (1, 2):
+            back = back.previous_year()
+            for c in store.list_courses(str(back)):
+                # `offered=False` means it did not run, so it is no evidence.
+                if not c.is_grad_level or not c.offered or c.number in have:
+                    continue
+                if c.number in seen:
+                    continue  # the more recent year already spoke for it
+                due = c.cadence is Cadence.ANNUAL or years == 2
+                seen[c.number] = {**course_to_dict(c), "last_run": str(back),
+                                  "due": due}
+        return source, [seen[n] for n in sorted(seen)]
+
+    @app.get("/terms/current/rollover")
+    def rollover_preview() -> dict:
+        source, courses = _rollover_candidates(store.current_term())
+        return {"source": source, "courses": courses}
+
+    @app.post("/terms/current/rollover")
+    def rollover_apply(payload: dict = Body(...)) -> dict:
+        """Copy the chosen courses in as provisional stand-ins for phase 1.
+
+        They are ordinary graduate courses as far as the solver is concerned —
+        which is the point: they carry the hard non-overlap rule, so joint
+        courses are genuinely pushed out of the hours being reserved.
+        """
+        _, courses = _rollover_candidates(store.current_term())
+        by_number = {c["number"]: c for c in courses}
+        wanted = [str(n) for n in payload.get("numbers", [])]
+        unknown = [n for n in wanted if n not in by_number]
+        if unknown:
+            raise HTTPException(400, f"not available to roll over: {', '.join(unknown)}")
+        for n in wanted:
+            src = {k: v for k, v in by_number[n].items()
+                   if k not in ("last_run", "due")}
+            store.upsert_course(course_from_dict({**src, "provisional": True}))
+        return {"added": wanted}
 
     # ---- publish / freeze ------------------------------------------- #
     def _open_term(term: str) -> dict:
@@ -737,6 +797,53 @@ def create_app(store: Store | None = None) -> FastAPI:
             "violations": _violation_dicts(result.evaluation),
             "published_missing": _published_missing(store, problem),
             "published_conflicts": _published_conflicts(store, problem),
+        }
+
+    @app.post("/solve/grad")
+    def run_solve_grad(payload: dict = Body(default={})) -> dict:
+        """Phase 2 — append graduate courses to a published week.
+
+        The freeze does the work: published sessions are pinned to their day,
+        hour and room, so the only degrees of freedom left are the graduate
+        courses. What this route adds is the refusal to run before publication,
+        and the guarantee that a failed solve changes nothing — the published
+        week is a promise already made, and a graduate course that will not fit
+        is the planner's problem, not a reason to unpick it.
+        """
+        term = store.get_term(store.current_term()) or {}
+        if not term.get("published"):
+            raise HTTPException(409, "publish the term before appending graduate "
+                                     "courses")
+
+        problem = _problem(store)
+        result = solve(problem, time_limit_s=float(payload.get("time_limit_s", 10)))
+        if not result.solved:
+            return {"status": result.status, "solved": False, "placements": {},
+                    "violations": [], "appended": []}
+
+        placements = {
+            sid: {"day": p.day, "start_box": p.start_box, "room_id": p.room_id}
+            for sid, p in result.schedule.placements.items()
+        }
+        frozen = store.get_setting("published_schedule") or {}
+        moved = [sid for sid, p in frozen.items()
+                 if sid in placements and placements[sid] != p]
+        if moved:  # the pins should make this impossible; never ship it silently
+            raise HTTPException(
+                500, f"phase 2 moved published session(s): {', '.join(sorted(moved))}")
+
+        store.set_setting("last_schedule", placements)
+        return {
+            "status": result.status, "solved": True,
+            "objective": result.objective,
+            "feasible": result.evaluation.is_feasible,
+            "soft_penalty": result.evaluation.soft_penalty,
+            "placements": placements,
+            "sessions": _session_meta(problem),
+            "violations": _violation_dicts(result.evaluation),
+            "published_missing": _published_missing(store, problem),
+            "published_conflicts": _published_conflicts(store, problem),
+            "appended": sorted(sid for sid in placements if sid not in frozen),
         }
 
     @app.get("/fixed-events")

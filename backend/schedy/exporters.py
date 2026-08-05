@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from .domain import (
     BOXES_PER_DAY,
     DAY_NAMES,
+    CourseLevel,
     Problem,
     Schedule,
     box_label,
@@ -133,6 +134,39 @@ def cohort_grid_cells(problem: Problem, schedule: Schedule) -> dict[str, list[Gr
     return out
 
 
+# The graduate timetable is not a cohort, so it needs a name of its own.
+GRADUATE_PAGE = "Graduate"
+
+
+def graduate_grid_cells(problem: Problem, schedule: Schedule) -> list[GridCell]:
+    """The graduate timetable: every graduate and joint session.
+
+    Graduate courses carry no cohort (PRD D4), so they appear on no per-cohort
+    page — this page is what makes that safe. Joint courses belong here too: a
+    graduate student combines the two, and their week is both.
+    """
+    out: list[GridCell] = []
+    for sid, p in schedule.placements.items():
+        s = problem.session(sid)
+        if s.level not in (CourseLevel.GRAD, CourseLevel.JOINT):
+            continue
+        out.append(GridCell(
+            session_id=sid, course_number=s.course_number, type=s.type.value,
+            group=s.group, room=problem.room(p.room_id).name,
+            day=p.day, start_box=p.start_box, span=s.length_boxes,
+        ))
+    return out
+
+
+def cohort_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
+    """Every page of the printable timetable: one per cohort, plus graduate."""
+    pages = cohort_grid_cells(problem, schedule)
+    grad = graduate_grid_cells(problem, schedule)
+    if grad:
+        pages[GRADUATE_PAGE] = grad
+    return pages
+
+
 CSV_HEADER = [
     "course_number", "session_id", "session_type", "group", "day", "time",
     "room", "cohorts", "lecturers", "tas",
@@ -230,14 +264,17 @@ def _cohort_story(problem, schedule, course_names, fonts, styles, title):
 
     body_font, head_font, has_font = fonts
     cell_style = ParagraphStyle("cell", fontName=body_font, fontSize=7, leading=8.5)
-    grids = cohort_grid_cells(problem, schedule)
+    grids = cohort_pages(problem, schedule)
     if not grids:
         return [Paragraph(title, styles["Title"]),
                 Paragraph("No sessions placed yet.", styles["Normal"])]
 
     col_widths = [2.2 * cm] + [4.5 * cm] * len(DAY_NAMES)
     story = []
-    for page_i, label in enumerate(sorted(grids)):
+    # Cohorts alphabetically, then the graduate page last: it is an appendix to
+    # the undergraduate timetable, not one of its year-groups.
+    order = sorted(grids, key=lambda k: (k == GRADUATE_PAGE, k))
+    for page_i, label in enumerate(order):
         data = [["", *DAY_NAMES]]
         for b in range(BOXES_PER_DAY):
             data.append([box_label(b), "", "", "", "", ""])

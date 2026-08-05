@@ -14,7 +14,7 @@ import csv
 import io
 import math
 
-from .catalog import Course
+from .catalog import Cadence, Course
 from .domain import CourseLevel, CourseRole, Program
 
 # Column order of the CSV/Excel file. This header IS the format spec.
@@ -24,7 +24,7 @@ COLUMNS = [
     "expected_enrollment", "needs_computer_farm", "is_remote",
     "is_external", "ext_day", "ext_start_min", "ext_end_min", "ext_room",
     "lecturer_ids", "ta_ids",
-    "offered", "skip_reason", "credit", "level",
+    "offered", "skip_reason", "credit", "level", "cadence", "provisional",
 ]
 
 
@@ -56,6 +56,7 @@ def _course_to_row(c: Course) -> dict:
         "offered": _bool(c.offered), "skip_reason": c.skip_reason,
         "credit": "" if c.credit is None else c.credit,
         "level": c.level.value if c.level is not None else "",
+        "cadence": c.cadence.value, "provisional": _bool(c.provisional),
     }
 
 
@@ -129,6 +130,19 @@ def _level(s) -> CourseLevel | None:
         return None
 
 
+def _cadence(s) -> Cadence:
+    """How often it runs, defaulting to annual when absent or unreadable.
+
+    Annual is the safe default as well as the common one: a course wrongly
+    marked annual reserves a slot it does not need, while one wrongly marked
+    biennial loses the slot it does.
+    """
+    try:
+        return Cadence(str(s if s is not None else "").strip().lower())
+    except ValueError:
+        return Cadence.ANNUAL
+
+
 def row_to_course(row: dict) -> Course | None:
     """Build a Course from one record; returns None for a number-less row."""
     number = str(row.get("number", "")).strip()
@@ -159,6 +173,8 @@ def row_to_course(row: dict) -> Course | None:
         ta_ids=_split(row.get("ta_ids")),
         level=_level(row.get("level")),
         offered=_offered(row.get("offered")),
+        cadence=_cadence(row.get("cadence")),
+        provisional=_truthy(row.get("provisional")),
         skip_reason=str(row.get("skip_reason") or "").strip(),
         credit=_opt_float(row.get("credit")),
     )

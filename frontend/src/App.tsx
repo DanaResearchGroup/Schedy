@@ -14,6 +14,7 @@ import {
   COURSE_GROUPS, GRAD_AUDIENCE, NO_FILTER, filterCount, filterPlacements, filterWalls,
   type GridFilter,
 } from "./gridFilter";
+import { RolloverPanel } from "./components/RolloverPanel";
 import { ImportPanel } from "./components/ImportPanel";
 import { AvailabilityPanel } from "./components/AvailabilityPanel";
 import { CalendarPanel } from "./components/CalendarPanel";
@@ -62,6 +63,7 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [terms, setTerms] = useState<TermList | null>(null);
   const [publishDrift, setPublishDrift] = useState<string | null>(null);
+  const [rollover, setRollover] = useState(false);
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
   // Undo/redo stack of placement snapshots; idx points at the current state.
@@ -254,6 +256,23 @@ export default function App() {
   // rather than a consequence of solving.
   const currentTerm = terms?.terms.find((x) => x.id === terms.current) ?? null;
 
+  // Phase 2 — weeks or months after publication, once the department knows
+  // which graduate courses will actually run.
+  const appendGrad = async () => {
+    setSolving(true);
+    setError(null);
+    try {
+      const r = await api.solveGrad(10);
+      if (!r.solved) { setError(t("appendGradFailed", lang)); return; }
+      applyResult(r);
+      flash(t("appendGradDone", lang, { n: String(r.appended.length) }));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSolving(false);
+    }
+  };
+
   const publishTerm = async () => {
     if (!terms) return;
     const label = termLabel(terms.current, lang);
@@ -411,8 +430,21 @@ export default function App() {
         </div>
       )}
 
-      {tab === "catalog" && (
+      {tab === "catalog" && rollover && (
         <div className="panel">
+          <RolloverPanel lang={lang}
+            onDone={() => { setRollover(false); refresh(); }}
+            onClose={() => setRollover(false)} />
+        </div>
+      )}
+
+      {tab === "catalog" && !rollover && (
+        <div className="panel">
+          <div className="toolbar">
+            <button className="ghost" onClick={() => setRollover(true)}>
+              ⟳ {t("rollover", lang)}
+            </button>
+          </div>
           <CatalogPanel
             courses={courses} lang={lang}
             onAdd={(c) => api.upsertCourse(c).then(refresh).catch((e) => setError(String(e)))}
@@ -452,10 +484,16 @@ export default function App() {
             </button>
             {currentTerm && (currentTerm.published
               ? (
-                <button className="ghost" onClick={unpublishTerm}
-                  title={`${t("published", lang)} ${currentTerm.published}`}>
-                  🔒 {t("unpublish", lang)}
-                </button>
+                <>
+                  <button className="primary" disabled={solving} onClick={appendGrad}
+                    title={t("appendGradHint", lang)}>
+                    + {t("appendGrad", lang)}
+                  </button>
+                  <button className="ghost" onClick={unpublishTerm}
+                    title={`${t("published", lang)} ${currentTerm.published}`}>
+                    🔒 {t("unpublish", lang)}
+                  </button>
+                </>
               )
               : (
                 <button className="ghost" disabled={!placements} onClick={publishTerm}

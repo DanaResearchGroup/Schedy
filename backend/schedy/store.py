@@ -20,7 +20,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
-from .catalog import Course
+from .catalog import Cadence, Course
 from .domain import CourseLevel, CourseRole, Program
 
 SEMESTERS = ("winter", "spring")
@@ -97,6 +97,7 @@ def course_to_dict(c: Course) -> dict:
     d["programs"] = [p.value for p in c.programs]
     d["role"] = c.role.value
     d["level"] = c.level.value if c.level is not None else None
+    d["cadence"] = c.cadence.value
     return d
 
 
@@ -107,6 +108,9 @@ def course_from_dict(d: dict) -> Course:
     # Absent or null means "derive from the number" — never a stamped value.
     lvl = d.get("level")
     d["level"] = CourseLevel(lvl) if lvl else None
+    # Absent means annual: a course written before cadence existed ran every
+    # year, which is both the common case and the safe one (it reserves a slot).
+    d["cadence"] = Cadence(d.get("cadence") or "annual")
     return Course(**d)
 
 
@@ -313,10 +317,11 @@ class Store:
             (self._term, number)).fetchone()
         return course_from_dict(json.loads(row["data"])) if row else None
 
-    def list_courses(self) -> list[Course]:
+    def list_courses(self, term: str | None = None) -> list[Course]:
+        """This term's catalog, or another term's — rollover reads last year's."""
         rows = self.conn.execute(
             "SELECT data FROM courses WHERE term_id=? ORDER BY number",
-            (self._term,)).fetchall()
+            (term or self._term,)).fetchall()
         return [course_from_dict(json.loads(r["data"])) for r in rows]
 
     def delete_course(self, number: str) -> None:
@@ -325,21 +330,22 @@ class Store:
         self.conn.commit()
 
     # ---- settings ---------------------------------------------------- #
-    def _scope(self, key: str) -> str:
-        return _GLOBAL if key in GLOBAL_KEYS else self._term
+    def _scope(self, key: str, term: str | None = None) -> str:
+        return _GLOBAL if key in GLOBAL_KEYS else (term or self._term)
 
-    def set_setting(self, key: str, value) -> None:
+    def set_setting(self, key: str, value, term: str | None = None) -> None:
         self.conn.execute(
             "INSERT INTO settings(term_id, key, value) VALUES(?, ?, ?) "
             "ON CONFLICT(term_id, key) DO UPDATE SET value=excluded.value",
-            (self._scope(key), key, json.dumps(value)),
+            (self._scope(key, term), key, json.dumps(value)),
         )
         self.conn.commit()
 
-    def get_setting(self, key: str, default=None):
+    def get_setting(self, key: str, default=None, term: str | None = None):
+        """This term's value, or another term's — rollover pre-fills from one."""
         row = self.conn.execute(
             "SELECT value FROM settings WHERE term_id=? AND key=?",
-            (self._scope(key), key)).fetchone()
+            (self._scope(key, term), key)).fetchone()
         return json.loads(row["value"]) if row else default
 
     def set_global(self, key: str, value) -> None:

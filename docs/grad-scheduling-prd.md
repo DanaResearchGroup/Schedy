@@ -223,7 +223,8 @@ whole-placement pin) is required, and is a prerequisite for phase 2.
 | PUT | `/terms/{id}` | Re-label a term, keeping its data — how a migration's guessed name is confirmed or corrected |
 | POST | `/terms/{id}/publish` | Freeze UG+joint placements, stamp published |
 | DELETE | `/terms/{id}/publish` | Un-publish (explicit, confirmed — see risks) |
-| GET | `/terms/{id}/rollover-preview` | Grad courses from the previous same semester, with last-run and cadence |
+| GET | `/terms/current/rollover` | Grad courses from the previous same semester, with last-run and cadence; due ones flagged |
+| POST | `/terms/current/rollover` | Copy the chosen ones in as provisional stand-ins |
 | POST | `/solve` | Phase 1 — unchanged, scoped to the current term |
 | POST | `/solve/grad` | Phase 2 — pin published sessions, place grad only |
 | GET | `/levels/suggest?number=` | Level suggested from a course number |
