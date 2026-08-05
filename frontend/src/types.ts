@@ -109,6 +109,8 @@ export interface SessionMeta {
   tas: string[];
   is_remote: boolean;
   fixed: boolean;
+  // Frozen by publication — already handed to students, so it cannot be dragged.
+  published?: boolean;
   enrollment: number;
   needs_farm: boolean;
   lab_group: string | null;
@@ -123,6 +125,17 @@ export interface SolveResult {
   placements: Record<string, Placement>;
   sessions: Record<string, SessionMeta>;
   violations: Violation[];
+  // Published sessions the catalog no longer produces — they have dropped out
+  // of a frozen schedule without breaking any rule.
+  published_missing?: string[];
+  // Published sessions the re-imported university skeleton now wants elsewhere.
+  published_conflicts?: PublishedConflict[];
+}
+
+export interface PublishedConflict {
+  session_id: string;
+  published: [number, number];   // day, start box
+  skeleton: [number, number];
 }
 
 // person id -> list of [day, box] cells the person is NOT available to teach.

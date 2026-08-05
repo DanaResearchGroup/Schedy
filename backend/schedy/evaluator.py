@@ -339,17 +339,27 @@ def _check_fixed_placement(placed, out: list[Violation]) -> None:
     # user may still drag it in the editor; that's allowed, so a manual move off
     # the skeleton slot is a soft, non-blocking notice (weight 0) — the solver
     # re-anchors it on the next solve.
+    # A published session is the exception: its slot was handed to students, so
+    # moving it is a hard break rather than a notice.
     for pl in placed:
         s = pl.session
         if (s.fixed_day is not None and pl.day != s.fixed_day) or \
            (s.fixed_box is not None and pl.start_box != s.fixed_box):
-            out.append(Violation(
-                "fixed_placement", SOFT,
-                f"{s.id} was moved off its skeleton anchor "
-                f"(day {s.fixed_day} box {s.fixed_box}); the solver will "
-                f"re-anchor it on re-solve.",
-                (s.id,),
-            ))
+            if s.is_published:
+                out.append(Violation(
+                    "published_moved", HARD,
+                    f"{s.id} was published at day {s.fixed_day} box {s.fixed_box}; "
+                    f"moving it breaks the schedule the students were given.",
+                    (s.id,),
+                ))
+            else:
+                out.append(Violation(
+                    "fixed_placement", SOFT,
+                    f"{s.id} was moved off its skeleton anchor "
+                    f"(day {s.fixed_day} box {s.fixed_box}); the solver will "
+                    f"re-anchor it on re-solve.",
+                    (s.id,),
+                ))
 
 
 # --------------------------------------------------------------------------- #

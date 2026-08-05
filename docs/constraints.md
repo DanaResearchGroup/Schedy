@@ -14,6 +14,7 @@
 | A course's two TA sessions never coincide | model `_hard_same_course_ta`, evaluator `ta_sessions_coincide` |
 | Graduate-level courses never overlap (grad×grad, grad×joint) | model `_hard_grad_level`, evaluator `grad_overlap` |
 | A published session keeps its room, not just its hour | room domain restriction, evaluator `room_pin_broken` |
+| A published session keeps its day and hour | pinned domain, evaluator `published_moved` |
 | Lab cross-day satisfiability | evaluator `lab_cross_day_unsatisfiable` (post-hoc) |
 
 **Exploited freedom:** ChemE-only and BioChemE-only courses *may* overlap each
@@ -43,6 +44,14 @@ cohort of ours, so blocking by cohort would never reach them.
     always electives, so folding the graduate rule into that chain would let the
     soft branch win and silently downgrade a hard rule to a warning.
     `test_grad_overlap_is_hard_even_when_both_are_electives` guards this.
+
+**Anchored is not published.** Both pin a session, and the difference is who may
+override it. A *skeleton anchor* is the university's timetable: it constrains the
+solver, but the planner may drag it in the editor, which scores a weight-0
+`fixed_placement` notice. A *publication* is the week already handed to students:
+it is frozen in day, hour **and** room, the blocks are not draggable, and moving
+one anyway is a hard `published_moved`. `Session.is_published` is what separates
+them — do not infer it from `fixed_room`.
 
 ## Soft ladder (weighted, minimised; heaviest → lightest)
 

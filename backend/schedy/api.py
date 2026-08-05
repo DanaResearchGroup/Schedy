@@ -8,7 +8,7 @@ layer only wires HTTP to them.
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +29,9 @@ from .calendar_engine import (
     teaching_days_by_template,
     week_anchor,
 )
-from .domain import BOX_MINUTES, BOXES_PER_DAY, DAY_START_MIN, Schedule, SessionType
+from .domain import (
+    BOX_MINUTES, BOXES_PER_DAY, DAY_START_MIN, CourseLevel, Schedule, SessionType,
+)
 from .evaluator import evaluate
 from .exporters import to_csv, to_pdf
 from .parser import parse_rows, parse_skeleton
@@ -78,7 +80,60 @@ def _problem(store: Store):
         offered_rows=store.get_setting("offered_rows") or None,
         availability=_load_availability(store),
         week_anchor=_stored_week_anchor(store),
+        pins=store.get_setting("published_schedule") or None,
     )
+
+
+def _schedule_from(problem, placements: dict) -> Schedule:
+    """Rebuild a Schedule from stored placements, ignoring stale session ids."""
+    known = {s.id for s in problem.sessions}
+    sched = Schedule()
+    for sid, p in placements.items():
+        if sid in known:
+            sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+    return sched
+
+
+def _published_missing(store: Store, problem) -> list[str]:
+    """Published sessions the catalog no longer produces.
+
+    A session that does not exist breaks no rule, so deleting a published course
+    — or renaming an exercise group, which changes the session id — would drop it
+    from the frozen schedule in silence. This is the only thing that says so.
+    """
+    pinned = store.get_setting("published_schedule") or {}
+    if not pinned:
+        return []
+    have = {s.id for s in problem.sessions}
+    return sorted(sid for sid in pinned if sid not in have)
+
+
+def _published_conflicts(store: Store, problem) -> list[dict]:
+    """Published sessions the university skeleton now wants somewhere else.
+
+    A published pin overrides the skeleton's, because it is what the students
+    were told. But the skeleton is the university moving a slot, and it only
+    changes after publication when something real has changed — so the planner
+    has to be told rather than have one quietly win.
+    """
+    pinned = store.get_setting("published_schedule") or {}
+    rows = store.get_setting("offered_rows") or []
+    if not pinned or not rows:
+        return []
+    skeleton = catalog_mod.offered_placements(rows)
+    by_id = {s.id: s for s in problem.sessions}
+    out: list[dict] = []
+    for sid, p in pinned.items():
+        s = by_id.get(sid)
+        if s is None:
+            continue  # already reported as missing
+        # Same resolution the expansion uses, so the two cannot drift apart.
+        want = catalog_mod.skeleton_slot(skeleton, s.course_number, s.type.value, s.group)
+        if want[0] is not None and want != (int(p["day"]), int(p["start_box"])):
+            out.append({"session_id": sid, "published": [int(p["day"]),
+                                                         int(p["start_box"])],
+                        "skeleton": [want[0], want[1]]})
+    return sorted(out, key=lambda d: d["session_id"])
 
 
 def _session_meta(problem) -> dict:
@@ -96,6 +151,7 @@ def _session_meta(problem) -> dict:
             "tas": list(s.ta_ids),
             "is_remote": s.is_remote,
             "fixed": s.is_fixed,
+            "published": s.is_published,
             "enrollment": s.expected_enrollment,
             "needs_farm": s.needs_computer_farm,
             "lab_group": s.lab_group,
@@ -216,6 +272,87 @@ def create_app(store: Store | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(409, str(exc))
         return _term_row(new)
+
+    # ---- publish / freeze ------------------------------------------- #
+    def _open_term(term: str) -> dict:
+        """The term to publish must be the one open — nothing else is readable.
+
+        Every setting the freeze reads (the solved schedule, the catalog) is
+        scoped to the current term, so publishing another one would freeze this
+        one's week under that one's name.
+        """
+        row = store.get_term(term)
+        if row is None:
+            raise HTTPException(404, f"no such term {term}")
+        if term != store.current_term():
+            raise HTTPException(409, f"open {term} before publishing it")
+        return row
+
+    @app.post("/terms/{term}/publish")
+    def publish_term(term: str, confirm: bool = False) -> dict:
+        """Freeze the undergraduate and joint week, and stamp the term released.
+
+        Graduate courses are deliberately left fluid: the department publishes
+        the undergraduate timetable months before it knows which graduate courses
+        will run, and phase 2 places those around what is frozen here (PRD D8).
+        """
+        _open_term(term)
+        if not confirm:
+            raise HTTPException(400, "publishing requires ?confirm=true")
+
+        placements = store.get_setting("last_schedule") or {}
+        if not placements:
+            raise HTTPException(409, "nothing to publish; POST /solve first")
+
+        problem = _problem(store)
+        by_id = {s.id: s for s in problem.sessions}
+        # Graduate courses stay fluid for phase 2 — and so do provisional
+        # stand-ins, whatever their level. Rollover copies in graduate-*level*
+        # courses, so a joint stand-in is not GRAD and would otherwise be pinned
+        # to a day, an hour and a room before anyone confirmed it runs. Phase 2
+        # then refuses to start until the stand-ins are settled, leaving the
+        # planner unpublishing a whole week to take back a guess.
+        freeze = {sid: s for sid, s in by_id.items()
+                  if s.level is not CourseLevel.GRAD and not s.provisional}
+
+        # An unplaced session raises no violation, so it would be frozen out of
+        # existence rather than frozen in place.
+        unplaced = sorted(sid for sid in freeze if sid not in placements)
+        if unplaced:
+            raise HTTPException(
+                409, f"unplaced session(s) cannot be published: {', '.join(unplaced)}")
+
+        evaluation = evaluate(problem, _schedule_from(problem, placements))
+        hard = [v for v in evaluation.violations if v.severity == "hard"]
+        if hard:
+            raise HTTPException(
+                409, f"schedule has {len(hard)} hard conflict(s); fix them before "
+                     "publishing")
+
+        pinned = {sid: {"day": int(placements[sid]["day"]),
+                        "start_box": int(placements[sid]["start_box"]),
+                        "room_id": placements[sid]["room_id"]}
+                  for sid in freeze}
+        store.set_setting("published_schedule", pinned)
+        # An instant, not a day: a term can be published, released and published
+        # again inside one afternoon, and a bare local date tells those apart
+        # neither by time nor by order — nor says which clock it was read from.
+        store.set_published(term, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        return {**store.get_term(term), "frozen": len(pinned)}
+
+    @app.delete("/terms/{term}/publish")
+    def unpublish_term(term: str, confirm: bool = False) -> dict:
+        """Release the freeze so the whole week can move again.
+
+        Anything already handed to students then stops being a promise, so this
+        is deliberately explicit rather than a side effect of editing.
+        """
+        _open_term(term)
+        if not confirm:
+            raise HTTPException(400, "un-publishing requires ?confirm=true")
+        store.set_setting("published_schedule", {})
+        store.set_published(term, None)
+        return store.get_term(term)
 
     # ---- reset ------------------------------------------------------ #
     @app.post("/reset")
@@ -582,7 +719,9 @@ def create_app(store: Store | None = None) -> FastAPI:
         result = solve(problem, time_limit_s=time_limit)
         if not result.solved:
             return {"status": result.status, "solved": False,
-                    "placements": {}, "violations": []}
+                    "placements": {}, "violations": [],
+                    "published_missing": _published_missing(store, problem),
+                    "published_conflicts": _published_conflicts(store, problem)}
         placements = {
             sid: {"day": p.day, "start_box": p.start_box, "room_id": p.room_id}
             for sid, p in result.schedule.placements.items()
@@ -596,6 +735,8 @@ def create_app(store: Store | None = None) -> FastAPI:
             "placements": placements,
             "sessions": _session_meta(problem),
             "violations": _violation_dicts(result.evaluation),
+            "published_missing": _published_missing(store, problem),
+            "published_conflicts": _published_conflicts(store, problem),
         }
 
     @app.get("/fixed-events")
@@ -614,11 +755,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         """
         placements_in = payload.get("placements", {})
         problem = _problem(store)
-        known = {s.id for s in problem.sessions}
-        sched = Schedule()
-        for sid, p in placements_in.items():
-            if sid in known:
-                sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+        sched = _schedule_from(problem, placements_in)
         store.set_setting("last_schedule", {
             sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
             for sid, pl in sched.placements.items()
@@ -683,11 +820,7 @@ def create_app(store: Store | None = None) -> FastAPI:
     def _schedule_stats(placements: dict) -> dict:
         """At-a-glance numbers stored with a save, for comparison in the list."""
         problem = _problem(store)
-        known = {s.id for s in problem.sessions}
-        sched = Schedule()
-        for sid, p in placements.items():
-            if sid in known:
-                sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+        sched = _schedule_from(problem, placements)
         ev = evaluate(problem, sched)
         return {
             "sessions": len(sched.placements),
@@ -775,11 +908,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         # Return a render-ready schedule (same shape as /solve) so the UI can
         # paint it immediately.
         problem = _problem(store)
-        known = {s.id for s in problem.sessions}
-        sched = Schedule()
-        for sid, p in placements.items():
-            if sid in known:
-                sched.place(sid, int(p["day"]), int(p["start_box"]), p["room_id"])
+        sched = _schedule_from(problem, placements)
         ev = evaluate(problem, sched)
         return {
             "status": "LOADED", "solved": True,
@@ -866,12 +995,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         if not placements:
             raise HTTPException(404, "no solved schedule yet; POST /solve first")
         problem = _problem(store)
-        known = {s.id for s in problem.sessions}
-        sched = Schedule()
-        for sid, p in placements.items():
-            if sid in known:  # ignore stale placements for since-deleted courses
-                sched.place(sid, p["day"], p["start_box"], p["room_id"])
-        return problem, sched
+        return problem, _schedule_from(problem, placements)
 
     @app.get("/export/csv")
     def export_csv() -> Response:

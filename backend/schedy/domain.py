@@ -195,6 +195,10 @@ class Session:
     # alone would let a later solve honour every published time while quietly
     # reshuffling rooms, which is not a frozen schedule.
     fixed_room: str | None = None
+    # Frozen by publication rather than anchored by the skeleton. Both pin the
+    # solver, but only this one is a promise already made to students: the
+    # planner may drag a skeleton anchor and may not drag this.
+    is_published: bool = False
 
     @property
     def is_fixed(self) -> bool:

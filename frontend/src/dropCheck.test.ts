@@ -106,3 +106,20 @@ describe("canDrop — coincident TA sessions of one course are a hard clash", ()
     ).toBe(true);
   });
 });
+
+describe("canDrop — a published session has no legal target", () => {
+  it("refuses every drop for a published session", () => {
+    // Its slot was handed to students; the evaluator scores a move as HARD
+    // (published_moved), so the live hint must not offer anywhere to put it.
+    const sessions: Record<string, SessionMeta> = {
+      pub: meta({ published: true, fixed: true }),
+    };
+    expect(canDrop("pub", 3, 5, "hall6", {}, sessions, [])).toBe(false);
+  });
+
+  it("still allows a merely skeleton-anchored session to move", () => {
+    // An anchor constrains the solver, not the planner — unchanged behaviour.
+    const sessions: Record<string, SessionMeta> = { anc: meta({ fixed: true }) };
+    expect(canDrop("anc", 3, 5, "hall6", {}, sessions, [])).toBe(true);
+  });
+});

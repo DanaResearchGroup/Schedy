@@ -60,6 +60,40 @@ export const STRINGS = {
     en: "Correct the academic year or semester of the current term",
   },
   published: { he: "פורסם", en: "Published" },
+  publish: { he: "פרסם וקבע", en: "Publish & freeze" },
+  publishHint: {
+    he: "מקבע את מערכת התואר הראשון והקורסים המשותפים — יום, שעה וחדר — "
+      + "כדי שאפשר יהיה להוסיף קורסי תואר שני מבלי להזיז דבר",
+    en: "Freeze the undergraduate and joint week — day, hour and room — so "
+      + "graduate courses can be added later without moving anything",
+  },
+  publishConfirm: {
+    he: "לפרסם ולקבע את {term}?\n\nכל שיעורי התואר הראשון והקורסים המשותפים "
+      + "יינעלו ליום, לשעה ולחדר שלהם. קורסי התואר השני יישארו חופשיים לשלב השני."
+      + "\n\nניתן לבטל בהמשך בעזרת \"בטל פרסום\".",
+    en: "Publish and freeze {term}?\n\nEvery undergraduate and joint session is "
+      + "locked to its day, hour and room. Graduate courses stay free for "
+      + "phase 2.\n\nYou can undo this later with \"Unpublish\".",
+  },
+  publishDone: { he: "{n} שיעורים נקבעו", en: "{n} sessions frozen" },
+  unpublish: { he: "בטל פרסום", en: "Unpublish" },
+  unpublishConfirm: {
+    he: "לבטל את פרסום {term}?\n\nהמערכת תשוחרר והפותר יוכל להזיז שיעורים "
+      + "שכבר נמסרו לסטודנטים.",
+    en: "Unpublish {term}?\n\nThe week is released, and the solver may move "
+      + "sessions the students have already been given.",
+  },
+  publishedMissing: {
+    he: "שיעורים שפורסמו ואינם קיימים עוד בקטלוג: {ids}. הם נשמטו מהמערכת הקפואה.",
+    en: "Published sessions the catalog no longer has: {ids}. They have dropped "
+      + "out of the frozen schedule.",
+  },
+  publishedConflict: {
+    he: "השלד המיובא מבקש זמן אחר עבור שיעורים שפורסמו: {ids}. "
+      + "הזמן שפורסם הוא שנשמר.",
+    en: "The imported skeleton wants a different time for published sessions: "
+      + "{ids}. The published time is what holds.",
+  },
   confirmTermName: {
     he: "סקדי שיער שהנתונים הקיימים שייכים לסמסטר {term}. "
       + "אשר או תקן זאת בעזרת \"שנה שם…\".",

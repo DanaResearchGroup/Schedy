@@ -87,6 +87,16 @@ export const api = {
       body: JSON.stringify({ year, semester }),
     }).then(json<Term>),
 
+  // Freezes the undergraduate and joint week — day, hour and room — and stamps
+  // the term released. Graduate courses stay fluid for phase 2.
+  publishTerm: (term: string) =>
+    fetch(`${BASE}/terms/${term}/publish?confirm=true`, { method: "POST" })
+      .then(json<Term & { frozen: number }>),
+
+  unpublishTerm: (term: string) =>
+    fetch(`${BASE}/terms/${term}/publish?confirm=true`, { method: "DELETE" })
+      .then(json<Term>),
+
   listCourses: () => fetch(`${BASE}/catalog/courses`).then(json<Course[]>),
 
   upsertCourse: (c: Course) =>

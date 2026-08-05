@@ -116,7 +116,7 @@ def _course_sessions(
         lecturer_ids=tuple(c.lecturer_ids), level=c.effective_level,
     )
     if c.lecture_boxes > 0:
-        fd, fb = _fixed_for(placements, c.number, "lecture", None)
+        fd, fb = skeleton_slot(placements, c.number, "lecture", None)
         out.append(Session(id=f"{c.number}-lec", type=SessionType.LECTURE,
                            length_boxes=c.lecture_boxes,
                            fixed_day=fd, fixed_box=fb, **common))
@@ -128,7 +128,7 @@ def _course_sessions(
     if offered_groups:
         for code in offered_groups:
             safe = code.replace(" ", "_")
-            fd, fb = _fixed_for(placements, c.number, "exercise", code)
+            fd, fb = skeleton_slot(placements, c.number, "exercise", code)
             out.append(Session(
                 id=f"{c.number}-ex-{safe}", type=SessionType.EXERCISE,
                 length_boxes=c.exercise_boxes, group=code,
@@ -209,7 +209,7 @@ def offered_placements(
     return out
 
 
-def _fixed_for(
+def skeleton_slot(
     placements: dict[tuple[str, str, str | None], tuple[int, int]] | None,
     number: str, etype: str, group: str | None,
 ) -> tuple[int | None, int | None]:
@@ -246,6 +246,16 @@ def offered_exercise_groups(offered_rows: list[dict]) -> dict[str, list[str]]:
     return groups
 
 
+def _apply_pin(s: Session, pin: dict | None) -> None:
+    """Freeze one session at a published placement — day, hour *and* room."""
+    if not pin:
+        return
+    s.fixed_day = int(pin["day"])
+    s.fixed_box = int(pin["start_box"])
+    s.fixed_room = pin["room_id"]
+    s.is_published = True
+
+
 def expand(
     courses: list[Course],
     *,
@@ -255,12 +265,19 @@ def expand(
     biology_intervals: list[DayInterval] | None = None,
     include_blackouts: bool = True,
     week_anchor: int = 0,
+    pins: dict[str, dict] | None = None,
 ) -> Problem:
     """Build a solver Problem from the catalog.
 
     When `offered_rows` from an imported skeleton are supplied, each course's
     exercise sessions are taken from the actual offered groups; otherwise the
     catalog's declared `num_exercise_groups` is used.
+
+    `pins` freezes named sessions at ``{session_id: {day, start_box, room_id}}``
+    — the published schedule. Unlike the skeleton's placements it pins the room
+    too, because a published course must not move rooms either. A pin naming a
+    session the catalog no longer produces is ignored here; callers that care
+    report it (see `published_missing` in the API).
     """
     sessions: list[Session] = []
     fixed: list[FixedEvent] = list(standing_blackouts()) if include_blackouts else []
@@ -279,6 +296,8 @@ def expand(
         else:
             sessions.extend(
                 _course_sessions(c, groups_by_course.get(c.number), placements))
+    for s in sessions if pins else ():
+        _apply_pin(s, pins.get(s.id))
     return Problem(
         sessions=sessions,
         fixed_events=fixed,

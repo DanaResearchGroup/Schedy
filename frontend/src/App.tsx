@@ -61,6 +61,7 @@ export default function App() {
   const [filter, setFilter] = useState<GridFilter>(NO_FILTER);
   const [notice, setNotice] = useState<string | null>(null);
   const [terms, setTerms] = useState<TermList | null>(null);
+  const [publishDrift, setPublishDrift] = useState<string | null>(null);
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
   // Undo/redo stack of placement snapshots; idx points at the current state.
@@ -98,6 +99,19 @@ export default function App() {
     setSelected(null);
     setHist({ stack: [r.placements], idx: 0 }); // a fresh schedule resets history
     api.fixedEvents().then(setWalls).catch(() => setWalls([]));
+    // Neither of these breaks a scheduling rule, so nothing else would say it:
+    // a published session can leave the catalog, or the university can move its
+    // hour, and the frozen week quietly stops matching what was released.
+    const drift = [
+      r.published_missing?.length
+        ? t("publishedMissing", lang, { ids: r.published_missing.join(", ") })
+        : "",
+      r.published_conflicts?.length
+        ? t("publishedConflict", lang,
+            { ids: r.published_conflicts.map((c) => c.session_id).join(", ") })
+        : "",
+    ].filter(Boolean);
+    setPublishDrift(drift.length ? drift.join(" ") : null);
   };
 
   const evaluateAndSet = async (next: Record<string, Placement>) => {
@@ -179,6 +193,7 @@ export default function App() {
     setHist({ stack: [], idx: -1 });
     setFilter(NO_FILTER);
     setError(null);
+    setPublishDrift(null);
   };
 
   const flash = (msg: string) => {
@@ -230,6 +245,35 @@ export default function App() {
       clearWorkingView();
       await Promise.all([refresh(), refreshTerms()]);
       setTab("schedule");
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // Freezing the week is the promise made to students, so it is an explicit act
+  // rather than a consequence of solving.
+  const currentTerm = terms?.terms.find((x) => x.id === terms.current) ?? null;
+
+  const publishTerm = async () => {
+    if (!terms) return;
+    const label = termLabel(terms.current, lang);
+    if (!window.confirm(t("publishConfirm", lang, { term: label }))) return;
+    try {
+      const r = await api.publishTerm(terms.current);
+      await refreshTerms();
+      flash(t("publishDone", lang, { n: String(r.frozen) }));
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const unpublishTerm = async () => {
+    if (!terms) return;
+    const label = termLabel(terms.current, lang);
+    if (!window.confirm(t("unpublishConfirm", lang, { term: label }))) return;
+    try {
+      await api.unpublishTerm(terms.current);
+      await refreshTerms();
     } catch (e) {
       setError(String(e));
     }
@@ -357,6 +401,7 @@ export default function App() {
       </header>
 
       {error && <div className="error">{error}</div>}
+      {publishDrift && <div className="error">{publishDrift}</div>}
       {notice && <div className="notice">{notice}</div>}
       {/* Only for the open term: the Rename button below acts on that one. */}
       {terms?.needs_naming && terms.needs_naming === terms.current && (
@@ -405,6 +450,19 @@ export default function App() {
             <button className="primary" disabled={solving} onClick={solve}>
               {solving ? t("solving", lang) : t("solve", lang)}
             </button>
+            {currentTerm && (currentTerm.published
+              ? (
+                <button className="ghost" onClick={unpublishTerm}
+                  title={`${t("published", lang)} ${currentTerm.published}`}>
+                  🔒 {t("unpublish", lang)}
+                </button>
+              )
+              : (
+                <button className="ghost" disabled={!placements} onClick={publishTerm}
+                  title={t("publishHint", lang)}>
+                  🔒 {t("publish", lang)}
+                </button>
+              ))}
             {placements && (
               <>
                 <div className="seg" role="group">

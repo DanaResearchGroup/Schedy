@@ -274,6 +274,23 @@ class Store:
     def current_term(self) -> str:
         return self._term
 
+    def get_term(self, term: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT id, year, semester, created, published FROM terms WHERE id=?",
+            (str(term),)).fetchone()
+        return dict(row) if row else None
+
+    def set_published(self, term: str, when: str | None) -> None:
+        """Stamp — or, with ``None``, un-stamp — a term as released.
+
+        The date is what the stamp is *for*: the planner needs to know which
+        version of the week the students were given, and when.
+        """
+        if not self.conn.execute("SELECT 1 FROM terms WHERE id=?", (str(term),)).fetchone():
+            raise KeyError(f"no such term {term}")
+        self.conn.execute("UPDATE terms SET published=? WHERE id=?", (when, str(term)))
+        self.conn.commit()
+
     def set_current_term(self, term: str) -> None:
         term = str(term)
         if not self.conn.execute("SELECT 1 FROM terms WHERE id=?", (term,)).fetchone():
@@ -346,6 +363,10 @@ class Store:
         ``keep_settings`` names keys that survive: a machine preference such as
         the saved-schedules folder is not planning data. Returns what was
         removed, so the caller can report it. Other terms are untouched.
+
+        The publication stamp goes with it: the frozen placements live in the
+        settings being deleted, so a term left claiming to be published would be
+        claiming it about nothing.
         """
         keep = tuple(keep_settings)
         where = f" AND key NOT IN ({','.join('?' * len(keep))})" if keep else ""
@@ -357,6 +378,7 @@ class Store:
         self.conn.execute("DELETE FROM courses WHERE term_id=?", (self._term,))
         self.conn.execute("DELETE FROM settings WHERE term_id=?" + where,
                           (self._term, *keep))
+        self.conn.execute("UPDATE terms SET published=NULL WHERE id=?", (self._term,))
         self.conn.commit()
         return {"courses": int(courses), "settings": int(settings)}
 
