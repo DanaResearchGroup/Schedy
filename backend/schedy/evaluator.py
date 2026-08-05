@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 
 from .domain import (
     DAY_NAMES,
+    CourseLevel,
     CourseRole,
     Cohort,
     DayInterval,
@@ -86,6 +87,33 @@ def _is_elective(s: Session) -> bool:
     return s.role is CourseRole.ELECTIVE
 
 
+def _is_grad_level(s: Session) -> bool:
+    return s.level in (CourseLevel.GRAD, CourseLevel.JOINT)
+
+
+def _grad_clash(sa: Session, sb: Session) -> bool:
+    """Whether an overlap between these two breaks the graduate rule.
+
+    Both must be graduate-level, and at least one genuinely graduate — joint
+    courses are exempt from each other, being largely undergraduate-attended.
+
+    Two exemptions, so the rule reports only what it uniquely catches:
+      * exercise groups of one course — students attend one, and their
+        separation is already `ta_sessions_coincide`;
+      * cross-day lab alternatives, which are meant to overlap other things.
+    """
+    if not (_is_grad_level(sa) and _is_grad_level(sb)):
+        return False
+    if sa.level is CourseLevel.JOINT and sb.level is CourseLevel.JOINT:
+        return False
+    if sa.lab_group or sb.lab_group:
+        return False
+    if (sa.course_number == sb.course_number
+            and sa.type is SessionType.EXERCISE and sb.type is SessionType.EXERCISE):
+        return False
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
@@ -143,6 +171,18 @@ def _check_pairwise(placed, w, out: list[Violation]) -> None:
                     ids,
                 ))
 
+            # Graduate rule — deliberately its own statement, NOT a branch of
+            # the elective chain below. Graduate courses are nearly always
+            # electives, so folding it in would let the soft elective branch
+            # win and silently downgrade a hard rule to a warning.
+            if _grad_clash(sa, sb):
+                out.append(Violation(
+                    "grad_overlap", HARD,
+                    f"Graduate-level {sa.id} and {sb.id} overlap; a graduate "
+                    f"student cannot take both.",
+                    ids,
+                ))
+
             ae, be = _is_elective(sa), _is_elective(sb)
             shared_cohorts = sa.cohorts & sb.cohorts
             if ae and be:
@@ -192,6 +232,17 @@ def _check_vs_fixed_events(problem, placed, w, out: list[Violation]) -> None:
                     f"{s.id} shares room {pl.room_id} with external '{fe.label}'.",
                     (s.id,),
                 ))
+            # Another faculty's graduate/joint course owns no cohort of
+            # ours, so only the level rule can reach it.
+            if _is_grad_level(s) and fe.level in (CourseLevel.GRAD, CourseLevel.JOINT):
+                if not (s.level is CourseLevel.JOINT and fe.level is CourseLevel.JOINT):
+                    out.append(Violation(
+                        "grad_overlap", HARD,
+                        f"Graduate-level {s.id} overlaps external "
+                        f"graduate course '{fe.label}'.",
+                        (s.id,),
+                    ))
+
             shared = s.cohorts & fe.cohorts
             if shared:
                 if _is_elective(s):

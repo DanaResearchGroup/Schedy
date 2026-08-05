@@ -25,6 +25,7 @@ from .domain import (
     BOX_MINUTES,
     DAY_START_MIN,
     NUM_DAYS,
+    CourseLevel,
     CourseRole,
     DayInterval,
     Problem,
@@ -111,6 +112,7 @@ class ModelBuilder:
 
         self._hard_room()
         self._hard_cohort()
+        self._hard_grad_level()
         self._hard_person()
         self._hard_same_course_ta()
         self._hard_fixed_events()
@@ -169,6 +171,37 @@ class ModelBuilder:
         for ivs in per_cohort.values():
             if len(ivs) > 1:
                 m.AddNoOverlap(ivs)
+
+    def _hard_grad_level(self) -> None:
+        """Graduate-level sessions share one no-overlap set.
+
+        Joint courses are exempt from each other, so they cannot simply join the
+        set: a joint session is instead forbidden to overlap each *graduate*
+        session pairwise. Graduate sessions themselves are mutually exclusive.
+
+        Cross-day lab alternatives sit out, mirroring the cohort rule — they are
+        meant to overlap other things. Exercise groups of one course stay in;
+        `_hard_same_course_ta` already separates them, so nothing changes.
+        """
+        m = self.model
+        grad = [s for s in self.problem.sessions
+                if s.level is CourseLevel.GRAD and not s.lab_group]
+        joint = [s for s in self.problem.sessions
+                 if s.level is CourseLevel.JOINT and not s.lab_group]
+
+        ivs = [self.vars[s.id].interval for s in grad]
+        # Another faculty's graduate/joint course is an immovable obstacle.
+        for fe in self.problem.fixed_events:
+            if fe.is_blackout or fe.level not in (CourseLevel.GRAD, CourseLevel.JOINT):
+                continue
+            b0, b1 = _interval_to_abs_boxes(fe.interval)
+            ivs.append(m.NewIntervalVar(b0, b1 - b0, b1, f"ext_grad_{fe.id}"))
+        if len(ivs) > 1:
+            m.AddNoOverlap(ivs)
+
+        for j in joint:
+            for g in grad:
+                m.AddNoOverlap([self.vars[j.id].interval, self.vars[g.id].interval])
 
     def _hard_person(self) -> None:
         m = self.model
