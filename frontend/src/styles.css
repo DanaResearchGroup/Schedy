@@ -45,6 +45,15 @@ header {
 }
 .tab.active { background: var(--primary); color: var(--primary-ink); }
 
+/* Which academic year + semester is open. Everything below the header belongs
+   to it, so it sits in the header rather than in any one tab. */
+.term-picker { display: flex; align-items: center; gap: 0.25rem; }
+.term-picker select {
+  border: 1px solid var(--border); background: #f8fafc; border-radius: 8px;
+  padding: 0.45rem 0.6rem; font-size: 0.9rem; color: var(--ink); cursor: pointer;
+}
+.term-picker button { padding: 0.45rem 0.6rem; }
+
 button, .ghost {
   cursor: pointer; border: 1px solid var(--border); background: #fff;
   border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.9rem; color: var(--ink);

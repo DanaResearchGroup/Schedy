@@ -28,16 +28,44 @@ export const STRINGS = {
     en: "Delete all data and start over",
   },
   resetConfirm: {
-    he: "לאפס את סקדי?\n\nכל הנתונים יימחקו: קטלוג הקורסים, הסגל, אילוצי הזמינות, "
-      + "לוח הסמסטר, השלד המיובא והמערכת הנוכחית.\n\n"
-      + "מערכות שנשמרו (לשונית \"מערכות שמורות\") יישארו.\n\n"
+    he: "לאפס את הסמסטר {term}?\n\nכל נתוני הסמסטר יימחקו: קטלוג הקורסים, אילוצי "
+      + "הזמינות, לוח הסמסטר, השלד המיובא והמערכת הנוכחית.\n\n"
+      + "סמסטרים אחרים, רשימת הסגל ומערכות שנשמרו (לשונית \"מערכות שמורות\") יישארו.\n\n"
       + "לא ניתן לבטל פעולה זו.",
-    en: "Reset Schedy?\n\nThis deletes everything: the course catalog, faculty, "
+    en: "Reset {term}?\n\nThis deletes the term's data: the course catalog, "
       + "availability, the semester calendar, the imported skeleton, and the "
-      + "current schedule.\n\nSaved schedules (Schedules tab) are kept.\n\n"
-      + "This cannot be undone.",
+      + "current schedule.\n\nOther terms, the faculty registry and saved "
+      + "schedules (Schedules tab) are kept.\n\nThis cannot be undone.",
   },
-  resetDone: { he: "הנתונים נמחקו", en: "Everything was deleted" },
+  resetDone: { he: "נתוני הסמסטר נמחקו", en: "The term's data was deleted" },
+  term: { he: "סמסטר", en: "Term" },
+  winter: { he: "חורף", en: "Winter" },
+  spring: { he: "אביב", en: "Spring" },
+  newTerm: { he: "סמסטר חדש…", en: "New term…" },
+  newTermPrompt: {
+    he: "שנה אקדמית חדשה (למשל 2027-28):",
+    en: "New academic year (e.g. 2027-28):",
+  },
+  newTermSemester: {
+    he: "איזה סמסטר? הקלד חורף או אביב:",
+    en: "Which semester? Type winter or spring:",
+  },
+  semesterUnrecognised: {
+    he: "לא זוהה סמסטר. הקלד חורף או אביב — לא בוצע שינוי.",
+    en: "That is not a semester I recognise. Type winter or spring — nothing was changed.",
+  },
+  renameTerm: { he: "שנה שם…", en: "Rename…" },
+  renameTermHint: {
+    he: "תיקון השנה האקדמית או הסמסטר של הסמסטר הנוכחי",
+    en: "Correct the academic year or semester of the current term",
+  },
+  published: { he: "פורסם", en: "Published" },
+  confirmTermName: {
+    he: "סקדי שיער שהנתונים הקיימים שייכים לסמסטר {term}. "
+      + "אשר או תקן זאת בעזרת \"שנה שם…\".",
+    en: "Schedy guessed the existing data belongs to {term}. "
+      + "Confirm or correct it with \"Rename…\".",
+  },
   offered: { he: "ניתן הסמסטר", en: "Offered this semester" },
   notOffered: { he: "לא ניתן הסמסטר", en: "Not offered" },
   offeredHint: {
@@ -363,7 +391,21 @@ export function boxLabel(box: number): string {
   return `${fmt(start)}-${fmt(end)}`;
 }
 
-export const t = (key: keyof typeof STRINGS, lang: Lang): string => STRINGS[key][lang];
+export const t = (
+  key: keyof typeof STRINGS, lang: Lang, vars?: Record<string, string>,
+): string => {
+  const s = STRINGS[key][lang];
+  return vars ? s.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m) : s;
+};
+
+// "2026-27-winter" reads as "2026-27 Winter" / "2026-27 חורף". The id is the
+// backend's key; this is the only place it is made human.
+export function termLabel(id: string, lang: Lang): string {
+  const [year, , semester] = [id.slice(0, id.lastIndexOf("-")), "", id.slice(id.lastIndexOf("-") + 1)];
+  const name = semester === "winter" || semester === "spring"
+    ? t(semester, lang) : semester;
+  return `${year} ${name}`;
+}
 
 export function minutesToHHMM(m: number | null | undefined): string {
   if (m == null) return "";

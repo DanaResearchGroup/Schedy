@@ -220,6 +220,7 @@ whole-placement pin) is required, and is a prerequisite for phase 2.
 | GET | `/terms` | List terms with status |
 | POST | `/terms` | Create a term, optionally rolling over from another |
 | GET/PUT | `/terms/current` | Read/switch the active term |
+| PUT | `/terms/{id}` | Re-label a term, keeping its data — how a migration's guessed name is confirmed or corrected |
 | POST | `/terms/{id}/publish` | Freeze UG+joint placements, stamp published |
 | DELETE | `/terms/{id}/publish` | Un-publish (explicit, confirmed — see risks) |
 | GET | `/terms/{id}/rollover-preview` | Grad courses from the previous same semester, with last-run and cadence |

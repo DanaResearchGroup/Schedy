@@ -3,6 +3,46 @@
 export type Program = "ChemE" | "BioChemE" | "ChemE-Chemistry";
 export type Role = "core" | "elective" | "replacement" | "lab";
 
+// An academic year plus a semester — the unit everything else is scoped by.
+export type Semester = "winter" | "spring";
+
+const SEMESTER_WORDS: Record<Semester, string[]> = {
+  winter: ["winter", "חורף"],
+  spring: ["spring", "אביב"],
+};
+
+/**
+ * Read a typed semester, or null if it isn't one.
+ *
+ * Null rather than a default, because everything in the app is scoped to a
+ * term: a misread semester doesn't fail, it quietly files a year's work under
+ * the wrong half of the year. An abbreviation is accepted only while it can
+ * still mean one semester — "spr" is spring, "sprng" is nothing.
+ */
+export function parseSemester(raw: string): Semester | null {
+  const s = raw.trim().toLowerCase();
+  if (!s) return null;
+  const hits = (Object.keys(SEMESTER_WORDS) as Semester[])
+    .filter((k) => SEMESTER_WORDS[k].some((w) => w.startsWith(s)));
+  return hits.length === 1 ? hits[0] : null;
+}
+
+export interface Term {
+  id: string;        // "2026-27-winter"
+  year: string;      // "2026-27"
+  semester: Semester;
+  created: string;
+  published: string | null;
+}
+
+export interface TermList {
+  terms: Term[];
+  current: string;
+  // Set only on a database migrated from before terms existed: the name was
+  // guessed and the planner still has to confirm it.
+  needs_naming: string | null;
+}
+
 export interface Course {
   number: string;
   name_he?: string;

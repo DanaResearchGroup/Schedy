@@ -34,7 +34,7 @@ from .evaluator import evaluate
 from .exporters import to_csv, to_pdf
 from .parser import parse_rows, parse_skeleton
 from .solver import solve
-from .store import Store, course_from_dict, course_to_dict
+from .store import Store, TermId, course_from_dict, course_to_dict
 from .validator import ChecklistItem, find_missing
 
 
@@ -141,6 +141,81 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "courses": len(store.list_courses())}
+
+    # ---- terms ------------------------------------------------------ #
+    def _terms_body() -> dict:
+        return {
+            "terms": store.list_terms(),
+            "current": store.current_term(),
+            # Migration has to name a pre-term database before any UI exists, so
+            # the name it chose is a guess the planner still has to confirm.
+            "needs_naming": store.get_global("term_needs_naming"),
+        }
+
+    def _term_id(year, semester) -> TermId:
+        try:
+            return TermId(str(year or ""), str(semester or ""))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    def _term_row(term: str) -> dict:
+        for row in store.list_terms():
+            if row["id"] == term:
+                return row
+        raise HTTPException(404, f"no such term {term}")
+
+    @app.get("/terms")
+    def list_terms() -> dict:
+        return _terms_body()
+
+    @app.post("/terms")
+    def create_term(payload: dict = Body(...)) -> dict:
+        """Open a new academic year + semester, empty and not current.
+
+        Creating does not switch: the planner opens next year's term long before
+        they are ready to stop working on this one.
+        """
+        t = _term_id(payload.get("year"), payload.get("semester"))
+        try:
+            store.create_term(t.year, t.semester)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+        return _term_row(str(t))
+
+    @app.get("/terms/current")
+    def get_current_term() -> dict:
+        return _term_row(store.current_term())
+
+    @app.put("/terms/current")
+    def set_current_term(payload: dict = Body(...)) -> dict:
+        """Switch which term every other route reads and writes.
+
+        Single-planner app: this moves the whole session, not one request.
+        """
+        term = str(payload.get("term") or "")
+        try:
+            store.set_current_term(term)
+        except KeyError:
+            raise HTTPException(404, f"no such term {term}")
+        return _term_row(term)
+
+    # Declared after /terms/current on purpose: FastAPI matches in declaration
+    # order, and "current" would otherwise be read as a term to rename.
+    @app.put("/terms/{term}")
+    def rename_term(term: str, payload: dict = Body(...)) -> dict:
+        """Re-label a term, keeping its catalog and settings.
+
+        This is how a guessed migration name gets corrected — and confirming the
+        guess unchanged is a rename to itself, which clears the prompt.
+        """
+        t = _term_id(payload.get("year"), payload.get("semester"))
+        try:
+            new = store.rename_term(term, t.year, t.semester)
+        except KeyError:
+            raise HTTPException(404, f"no such term {term}")
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+        return _term_row(new)
 
     # ---- reset ------------------------------------------------------ #
     @app.post("/reset")

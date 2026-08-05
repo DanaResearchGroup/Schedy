@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
-import type { Course, FixedEvent, Placement, SessionMeta, Violation } from "./types";
-import { ROOMS } from "./types";
-import { boxLabel, DAY_NAMES, ROLE_LABEL, t, type Lang } from "./i18n";
+import type {
+  Course, FixedEvent, Placement, SessionMeta, TermList, Violation,
+} from "./types";
+import { parseSemester, ROOMS } from "./types";
+import { boxLabel, DAY_NAMES, ROLE_LABEL, t, termLabel, type Lang } from "./i18n";
 import { WeeklyGrid } from "./components/WeeklyGrid";
 import { RoomBoards } from "./components/RoomBoards";
 import { canDrop } from "./dropCheck";
@@ -58,6 +60,7 @@ export default function App() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<GridFilter>(NO_FILTER);
   const [notice, setNotice] = useState<string | null>(null);
+  const [terms, setTerms] = useState<TermList | null>(null);
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
   // Undo/redo stack of placement snapshots; idx points at the current state.
@@ -71,7 +74,8 @@ export default function App() {
   }, [lang]);
 
   const refresh = () => api.listCourses().then(setCourses).catch((e) => setError(String(e)));
-  useEffect(() => { refresh(); }, []);
+  const refreshTerms = () => api.listTerms().then(setTerms).catch((e) => setError(String(e)));
+  useEffect(() => { refresh(); refreshTerms(); }, []);
 
   // Ctrl/Cmd+Z to undo, Ctrl+Y or Ctrl/Cmd+Shift+Z to redo (Schedule tab only).
   useEffect(() => {
@@ -162,24 +166,89 @@ export default function App() {
     }
   };
 
+  // Everything on screen belongs to one term. Whatever replaces that term —
+  // a reset or a switch — has to clear it, or last term's plan stays visible
+  // over this term's catalog. The grid filter goes too: it names this term's
+  // courses, rooms and lecturers.
+  const clearWorkingView = () => {
+    setPlacements(null);
+    setSessions({});
+    setWalls([]);
+    setViolations([]);
+    setSelected(null);
+    setHist({ stack: [], idx: -1 });
+    setFilter(NO_FILTER);
+    setError(null);
+  };
+
+  const flash = (msg: string) => {
+    setNotice(msg);
+    window.setTimeout(() => setNotice(null), 2500);
+  };
+
   // Erase everything and return to a first-run state. Destructive with no undo,
   // so the planner has to approve it first; the API demands its own confirm too.
   const resetAll = async () => {
-    if (!window.confirm(t("resetConfirm", lang))) return;
+    const label = terms ? termLabel(terms.current, lang) : "";
+    if (!window.confirm(t("resetConfirm", lang, { term: label }))) return;
     try {
       await api.reset();
-      setPlacements(null);
-      setSessions({});
-      setWalls([]);
-      setViolations([]);
-      setSelected(null);
-      setHist({ stack: [], idx: -1 });
-      setFilter(NO_FILTER);
-      setError(null);
+      clearWorkingView();
       await refresh();
       setTab("schedule");
-      setNotice(t("resetDone", lang));
-      window.setTimeout(() => setNotice(null), 2500);
+      flash(t("resetDone", lang));
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // ---- terms ---------------------------------------------------------- //
+  const createTerm = async () => {
+    const year = window.prompt(t("newTermPrompt", lang), "")?.trim();
+    if (!year) return;
+    const raw = window.prompt(t("newTermSemester", lang), "winter");
+    if (raw == null) return;
+    const semester = parseSemester(raw);
+    if (!semester) { setError(t("semesterUnrecognised", lang)); return; }
+    try {
+      const created = await api.createTerm(year, semester);
+      // Created empty and not current; opening it is the planner's next move.
+      await api.setCurrentTerm(created.id);
+      clearWorkingView();
+      await Promise.all([refresh(), refreshTerms()]);
+      setTab("catalog");
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const switchTerm = async (id: string) => {
+    if (id === "__new__") return createTerm();
+    if (!terms || id === terms.current) return;
+    try {
+      await api.setCurrentTerm(id);
+      clearWorkingView();
+      await Promise.all([refresh(), refreshTerms()]);
+      setTab("schedule");
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // Also how a migration's guessed term name gets confirmed or corrected.
+  const renameCurrentTerm = async () => {
+    if (!terms) return;
+    const cur = terms.terms.find((x) => x.id === terms.current);
+    if (!cur) return;
+    const year = window.prompt(t("newTermPrompt", lang), cur.year)?.trim();
+    if (!year) return;
+    const raw = window.prompt(t("newTermSemester", lang), cur.semester);
+    if (raw == null) return;
+    const semester = parseSemester(raw);
+    if (!semester) { setError(t("semesterUnrecognised", lang)); return; }
+    try {
+      await api.renameTerm(cur.id, year, semester);
+      await refreshTerms();
     } catch (e) {
       setError(String(e));
     }
@@ -263,6 +332,22 @@ export default function App() {
           ))}
         </nav>
         <div className="spacer" />
+        {terms && (
+          <div className="term-picker">
+            <select value={terms.current} onChange={(e) => switchTerm(e.target.value)}
+              title={t("term", lang)}>
+              {terms.terms.map((tm) => (
+                <option key={tm.id} value={tm.id}
+                  title={tm.published ? t("published", lang) : undefined}>
+                  {termLabel(tm.id, lang)}{tm.published ? " ✓" : ""}
+                </option>
+              ))}
+              <option value="__new__">{t("newTerm", lang)}</option>
+            </select>
+            <button className="ghost" onClick={renameCurrentTerm}
+              title={t("renameTermHint", lang)}>✎</button>
+          </div>
+        )}
         <button className="ghost danger" onClick={resetAll} title={t("resetHint", lang)}>
           ⟲ {t("reset", lang)}
         </button>
@@ -273,6 +358,13 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
+      {/* Only for the open term: the Rename button below acts on that one. */}
+      {terms?.needs_naming && terms.needs_naming === terms.current && (
+        <div className="notice">
+          {t("confirmTermName", lang, { term: termLabel(terms.needs_naming, lang) })}{" "}
+          <button className="ghost" onClick={renameCurrentTerm}>{t("renameTerm", lang)}</button>
+        </div>
+      )}
 
       {tab === "catalog" && (
         <div className="panel">

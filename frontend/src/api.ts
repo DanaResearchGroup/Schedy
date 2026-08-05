@@ -10,8 +10,11 @@ import type {
   SavedMeta,
   ScheduleDiff,
   SemesterCalendar,
+  Semester,
   SessionMeta,
   SolveResult,
+  Term,
+  TermList,
   Violation,
 } from "./types";
 
@@ -58,6 +61,31 @@ export const api = {
     fetch(`${BASE}/reset?confirm=true`, { method: "POST" }).then(
       json<{ reset: boolean; courses: number; settings: number }>,
     ),
+
+  // Terms — everything else on this client reads and writes whichever term is
+  // current, so switching moves the whole session, not one request.
+  listTerms: () => fetch(`${BASE}/terms`).then(json<TermList>),
+
+  createTerm: (year: string, semester: Semester) =>
+    fetch(`${BASE}/terms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year, semester }),
+    }).then(json<Term>),
+
+  setCurrentTerm: (term: string) =>
+    fetch(`${BASE}/terms/current`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term }),
+    }).then(json<Term>),
+
+  renameTerm: (term: string, year: string, semester: Semester) =>
+    fetch(`${BASE}/terms/${term}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year, semester }),
+    }).then(json<Term>),
 
   listCourses: () => fetch(`${BASE}/catalog/courses`).then(json<Course[]>),
 
