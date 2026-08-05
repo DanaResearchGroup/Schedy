@@ -166,6 +166,18 @@ export const STRINGS = {
   },
   deficitLabel: { he: "חוסר", en: "deficit" },
   weekLabel: { he: "שבוע", en: "Week" },
+  weekStartsOn: { he: "שבוע הלימודים מתחיל ביום", en: "Teaching week starts on" },
+  weekStartsHint: {
+    he:
+      "הסמסטר נפתח באמצע השבוע, ולכן סדר ״הרצאה לפני תרגול״ נמדד מהיום הזה " +
+      "ולא מיום ראשון.",
+    en:
+      "The semester opens mid-week, so lecture-before-exercise order is measured " +
+      "from this day rather than from Sunday.",
+  },
+  causeTemplateOrder: { he: "סדר קבוע בכל שבוע", en: "Every week" },
+  causeSubstitution: { he: "בעקבות החלפת יום", en: "Day substitution" },
+  weeksAffected: { he: "שבועות", en: "weeks" },
   loadSample: { he: "טען קטלוג לדוגמה", en: "Load sample catalog" },
   exportCatalog: { he: "ייצוא קטלוג", en: "Export catalog" },
   importCatalogLabel: { he: "ייבוא קטלוג", en: "Import catalog" },

@@ -112,18 +112,30 @@ export interface LostSession {
   deficit: number;
 }
 
+// Why an exercise meets before its lecture. "template_order" repeats every week
+// (the fix is to move a session); "substitution" is one week a day-swap flipped.
+export type InversionCause = "template_order" | "substitution";
+
 export interface OrderInversion {
   course_number: string;
-  week_index: number;
+  week_index: number; // first realized week affected
   lecture_date: string;
   exercise_date: string;
   exercise_group: string | null;
+  cause: InversionCause;
+  weeks: number; // how many realized weeks this same inversion hits
+  // Academic-hour boxes. The dates are equal when both sit on the same weekday,
+  // and then only these tell the pair apart.
+  lecture_box: number;
+  exercise_box: number;
 }
 
 export interface CalendarAnalysis {
   total_days: number;
   teaching_days: number;
   weeks: number;
+  week_anchor: number; // weekday (0..4) the teaching week starts on
+
   template_counts: Record<string, number>;
   substituted_days: { date: string; template: number | null }[];
   blocked_count: number;
