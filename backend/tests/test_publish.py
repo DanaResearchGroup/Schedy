@@ -400,3 +400,55 @@ def test_the_level_of_a_course_decides_whether_it_freezes(client):
     _solve(client)
     _publish(client, confirm=True)
     assert client.store.get_setting("published_schedule") == {}
+
+
+# ---- a save belongs to a term ------------------------------------------ #
+
+def test_a_save_is_listed_with_its_term(client, tmp_path):
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    _solve(client)
+    client.post("/schedules", json={"name": "plan"})
+
+    here = client.get("/terms/current").json()["id"]
+    assert client.get("/schedules").json()[0]["term"] == here
+
+
+def test_loading_a_save_from_another_term_needs_confirmation(client, tmp_path):
+    # The save carries a whole catalog; dropping last year's into this year by
+    # accident would replace a semester's work with the wrong semester's.
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    _solve(client)
+    save_id = client.post("/schedules", json={"name": "plan"}).json()["id"]
+
+    client.post("/terms", json={"year": "2099-00", "semester": "spring"})
+    client.put("/terms/current", json={"term": "2099-00-spring"})
+
+    r = client.post(f"/schedules/{save_id}/load")
+    assert r.status_code == 409
+    assert client.get("/catalog/courses").json() == []      # nothing replaced
+
+    r = client.post(f"/schedules/{save_id}/load", params={"confirm": True})
+    assert r.status_code == 200
+    assert len(client.get("/catalog/courses").json()) == 1
+
+
+def test_loading_a_save_from_this_term_needs_no_confirmation(client, tmp_path):
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    _solve(client)
+    save_id = client.post("/schedules", json={"name": "plan"}).json()["id"]
+    assert client.post(f"/schedules/{save_id}/load").status_code == 200
+
+
+def test_loading_a_save_that_predates_terms_needs_no_confirmation(client, tmp_path):
+    # It belongs to no term, so it contradicts none.
+    import json as _json
+    saves = tmp_path / "saves"
+    saves.mkdir()
+    client.put("/config", json={"saves_dir": str(saves)})
+    (saves / "old.schedy.json").write_text(_json.dumps({
+        "schema": 1, "name": "old", "created_at": "2020-01-01T00:00:00",
+        "stats": {}, "payload": {"courses": [], "placements": {}}}))
+    assert client.post("/schedules/old/load").status_code == 200

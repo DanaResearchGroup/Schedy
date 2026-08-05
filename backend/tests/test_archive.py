@@ -189,3 +189,19 @@ def test_contained_holds_when_the_case_differs(tmp_path):
     got = contained(root, str(tmp_path / "schedy" / "saves"))
     expected = (tmp_path / "schedy" / "saves").resolve() if os.name == "nt" else None
     assert got == expected
+
+
+# ---- a save belongs to a term ------------------------------------------ #
+
+def test_a_save_records_the_term_it_came_from(tmp_path):
+    a = Archive(tmp_path)
+    meta = a.save("winter plan", {"courses": []}, {"sessions": 1}, term="2026-27-winter")
+    assert meta.term == "2026-27-winter"
+    assert a.list()[0].term == "2026-27-winter"
+
+
+def test_a_save_written_before_terms_existed_reports_no_term(tmp_path):
+    # It predates the concept; guessing one would be inventing a fact.
+    a = Archive(tmp_path)
+    a.save("old plan", {"courses": []}, {})
+    assert a.list()[0].term is None

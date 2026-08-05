@@ -84,11 +84,14 @@ class SavedMeta:
     created_at: str
     stats: dict
     note: str | None = None
+    # The term this save came from. None for saves written before terms existed
+    # — they belong to no term, and guessing one would invent a fact.
+    term: str | None = None
 
     def as_dict(self) -> dict:
         return {
             "id": self.id, "name": self.name, "created_at": self.created_at,
-            "stats": self.stats, "note": self.note,
+            "stats": self.stats, "note": self.note, "term": self.term,
         }
 
 
@@ -135,16 +138,16 @@ class Archive:
 
     # ---- operations ------------------------------------------------- #
     def save(self, name: str, payload: dict, stats: dict,
-             note: str | None = None) -> SavedMeta:
+             note: str | None = None, term: str | None = None) -> SavedMeta:
         """Write a new self-contained save; returns its listing metadata."""
         self._ensure_root()
         stem = self._unique_stem(name)
         meta = SavedMeta(id=stem, name=name, created_at=_now_iso(),
-                         stats=stats, note=note)
+                         stats=stats, note=note, term=term)
         doc = {
             "schema": SCHEMA_VERSION,
             "name": name, "created_at": meta.created_at,
-            "note": note, "stats": stats, "payload": payload,
+            "note": note, "stats": stats, "term": term, "payload": payload,
         }
         (self.root / f"{stem}{EXT}").write_text(
             json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -165,6 +168,7 @@ class Archive:
                 id=stem, name=doc.get("name", stem),
                 created_at=doc.get("created_at", ""),
                 stats=doc.get("stats", {}), note=doc.get("note"),
+                term=doc.get("term"),
             ))
         out.sort(key=lambda m: m.created_at, reverse=True)
         return out
@@ -207,4 +211,5 @@ class Archive:
         return SavedMeta(
             id=new_stem, name=name, created_at=doc.get("created_at", ""),
             stats=doc.get("stats", {}), note=doc.get("note"),
+            term=doc.get("term"),
         )

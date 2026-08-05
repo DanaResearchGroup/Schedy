@@ -993,14 +993,22 @@ def create_app(store: Store | None = None) -> FastAPI:
             raise HTTPException(400, "nothing to save; solve first")
         meta = _archive().save(
             name, _current_snapshot(), _schedule_stats(placements),
-            note=(payload.get("note") or None))
+            note=(payload.get("note") or None), term=store.current_term())
         return meta.as_dict()
 
     @app.post("/schedules/{save_id}/load")
-    def load_schedule(save_id: str) -> dict:
+    def load_schedule(save_id: str, confirm: bool = False) -> dict:
         doc = _archive().get(save_id)
         if not doc:
             raise HTTPException(404, "no such saved schedule")
+        # Saves live in one folder shared by every term, and a save carries a
+        # whole catalog. Dropping last year's into this year by accident would
+        # replace a semester's work with the wrong semester's.
+        saved_term = doc.get("term")
+        if saved_term and saved_term != store.current_term() and not confirm:
+            raise HTTPException(
+                409, f"that schedule belongs to {saved_term}, not "
+                     f"{store.current_term()}; pass ?confirm=true to load it anyway")
         snap = doc.get("payload", {})
         # Replace the working state with the frozen scenario.
         for c in store.list_courses():

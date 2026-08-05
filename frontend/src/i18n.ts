@@ -108,6 +108,12 @@ export const STRINGS = {
     en: "No placement found for the graduate courses. The published week is "
       + "unchanged.",
   },
+  loadOtherTerm: {
+    he: "המערכת השמורה שייכת ל־{term}, לא לסמסטר הפתוח.\n\n"
+      + "טעינתה תחליף את קטלוג הסמסטר הנוכחי בקטלוג של אותה שנה. להמשיך?",
+    en: "That saved schedule belongs to {term}, not the open term.\n\n"
+      + "Loading it replaces this term's catalog with that year's. Continue?",
+  },
   published: { he: "פורסם", en: "Published" },
   publish: { he: "פרסם וקבע", en: "Publish & freeze" },
   publishHint: {

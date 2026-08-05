@@ -263,9 +263,11 @@ export const api = {
       body: JSON.stringify({ name, note }),
     }).then(json<SavedMeta>),
 
-  loadSchedule: (id: string) =>
-    fetch(`${BASE}/schedules/${encodeURIComponent(id)}/load`, { method: "POST" })
-      .then(json<SolveResult>),
+  // `confirm` is required only to load a save from another term — it carries a
+  // whole catalog, so the wrong one replaces a semester's work.
+  loadSchedule: (id: string, confirm = false) =>
+    fetch(`${BASE}/schedules/${encodeURIComponent(id)}/load${confirm ? "?confirm=true" : ""}`,
+          { method: "POST" }).then(json<SolveResult>),
 
   compareSchedules: (a: string, b: string) =>
     fetch(`${BASE}/schedules/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`)

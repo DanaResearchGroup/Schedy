@@ -203,8 +203,8 @@ export default function App() {
     window.setTimeout(() => setNotice(null), 2500);
   };
 
-  // Erase everything and return to a first-run state. Destructive with no undo,
-  // so the planner has to approve it first; the API demands its own confirm too.
+  // Erase the term's data and return to a first-run state. Destructive with no
+  // undo, so the planner approves it first; the API demands its own confirm too.
   const resetAll = async () => {
     const label = terms ? termLabel(terms.current, lang) : "";
     if (!window.confirm(t("resetConfirm", lang, { term: label }))) return;
@@ -470,7 +470,7 @@ export default function App() {
       {tab === "schedules" && (
         <div className="panel">
           <SchedulesPanel
-            lang={lang} canSave={placements != null}
+            lang={lang} canSave={placements != null} currentTerm={terms?.current ?? null}
             onLoaded={(r) => { applyResult(r); setTab("schedule"); }}
           />
         </div>

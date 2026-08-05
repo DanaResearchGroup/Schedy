@@ -243,6 +243,8 @@ export interface SavedMeta {
   created_at: string; // ISO timestamp
   stats: { sessions?: number; hard?: number; soft_penalty?: number };
   note: string | null;
+  // Which term it came from. Null for saves written before terms existed.
+  term?: string | null;
 }
 
 export interface DiffChange {
