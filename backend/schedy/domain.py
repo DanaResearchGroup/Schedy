@@ -36,6 +36,18 @@ def box_start_min(box: int) -> int:
     return DAY_START_MIN + box * BOX_MINUTES
 
 
+def day_rank(day: int, anchor: int = 0) -> int:
+    """Where `day` falls in a teaching week that begins on weekday `anchor`.
+
+    The template's day indices are absolute (Sunday=0), but a semester starting
+    mid-week rotates the order students actually experience: with a Tuesday
+    start (anchor=2) the week runs Tue, Wed, Thu, Sun, Mon, so Monday ranks
+    last, not second. Every "comes before" question about the weekly template
+    must be asked in rank space, not day space.
+    """
+    return (day - anchor) % NUM_DAYS
+
+
 def box_interval(box: int, length_boxes: int = 1) -> tuple[int, int]:
     """(start_min, end_min) for a run of `length_boxes` boxes starting at `box`."""
     start = box_start_min(box)
@@ -261,6 +273,11 @@ class Problem:
     # Course numbers offered by the Biology department this semester (their
     # electives, to soft-avoid). Stored as DayIntervals of those offerings.
     biology_intervals: list[DayInterval] = field(default_factory=list)
+    # Weekday the semester's first teaching day falls on (0..4). Order-sensitive
+    # rules (lecture before exercise) rank days from here rather than from
+    # Sunday, so a mid-week semester start does not invert them. See `day_rank`;
+    # the API fills this from the stored calendar.
+    week_anchor: int = 0
 
     def room(self, room_id: str) -> Room:
         for r in self.rooms:

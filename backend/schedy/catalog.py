@@ -219,6 +219,7 @@ def expand(
     soft_weights: SoftWeights | None = None,
     biology_intervals: list[DayInterval] | None = None,
     include_blackouts: bool = True,
+    week_anchor: int = 0,
 ) -> Problem:
     """Build a solver Problem from the catalog.
 
@@ -249,4 +250,5 @@ def expand(
         availability=availability or {},
         soft_weights=soft_weights or SoftWeights(),
         biology_intervals=biology_intervals or [],
+        week_anchor=week_anchor,
     )

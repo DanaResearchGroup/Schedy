@@ -25,6 +25,7 @@ from .calendar_engine import (
     order_inversions,
     realize,
     teaching_days_by_template,
+    week_anchor,
 )
 from .domain import BOX_MINUTES, BOXES_PER_DAY, DAY_START_MIN, Schedule, SessionType
 from .evaluator import evaluate
@@ -53,11 +54,28 @@ def _calendar_from_dict(raw: dict) -> SemesterCalendar:
     )
 
 
+def _stored_week_anchor(store: Store) -> int:
+    """Weekday the stored semester actually starts teaching on (Sunday if unset).
+
+    Order-sensitive rules rank days from here. A calendar that is missing or
+    half-entered simply leaves the default Sunday-first week in place rather
+    than blocking a solve.
+    """
+    raw = store.get_setting("calendar")
+    if not raw:
+        return 0
+    try:
+        return week_anchor(_calendar_from_dict(raw))
+    except (KeyError, TypeError, ValueError):
+        return 0
+
+
 def _problem(store: Store):
     return catalog_mod.expand(
         store.list_courses(),
         offered_rows=store.get_setting("offered_rows") or None,
         availability=_load_availability(store),
+        week_anchor=_stored_week_anchor(store),
     )
 
 
@@ -254,6 +272,8 @@ def create_app(store: Store | None = None) -> FastAPI:
             "total_days": len(days),
             "teaching_days": sum(1 for d in days if d.is_teaching),
             "weeks": (days[-1].week_index + 1) if days else 0,
+            # Weekday the teaching week starts on — what ordering rules rank from.
+            "week_anchor": week_anchor(cal),
             "template_counts": {t: len(ds) for t, ds in teaching.items()},
             "substituted_days": [
                 {"date": d.date.isoformat(), "template": d.template}
@@ -270,7 +290,10 @@ def create_app(store: Store | None = None) -> FastAPI:
                 {"course_number": o.course_number, "week_index": o.week_index,
                  "lecture_date": o.lecture_date.isoformat(),
                  "exercise_date": o.exercise_date.isoformat(),
-                 "exercise_group": o.exercise_group}
+                 "exercise_group": o.exercise_group,
+                 "cause": o.cause, "weeks": o.weeks,
+                 "lecture_box": o.lecture_box,
+                 "exercise_box": o.exercise_box}
                 for o in inversions
             ],
         }

@@ -131,6 +131,42 @@ def test_solver_minimises_elective_core_overlap_when_avoidable():
     assert result.evaluation.soft_penalty == 0
 
 
+def _mon_or_thu_lecture_and_exercise(week_anchor: int) -> Problem:
+    """One lecture + one exercise for a course, both squeezed into Mon/Thu box 0.
+
+    Their people are free nowhere else, and the pair shares a cohort, so the
+    solver must put one on Monday and the other on Thursday — the only open
+    question is which way round. That is exactly the ordering preference.
+    """
+    lec = lecture("lec", "C1", length=1, lecturer_ids=("lx",))
+    ex = Session(id="ex", course_number="C1", type=SessionType.EXERCISE,
+                 length_boxes=1, cohorts=frozenset({CHEME2}), ta_ids=("tx",))
+    only_mon_thu = {(d, b) for d in range(5) for b in range(10)} - {(1, 0), (4, 0)}
+    return Problem(
+        sessions=[lec, ex],
+        availability={"lx": only_mon_thu, "tx": only_mon_thu},
+        week_anchor=week_anchor,
+    )
+
+
+def test_solver_puts_lecture_first_in_a_sunday_start_week():
+    result = solve(_mon_or_thu_lecture_and_exercise(week_anchor=0), time_limit_s=5)
+    assert result.solved
+    places = result.schedule.placements
+    assert places["lec"].day == 1 and places["ex"].day == 4  # Mon then Thu
+    assert result.evaluation.soft_penalty == 0
+
+
+def test_solver_puts_lecture_first_in_a_tuesday_start_week():
+    # A semester opening on Tuesday runs Tue..Mon, so Thursday comes first and
+    # Monday comes last: the lecture belongs on Thursday, the exercise on Monday.
+    result = solve(_mon_or_thu_lecture_and_exercise(week_anchor=2), time_limit_s=5)
+    assert result.solved
+    places = result.schedule.placements
+    assert places["lec"].day == 4 and places["ex"].day == 1  # Thu then Mon
+    assert result.evaluation.soft_penalty == 0
+
+
 def test_solver_respects_lecturer_availability():
     a = lecture("a", "C1", length=1, lecturer_ids=("dr_x",))
     # dr_x unavailable every box on every day except Thursday box 0.

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from schedy.calendar_engine import (
+    CAUSE_SUBSTITUTION,
+    CAUSE_TEMPLATE_ORDER,
     SemesterCalendar,
     lost_sessions,
     meeting_counts,
@@ -14,6 +16,7 @@ from schedy.calendar_engine import (
     order_inversions,
     realize,
     teaching_days_by_template,
+    week_anchor,
 )
 from schedy.domain import (
     Cohort,
@@ -146,3 +149,80 @@ def test_order_inversion_positive_case():
     assert inv[0].exercise_date == TUE
     assert inv[0].lecture_date == WED
     assert inv[0].exercise_group == "SE011"
+    # The template order is fine; only this week's swap flipped it.
+    assert inv[0].cause == CAUSE_SUBSTITUTION
+    assert inv[0].weeks == 1
+
+
+# --------------------------------------------------------------------------- #
+# Semester start weekday: the teaching week does not have to begin on Sunday
+# --------------------------------------------------------------------------- #
+
+def test_week_anchor_is_the_first_teaching_day():
+    assert week_anchor(SemesterCalendar(start=SUN, end=THU)) == 0
+    assert week_anchor(SemesterCalendar(start=TUE, end=THU)) == 2
+    # Fri/Sat never teach, so a weekend start rolls forward to the Sunday.
+    assert week_anchor(SemesterCalendar(start=FRI, end=THU + timedelta(days=7))) == 0
+    # A blocked first day rolls forward too.
+    assert week_anchor(
+        SemesterCalendar(start=TUE, end=THU, blocked_dates={TUE})) == 3
+    # No teaching days at all -> the Sunday-first default.
+    assert week_anchor(SemesterCalendar(start=FRI, end=SAT)) == 0
+
+
+def _mon_lecture_thu_exercise(anchor: int):
+    """Lecture on Monday, exercise on Thursday, judged from `anchor`."""
+    lec = _lecture(day=1, box=0)
+    ex = _exercise(day=4, box=4)
+    problem = Problem(sessions=[lec, ex], week_anchor=anchor)
+    schedule = Schedule()
+    schedule.place(lec.id, day=1, start_box=0, room_id="hall1")
+    schedule.place(ex.id, day=4, start_box=4, room_id="room3")
+    return problem, schedule
+
+
+def test_sunday_start_leaves_monday_lecture_before_thursday_exercise():
+    cal = SemesterCalendar(start=SUN, end=SUN + timedelta(days=27))  # 4 weeks
+    problem, schedule = _mon_lecture_thu_exercise(anchor=0)
+    assert order_inversions(cal, schedule, problem) == []
+
+
+def test_mid_week_start_reports_one_recurring_inversion_not_one_per_week():
+    # Semester opens on a Tuesday, so its weeks run Tue..Mon: the Thursday
+    # exercise is reached before the Monday lecture, every single week.
+    cal = SemesterCalendar(start=TUE, end=TUE + timedelta(days=27))  # 4 weeks
+    problem, schedule = _mon_lecture_thu_exercise(anchor=2)
+
+    inv = order_inversions(cal, schedule, problem)
+    assert len(inv) == 1                      # collapsed, not one row per week
+    assert inv[0].cause == CAUSE_TEMPLATE_ORDER
+    assert inv[0].weeks == 4                  # ...but its reach is reported
+    assert inv[0].week_index == 0
+    assert inv[0].exercise_date == THU        # first Thursday
+    assert inv[0].lecture_date == MON + timedelta(days=7)  # the Monday after it
+
+
+def test_same_weekday_inversion_is_caught_by_the_box_not_the_date():
+    # Lecture and exercise both on Monday, exercise the earlier hour. The dates
+    # are equal every week, so only the box distinguishes them — comparing bare
+    # dates would silently drop this.
+    cal = SemesterCalendar(start=SUN, end=SUN + timedelta(days=20))  # 3 weeks
+    lec = _lecture(day=1, box=5)
+    ex = _exercise(day=1, box=2)
+    problem = Problem(sessions=[lec, ex])
+    schedule = Schedule()
+    schedule.place(lec.id, day=1, start_box=5, room_id="hall1")
+    schedule.place(ex.id, day=1, start_box=2, room_id="room3")
+
+    inv = order_inversions(cal, schedule, problem)
+    assert len(inv) == 1
+    assert inv[0].cause == CAUSE_TEMPLATE_ORDER
+    assert inv[0].weeks == 3                            # every Monday
+    assert inv[0].exercise_date == inv[0].lecture_date  # same day...
+    assert (inv[0].exercise_box, inv[0].lecture_box) == (2, 5)  # ...earlier hour
+
+    # The reverse order on the same day is fine and must stay unreported.
+    ok = Schedule()
+    ok.place(lec.id, day=1, start_box=2, room_id="hall1")
+    ok.place(ex.id, day=1, start_box=5, room_id="room3")
+    assert order_inversions(cal, ok, problem) == []
