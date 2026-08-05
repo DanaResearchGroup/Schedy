@@ -145,11 +145,12 @@ def create_app(store: Store | None = None) -> FastAPI:
     # ---- reset ------------------------------------------------------ #
     @app.post("/reset")
     def reset_everything(confirm: bool = False) -> dict:
-        """Erase the catalog and every stored setting — back to a first run.
+        """Erase the current term's catalog and settings — back to a first run.
 
-        Irreversible, so it is gated twice: the UI asks the planner to approve,
-        and the request itself must carry ``?confirm=true``. Saved schedule
-        files on disk are left alone, as is the saves-folder preference.
+        Scoped to the term in hand: other terms, and the department-wide faculty
+        registry, are untouched. Irreversible, so it is gated twice: the UI asks
+        the planner to approve, and the request itself must carry
+        ``?confirm=true``. Saved schedule files on disk are left alone.
         """
         if not confirm:
             raise HTTPException(400, "reset requires ?confirm=true")
