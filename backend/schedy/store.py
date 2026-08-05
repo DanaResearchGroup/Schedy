@@ -21,7 +21,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
 from .catalog import Course
-from .domain import CourseRole, Program
+from .domain import CourseLevel, CourseRole, Program
 
 SEMESTERS = ("winter", "spring")
 
@@ -96,6 +96,7 @@ def course_to_dict(c: Course) -> dict:
     d = asdict(c)
     d["programs"] = [p.value for p in c.programs]
     d["role"] = c.role.value
+    d["level"] = c.level.value if c.level is not None else None
     return d
 
 
@@ -103,6 +104,9 @@ def course_from_dict(d: dict) -> Course:
     d = dict(d)
     d["programs"] = [Program(p) for p in d.get("programs", [])]
     d["role"] = CourseRole(d.get("role", "core"))
+    # Absent or null means "derive from the number" — never a stamped value.
+    lvl = d.get("level")
+    d["level"] = CourseLevel(lvl) if lvl else None
     return Course(**d)
 
 

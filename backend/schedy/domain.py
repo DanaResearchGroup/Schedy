@@ -73,6 +73,19 @@ class Program(str, Enum):
     CHEME_CHEM = "ChemE-Chemistry"
 
 
+class CourseLevel(str, Enum):
+    """Who may take a course — distinct from `CourseRole`, which is what it is.
+
+    Graduate and joint courses obey a hard mutual non-overlap rule that ordinary
+    undergraduate electives do not: a graduate student combines a handful of
+    courses from a small pool, so any clash between them is untakeable rather
+    than merely unfortunate.
+    """
+    UG = "ug"
+    JOINT = "joint"
+    GRAD = "grad"
+
+
 class CourseRole(str, Enum):
     CORE = "core"
     ELECTIVE = "elective"
@@ -167,6 +180,7 @@ class Session:
     is_remote: bool = False                  # Zoom-only -> prefer morning/late
     expected_enrollment: int = 0
     role: CourseRole = CourseRole.CORE
+    level: CourseLevel = CourseLevel.UG
     # For multi-day labs: the id of the alternative-group this session belongs
     # to. Sessions sharing a lab_group are day-alternatives; each served cohort
     # must keep >=1 attainable alternative (cross-day satisfiability).
@@ -224,6 +238,9 @@ class FixedEvent:
     room_id: str | None = None
     is_blackout: bool = False
     is_external_course: bool = False
+    # Another faculty's graduate or joint course blocks by *level*, not by
+    # cohort: it has no cohort of ours, yet our graduate courses must avoid it.
+    level: CourseLevel | None = None
 
     @property
     def interval(self) -> DayInterval:

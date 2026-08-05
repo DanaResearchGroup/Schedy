@@ -15,7 +15,7 @@ import io
 import math
 
 from .catalog import Course
-from .domain import CourseRole, Program
+from .domain import CourseLevel, CourseRole, Program
 
 # Column order of the CSV/Excel file. This header IS the format spec.
 COLUMNS = [
@@ -24,7 +24,7 @@ COLUMNS = [
     "expected_enrollment", "needs_computer_farm", "is_remote",
     "is_external", "ext_day", "ext_start_min", "ext_end_min", "ext_room",
     "lecturer_ids", "ta_ids",
-    "offered", "skip_reason", "credit",
+    "offered", "skip_reason", "credit", "level",
 ]
 
 
@@ -55,6 +55,7 @@ def _course_to_row(c: Course) -> dict:
         "lecturer_ids": _join(c.lecturer_ids), "ta_ids": _join(c.ta_ids),
         "offered": _bool(c.offered), "skip_reason": c.skip_reason,
         "credit": "" if c.credit is None else c.credit,
+        "level": c.level.value if c.level is not None else "",
     }
 
 
@@ -113,6 +114,21 @@ def _offered(s) -> bool:
     return s not in ("0", "false", "no", "n", "f", "לא")
 
 
+def _level(s) -> CourseLevel | None:
+    """Explicit level, or None to let the course number decide.
+
+    A blank cell is not "undergraduate" — it means the planner never overrode
+    the numbering, so files written before this column existed keep deriving.
+    """
+    s = str(s if s is not None else "").strip().lower()
+    if not s:
+        return None
+    try:
+        return CourseLevel(s)
+    except ValueError:
+        return None
+
+
 def row_to_course(row: dict) -> Course | None:
     """Build a Course from one record; returns None for a number-less row."""
     number = str(row.get("number", "")).strip()
@@ -141,6 +157,7 @@ def row_to_course(row: dict) -> Course | None:
         ext_room=str(row.get("ext_room") or "").strip() or None,
         lecturer_ids=_split(row.get("lecturer_ids")),
         ta_ids=_split(row.get("ta_ids")),
+        level=_level(row.get("level")),
         offered=_offered(row.get("offered")),
         skip_reason=str(row.get("skip_reason") or "").strip(),
         credit=_opt_float(row.get("credit")),

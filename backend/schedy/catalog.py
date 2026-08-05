@@ -16,6 +16,7 @@ from .domain import (
     DAY_START_MIN,
     NUM_DAYS,
     Cohort,
+    CourseLevel,
     CourseRole,
     FixedEvent,
     Problem,
@@ -26,6 +27,21 @@ from .domain import (
     DayInterval,
     standing_blackouts,
 )
+
+
+# The department's numbering encodes who a course is for. Anything else belongs
+# to another faculty, where no convention holds — so it is assumed undergraduate
+# (much the commoner case) until the planner says otherwise.
+_LEVEL_PREFIXES = {
+    "0054": CourseLevel.UG,
+    "0056": CourseLevel.JOINT,
+    "0058": CourseLevel.GRAD,
+}
+
+
+def suggest_level(number: str | None) -> CourseLevel:
+    """The level a course number implies. Only ever a suggestion."""
+    return _LEVEL_PREFIXES.get(str(number or "").strip()[:4], CourseLevel.UG)
 
 
 @dataclass
@@ -67,9 +83,23 @@ class Course:
     # written before this field existed leave it unset, so no migration is needed.
     credit: float | None = None
 
+    # Who may take it. Left unset the number decides (see `suggest_level`), so
+    # an existing catalog and older files need no migration; set explicitly for
+    # the courses whose numbering does not follow our convention.
+    level: CourseLevel | None = None
+
     @property
     def cohorts(self) -> frozenset[Cohort]:
         return frozenset(Cohort(p, self.year) for p in self.programs)
+
+    @property
+    def effective_level(self) -> CourseLevel:
+        return self.level if self.level is not None else suggest_level(self.number)
+
+    @property
+    def is_grad_level(self) -> bool:
+        """Graduate or joint — the two that share the hard non-overlap rule."""
+        return self.effective_level in (CourseLevel.GRAD, CourseLevel.JOINT)
 
 
 def _course_sessions(
@@ -83,7 +113,7 @@ def _course_sessions(
         course_number=c.number, cohorts=cohorts, role=c.role,
         expected_enrollment=c.expected_enrollment,
         needs_computer_farm=c.needs_computer_farm, is_remote=c.is_remote,
-        lecturer_ids=tuple(c.lecturer_ids),
+        lecturer_ids=tuple(c.lecturer_ids), level=c.effective_level,
     )
     if c.lecture_boxes > 0:
         fd, fb = _fixed_for(placements, c.number, "lecture", None)
@@ -129,6 +159,7 @@ def _external_event(c: Course) -> FixedEvent | None:
         id=f"ext-{c.number}", label=c.name_en or c.name_he or c.number,
         day=c.ext_day, start_min=c.ext_start_min, end_min=c.ext_end_min,
         cohorts=c.cohorts, room_id=c.ext_room, is_external_course=True,
+        level=c.effective_level,
     )
 
 
