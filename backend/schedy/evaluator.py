@@ -244,6 +244,15 @@ def _check_single_session(problem, placed, w, out: list[Violation]) -> None:
                 (s.id,),
             ))
 
+        # A published session is pinned to its room; moving it would change a
+        # schedule students have already been given.
+        if s.fixed_room is not None and pl.room_id != s.fixed_room:
+            out.append(Violation(
+                "room_pin_broken", HARD,
+                f"{s.id} is pinned to room {s.fixed_room} but sits in {pl.room_id}.",
+                (s.id,),
+            ))
+
         # Availability: every occupied (day, box) must be free for all people.
         for person in s.people:
             unavail = problem.availability.get(person, set())

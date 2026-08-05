@@ -74,6 +74,15 @@ class ModelBuilder:
     # ------------------------------------------------------------------ #
     def _candidate_rooms(self, s: Session) -> list[int]:
         rooms = self.problem.rooms
+        # A pinned room is the only candidate — including when it no longer fits
+        # (enrolment can be edited after a schedule is published). Narrowing to
+        # it here rather than adding an equality constraint keeps the model
+        # satisfiable, so the mismatch surfaces as a `capacity_exceeded`
+        # violation the planner can read instead of a bare INFEASIBLE.
+        if s.fixed_room is not None:
+            pinned = self._room_index(s.fixed_room)
+            if pinned is not None:
+                return [pinned]
         cands = []
         for i, r in enumerate(rooms):
             if s.needs_computer_farm and not r.is_computer_farm:
@@ -198,7 +207,12 @@ class ModelBuilder:
                 m.AddBoolOr([before, after])
 
     def _hard_fixed_placements(self) -> None:
-        """Pin skeleton-fixed sessions to their (day, box) — room stays free."""
+        """Pin fixed sessions to their day, box and room.
+
+        A skeleton import pins only the hour; a published session pins all three.
+        The room pin is applied in `_candidate_rooms`, which leaves the variable
+        no other value to take.
+        """
         m = self.model
         for s in self.problem.sessions:
             v = self.vars[s.id]

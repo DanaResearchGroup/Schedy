@@ -173,13 +173,19 @@ class Session:
     lab_group: str | None = None
     # Skeleton-fixed placement (option a): when the imported university skeleton
     # gives this session a concrete weekday/time, it is pinned there — a hard
-    # constraint for the solver and the editor. Room is still solver-chosen.
+    # constraint for the solver and the editor.
     fixed_day: int | None = None
     fixed_box: int | None = None
+    # Room pin. The skeleton dictates the hour but not our room, so an imported
+    # session leaves this None. A *published* session sets it: freezing the hour
+    # alone would let a later solve honour every published time while quietly
+    # reshuffling rooms, which is not a frozen schedule.
+    fixed_room: str | None = None
 
     @property
     def is_fixed(self) -> bool:
-        return self.fixed_day is not None or self.fixed_box is not None
+        return (self.fixed_day is not None or self.fixed_box is not None
+                or self.fixed_room is not None)
 
     @property
     def people(self) -> tuple[str, ...]:
