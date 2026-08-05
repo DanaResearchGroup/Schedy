@@ -37,6 +37,33 @@ def test_catalog_csv_roundtrip_preserves_every_field():
     assert b.ext_room == "Math"
 
 
+def test_offered_flag_and_reason_survive_a_roundtrip():
+    courses = [
+        Course(number="00540777", programs=[Program.CHEME], year=3,
+               role=CourseRole.ELECTIVE, lecture_boxes=2,
+               offered=False, skip_reason="Prof. X sabbatical 2026"),
+        Course(number="00540315", programs=[Program.CHEME], year=2, lecture_boxes=2),
+    ]
+    back = {c.number: c for c in from_csv(to_csv(courses))}
+    assert back["00540777"].offered is False
+    assert back["00540777"].skip_reason == "Prof. X sabbatical 2026"
+    assert back["00540315"].offered is True
+
+
+def test_catalog_file_without_offered_column_stays_offered():
+    # Files exported before the column existed must not silently empty the
+    # semester — a missing or blank cell means offered.
+    legacy = (
+        "number,name_en,programs,year,role,lecture_boxes\n"
+        "00540315,Thermo,ChemE,2,core,2\n"
+    )
+    back = from_csv(legacy)
+    assert len(back) == 1 and back[0].offered is True
+
+    blank = "number,lecture_boxes,offered\n00540315,2,\n"
+    assert from_csv(blank)[0].offered is True
+
+
 def test_template_is_self_consistent():
     back = from_csv(template_csv())
     assert len(back) >= 1

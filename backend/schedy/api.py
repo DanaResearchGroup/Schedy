@@ -122,6 +122,20 @@ def create_app(store: Store | None = None) -> FastAPI:
     def health() -> dict:
         return {"status": "ok", "courses": len(store.list_courses())}
 
+    # ---- reset ------------------------------------------------------ #
+    @app.post("/reset")
+    def reset_everything(confirm: bool = False) -> dict:
+        """Erase the catalog and every stored setting — back to a first run.
+
+        Irreversible, so it is gated twice: the UI asks the planner to approve,
+        and the request itself must carry ``?confirm=true``. Saved schedule
+        files on disk are left alone, as is the saves-folder preference.
+        """
+        if not confirm:
+            raise HTTPException(400, "reset requires ?confirm=true")
+        cleared = store.reset(keep_settings=("saves_dir",))
+        return {"reset": True, **cleared}
+
     # ---- catalog ---------------------------------------------------- #
     @app.get("/catalog/courses")
     def list_courses() -> list[dict]:

@@ -25,6 +25,9 @@ export interface Course {
   ext_room?: string | null;
   lecturer_ids?: string[];
   ta_ids?: string[];
+  // Sitting out this semester? Absent means offered (older catalogs).
+  offered?: boolean;
+  skip_reason?: string;
 }
 
 export const ROOMS: { id: string; name: string; capacity: number; farm?: boolean }[] = [

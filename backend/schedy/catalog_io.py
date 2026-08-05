@@ -23,6 +23,7 @@ COLUMNS = [
     "expected_enrollment", "needs_computer_farm", "is_remote",
     "is_external", "ext_day", "ext_start_min", "ext_end_min", "ext_room",
     "lecturer_ids", "ta_ids",
+    "offered", "skip_reason",
 ]
 
 
@@ -51,6 +52,7 @@ def _course_to_row(c: Course) -> dict:
         "ext_end_min": "" if c.ext_end_min is None else c.ext_end_min,
         "ext_room": c.ext_room or "",
         "lecturer_ids": _join(c.lecturer_ids), "ta_ids": _join(c.ta_ids),
+        "offered": _bool(c.offered), "skip_reason": c.skip_reason,
     }
 
 
@@ -83,6 +85,20 @@ def _truthy(s) -> bool:
     return str(s).strip().lower() in ("1", "true", "yes", "y", "t", "כן")
 
 
+def _offered(s) -> bool:
+    """Offered-this-term flag, defaulting to True when absent.
+
+    Unlike the other flags this one must default the other way: catalog files
+    written before the column existed have no cell here, and reading those as
+    "not offered" would silently empty the whole semester. Only an explicit
+    negative takes a course out.
+    """
+    s = str(s if s is not None else "").strip().lower()
+    if not s:
+        return True
+    return s not in ("0", "false", "no", "n", "f", "לא")
+
+
 def row_to_course(row: dict) -> Course | None:
     """Build a Course from one record; returns None for a number-less row."""
     number = str(row.get("number", "")).strip()
@@ -111,6 +127,8 @@ def row_to_course(row: dict) -> Course | None:
         ext_room=str(row.get("ext_room") or "").strip() or None,
         lecturer_ids=_split(row.get("lecturer_ids")),
         ta_ids=_split(row.get("ta_ids")),
+        offered=_offered(row.get("offered")),
+        skip_reason=str(row.get("skip_reason") or "").strip(),
     )
 
 

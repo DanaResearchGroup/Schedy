@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import asdict
 
 from .catalog import Course
@@ -85,6 +86,24 @@ class Store:
         row = self.conn.execute(
             "SELECT value FROM settings WHERE key=?", (key,)).fetchone()
         return json.loads(row["value"]) if row else default
+
+    # ---- reset ------------------------------------------------------ #
+    def reset(self, keep_settings: Sequence[str] = ()) -> dict[str, int]:
+        """Drop every course and setting — the planner's "start over".
+
+        ``keep_settings`` names keys that survive: a machine preference such as
+        the saved-schedules folder is not planning data. Returns what was
+        removed, so the caller can report it.
+        """
+        keep = tuple(keep_settings)
+        where = f" WHERE key NOT IN ({','.join('?' * len(keep))})" if keep else ""
+        courses = self.conn.execute("SELECT COUNT(*) FROM courses").fetchone()[0]
+        settings = self.conn.execute(
+            "SELECT COUNT(*) FROM settings" + where, keep).fetchone()[0]
+        self.conn.execute("DELETE FROM courses")
+        self.conn.execute("DELETE FROM settings" + where, keep)
+        self.conn.commit()
+        return {"courses": int(courses), "settings": int(settings)}
 
     def close(self) -> None:
         self.conn.close()

@@ -40,6 +40,13 @@ async function json<T>(res: Response): Promise<T> {
 export const api = {
   health: () => fetch(`${BASE}/health`).then(json<{ status: string; courses: number }>),
 
+  // Wipes the catalog and every setting. The server demands confirm=true so a
+  // stray call can't empty the database.
+  reset: () =>
+    fetch(`${BASE}/reset?confirm=true`, { method: "POST" }).then(
+      json<{ reset: boolean; courses: number; settings: number }>,
+    ),
+
   listCourses: () => fetch(`${BASE}/catalog/courses`).then(json<Course[]>),
 
   upsertCourse: (c: Course) =>
