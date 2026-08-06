@@ -32,9 +32,18 @@ weighted soft ladder.
 ### `parser` + `validator` (pure)
 - `parser.parse_rows` locates columns by **Hebrew header text** (robust to
   reordering) and yields `OfferedSession`s, filtered to relevant course numbers.
-  `parse_skeleton` is the thin file shell.
+  Columns the scheduler reasons about become fields; every other named column is
+  carried verbatim in `details`, so the review screen shows a course's whole
+  record without a field per column. `parse_skeleton` is the thin file shell.
 - `validator.find_missing` checks the parsed skeleton against a user-defined
   `ChecklistItem` list (matches dedicated groups like *HEDVA 13* by substring).
+
+### `coi_io` (pure)
+Reads the hand-maintained **courses-of-interest** file — the list of course
+numbers that filters the skeleton on import. Deliberately tolerant: CSV or Excel,
+headed (`number,name`, either order, Hebrew or English) or a bare list of numbers,
+and `normalize_number` restores the leading zeros Excel strips off `00540315`.
+Format and examples: [`examples/README.md`](https://github.com/DanaResearchGroup/Schedy/blob/main/examples/README.md).
 
 ## Engine
 
@@ -60,8 +69,9 @@ SQLite persistence: `courses` table + JSON `settings`. Single-planner local app.
 **no** university XLSX writeback.
 
 ### `api`
-FastAPI: catalog CRUD, availability, skeleton parse/validate, solve, CSV/PDF
-export. Thin — all logic lives in the engine modules.
+FastAPI: catalog CRUD, courses-of-interest file import/export, availability,
+skeleton parse/validate, solve, CSV/PDF export. Thin — all logic lives in the
+engine modules.
 
 ## Test coverage
 
@@ -69,7 +79,8 @@ export. Thin — all logic lives in the engine modules.
 | --- | --- |
 | calendar_engine | realize, substitutions, counts, deficits, inversions |
 | evaluator | one scenario per hard & soft rule (incl. Thermo lab) |
-| parser / validator | column mapping, group codes, missing items, real XLSX smoke |
+| parser / validator | column mapping, pass-through details, group codes, missing items, real XLSX smoke |
+| coi_io | headed / bare / Excel shapes, leading-zero repair, round trips |
 | model_builder / solver | cohort separation, capacity/farm routing, blackout, soft min, availability |
 | exporters | CSV golden, PDF smoke |
 | api | full catalog → solve → export pipeline |

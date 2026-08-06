@@ -28,8 +28,15 @@ then hands the planner an **editable, live-validated** result.
   teach; blocks become hard constraints on re-solve.
 - **Semester calendar** — semester dates, blocked days, and day-substitutions;
   Analyze reports teaching-day counts, uneven sessions, and order inversions.
-- **Skeleton import** — upload the Technion XLSX; it's parsed and filtered to your
-  catalog in an **editable** table; offered groups drive the solve and any
+- **Two files in, a term's schedule out** — load the university's skeletal
+  schedule (the Technion XLSX) plus your **courses-of-interest** file, a small
+  CSV/Excel list of the course numbers you actually care about that barely
+  changes year to year. The list filters the university-wide skeleton down to
+  your courses, and every one of them comes through with its **whole record** —
+  building, staff, language, weekly hours, enrolment, exam dates. See
+  [examples/](examples/) for both formats.
+- **Skeleton import** — the filtered rows land in an **editable** table (expand
+  any row for its full record); offered groups drive the solve and any
   grid-aligned day/time is **pinned** as a hard fixed placement (🔒).
 - **Bilingual** Hebrew (RTL) / English UI.
 - **Exports** — printable PDF timetables: one weekly grid page **per cohort**
@@ -44,6 +51,7 @@ backend/        Python engine + FastAPI API
     calendar_engine.py   dated-calendar overlay (pure)
     evaluator.py         hard/soft violations — the correctness core (pure)
     parser.py            Technion skeleton XLSX -> sessions (pure core)
+    coi_io.py            courses-of-interest file -> course numbers (pure)
     validator.py         must-exist checklist -> missing items (pure)
     model_builder.py     Problem -> CP-SAT model
     solver.py            run + best-effort + evaluator report
@@ -52,9 +60,10 @@ backend/        Python engine + FastAPI API
     exporters.py         CSV + PDF
     api.py               FastAPI orchestration
     sample_data.py       illustrative demo catalog
-  tests/                 73 tests
+  tests/                 156 tests
 frontend/       React + TS + Vite — tabs: Schedule / Catalog / Availability / Calendar / Import
 docs/           PRD + MkDocs documentation source (incl. windows.md)
+examples/       the two input files, in the exact formats expected
 raw/            constraints spec + example Technion skeleton
 environment.yml conda env (Python 3.14)
 mkdocs.yml      HTML docs config
@@ -66,7 +75,7 @@ mkdocs.yml      HTML docs config
 conda env create -f environment.yml
 conda activate schedy
 cd backend && pip install -e .
-pytest                 # 73 passing
+pytest                 # 156 passing
 ```
 
 ## Run

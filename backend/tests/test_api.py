@@ -146,6 +146,17 @@ def test_evaluate_live_revalidation(client):
 
 REAL_XLSX = os.path.join(os.path.dirname(__file__), "..", "..", "raw", "30.4.26.XLSX")
 
+# The committed example pair (examples/README.md documents them). Unlike the real
+# skeleton these ship with the repo, so tests over them always run.
+_EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "..", "examples")
+EXAMPLE_SKELETON = os.path.join(_EXAMPLES, "skeleton-example.xlsx")
+EXAMPLE_INTEREST = os.path.join(_EXAMPLES, "courses-of-interest.csv")
+
+
+def _upload(client, url, path, name):
+    with open(path, "rb") as fh:
+        return client.post(url, files={"file": (name, fh.read())})
+
 
 def test_people_registry_roundtrip_and_import(client):
     client.post("/catalog/courses", json={
@@ -173,6 +184,83 @@ def test_courses_of_interest_roundtrip(client):
     assert client.get("/courses-of-interest").json() == items
 
 
+def test_courses_of_interest_template_export_and_import(client):
+    tmpl = client.get("/courses-of-interest/template.csv")
+    assert tmpl.status_code == 200
+    assert tmpl.content.startswith(b"\xef\xbb\xbf")     # BOM, so Excel reads Hebrew
+    assert "attachment" in tmpl.headers["content-disposition"]
+
+    r = client.post("/courses-of-interest/import",
+                    files={"file": ("list.csv", tmpl.content, "text/csv")})
+    assert r.status_code == 200
+    assert len(r.json()) == 3
+    assert client.get("/courses-of-interest").json() == r.json()
+
+    # Exporting gives back a file our own importer reads to the same list.
+    exp = client.get("/courses-of-interest/export.csv")
+    again = client.post("/courses-of-interest/import",
+                        files={"file": ("list.csv", exp.content, "text/csv")})
+    assert again.json() == r.json()
+
+
+def test_courses_of_interest_import_accepts_a_bare_list(client):
+    r = client.post("/courses-of-interest/import",
+                    files={"file": ("list.csv", b"00540315\n00540319\n", "text/csv")})
+    assert [it["number"] for it in r.json()] == ["00540315", "00540319"]
+
+
+def test_courses_of_interest_import_restores_stripped_zeros(client):
+    """A list that has been through Excel must still match the skeleton."""
+    r = client.post("/courses-of-interest/import",
+                    files={"file": ("list.csv", b"number\n540315\n", "text/csv")})
+    assert [it["number"] for it in r.json()] == ["00540315"]
+
+
+def test_courses_of_interest_import_explains_a_legacy_xls(client):
+    ole2 = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512
+    r = client.post("/courses-of-interest/import",
+                    files={"file": ("list.xls", ole2, "application/vnd.ms-excel")})
+    assert r.status_code == 400
+    assert "Save As" in r.json()["detail"]      # not "File is not a zip file"
+
+
+def test_courses_of_interest_import_rejects_an_empty_file(client):
+    client.put("/courses-of-interest", json={"items": [{"number": "00540319"}]})
+    r = client.post("/courses-of-interest/import",
+                    files={"file": ("list.csv", b"number,name\n", "text/csv")})
+    assert r.status_code == 400
+    # The existing list is left alone rather than silently emptied.
+    assert client.get("/courses-of-interest").json() == [
+        {"number": "00540319", "name": ""}]
+
+
+def test_example_files_filter_the_skeleton_as_documented(client):
+    """The pair shipped in examples/ must behave the way its README says."""
+    coi = _upload(client, "/courses-of-interest/import",
+                  EXAMPLE_INTEREST, "courses-of-interest.csv")
+    assert [it["number"] for it in coi.json()] == ["00540315", "00540319", "01040031"]
+
+    body = _upload(client, "/skeleton/upload",
+                   EXAMPLE_SKELETON, "skeleton-example.xlsx").json()
+    assert body["count"] == 6
+    kept = {o["course_number"] for o in body["offered"]}
+    assert kept == {"00540315", "00540319", "01040031"}
+    # The two courses off the list are gone; the whole file had five.
+    assert set(client.get("/skeleton/course-numbers").json()["numbers"]) == kept | {
+        "00940411", "02340114"}
+
+    lecture = next(o for o in body["offered"]
+                   if o["course_number"] == "00540315" and o["event_type"] == "lecture")
+    assert lecture["details"]["building"] == "בניין הנדסה כימית"
+    assert lecture["details"]["exam_a_date"] == "2026-02-11"
+    assert lecture["person"] == "מרצה א׳"
+    assert lecture["pinned"] is True
+
+    # 01040031 starts at 09:00 — off the grid, so it imports unanchored.
+    calculus = next(o for o in body["offered"] if o["course_number"] == "01040031")
+    assert calculus["pinned"] is False
+
+
 @pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
 def test_skeleton_course_numbers_are_unfiltered(client):
     # The check must see the FULL university-wide skeleton, not just our catalog.
@@ -190,18 +278,65 @@ def test_skeleton_course_numbers_are_unfiltered(client):
 
 
 @pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
-def test_skeleton_upload_filters_to_catalog(client):
-    # Catalog knows course 00940411 -> upload filters the skeleton to it.
-    client.post("/catalog/courses", json={
-        "number": "00940411", "programs": ["ChemE"], "year": 1, "role": "core",
-        "lecture_boxes": 3,
-    })
+def test_skeleton_upload_filters_to_courses_of_interest(client):
+    # The interest list — not the catalog — decides what survives the import.
+    client.put("/courses-of-interest",
+               json={"items": [{"number": "00940411", "name": ""}]})
     with open(REAL_XLSX, "rb") as f:
         r = client.post("/skeleton/upload", files={"file": ("skeleton.xlsx", f)})
     assert r.status_code == 200
     body = r.json()
     assert body["count"] > 0
     assert all(o["course_number"] == "00940411" for o in body["offered"])
+    assert "warning" not in body
+
+
+@pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
+def test_a_catalog_course_off_the_interest_list_is_not_imported(client):
+    """The catalog no longer widens the import; only the list does."""
+    client.post("/catalog/courses", json={
+        "number": "00940411", "programs": ["ChemE"], "year": 1, "role": "core",
+        "lecture_boxes": 3,
+    })
+    client.put("/courses-of-interest",
+               json={"items": [{"number": "00540319", "name": ""}]})
+    with open(REAL_XLSX, "rb") as f:
+        body = client.post("/skeleton/upload", files={"file": ("s.xlsx", f)}).json()
+    assert all(o["course_number"] != "00940411" for o in body["offered"])
+
+
+@pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
+def test_skeleton_upload_without_an_interest_list_keeps_nothing(client):
+    # Not an error: the file parsed and its course numbers are remembered, but
+    # nothing yet says which of them we care about, so nothing is kept.
+    client.post("/catalog/courses", json={
+        "number": "00940411", "programs": ["ChemE"], "year": 1, "role": "core",
+        "lecture_boxes": 3,
+    })
+    with open(REAL_XLSX, "rb") as f:
+        r = client.post("/skeleton/upload", files={"file": ("s.xlsx", f)})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] == 0
+    assert body["offered"] == []
+    assert body["warning"] == "no_courses_of_interest"
+    # The university-wide numbers are still stored, so the checklist works.
+    assert client.get("/skeleton/course-numbers").json()["imported"] is True
+
+
+@pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
+def test_skeleton_upload_keeps_the_whole_record(client):
+    client.put("/courses-of-interest",
+               json={"items": [{"number": "00940411", "name": ""}]})
+    with open(REAL_XLSX, "rb") as f:
+        body = client.post("/skeleton/upload", files={"file": ("s.xlsx", f)}).json()
+    row = body["offered"][0]
+    for key in ("faculty", "language", "person", "details"):
+        assert key in row
+    assert row["details"]["weekly_hours"]           # a pass-through column
+    assert row["details"]["academic_level"]
+    # The identity columns are never persisted.
+    assert "employee" not in str(row) and "ת.ז" not in str(row)
 
 
 @pytest.mark.skipif(not os.path.exists(REAL_XLSX), reason="real skeleton not present")
@@ -212,6 +347,8 @@ def test_skeleton_groups_drive_solve(client):
         "number": "00940411", "programs": ["ChemE"], "year": 1, "role": "core",
         "lecture_boxes": 3, "exercise_boxes": 2, "num_exercise_groups": 1,
     })
+    client.put("/courses-of-interest",
+               json={"items": [{"number": "00940411", "name": ""}]})
     with open(REAL_XLSX, "rb") as f:
         up = client.post("/skeleton/upload", files={"file": ("s.xlsx", f)}).json()
     assert up["count"] > 0
