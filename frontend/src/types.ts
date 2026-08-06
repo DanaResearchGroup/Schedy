@@ -197,4 +197,10 @@ export interface OfferedRow {
   package: string;
   row: number;
   pinned?: boolean;
+  faculty?: string;
+  language?: string;
+  person?: string;
+  // Every other named column of the skeleton, slug -> text, in display order.
+  // Blank cells are absent, so a missing key just means the export said nothing.
+  details?: Record<string, string>;
 }

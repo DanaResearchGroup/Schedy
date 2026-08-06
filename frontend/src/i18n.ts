@@ -220,10 +220,27 @@ export const STRINGS = {
   },
   coiTitle: { he: "קורסים שלנו לבדיקה", en: "Our courses to verify" },
   coiHint: {
-    he: "הגדר את מספרי הקורסים שמעניינים אותנו. נוודא שכל אחד מופיע בשלד שיובא. ניתן לעדכן בכל סמסטר.",
-    en: "Define the course numbers we care about; we verify each appears in the imported skeleton. Update it each term.",
+    he: "רשימת מספרי הקורסים שמעניינים אותנו — היא שמסננת את השלד בייבוא: קורס שאינו ברשימה לא ייובא. משתנה מעט משנה לשנה, אז נוח לטעון אותה מקובץ.",
+    en: "The course numbers we care about — this list is what filters the skeleton on import: a course not listed is not imported. It changes only slightly year to year, so keep it in a file and load it.",
   },
   addNumber: { he: "הוסף מספר קורס", en: "Add course number" },
+  coiImport: { he: "טען קובץ קורסים", en: "Load courses file" },
+  coiExport: { he: "ייצא רשימה", en: "Export list" },
+  coiTemplate: { he: "הורד תבנית", en: "Download template" },
+  coiImportConfirm: {
+    he: "טעינת קובץ תחליף את הרשימה הנוכחית. להמשיך?",
+    en: "Loading a file replaces the current list. Continue?",
+  },
+  coiFileHint: {
+    he: "CSV או Excel, עם כותרת number,name או פשוט רשימת מספרים. אפסים מובילים מושלמים אוטומטית.",
+    en: "CSV or Excel, with a number,name header or just a bare list of numbers. Leading zeros are restored automatically.",
+  },
+  coiLoaded: { he: "נטענו {n} קורסים", en: "Loaded {n} courses" },
+  importNeedsCoi: {
+    he: "השלד נקרא, אך רשימת הקורסים שלנו ריקה — לכן לא יובאה אף שורה. טען את הרשימה בלשונית הבדיקה ואז ייבא שוב.",
+    en: "The skeleton was read, but our courses-of-interest list is empty — so no rows were imported. Load the list in the Checklist tab, then import again.",
+  },
+  showDetails: { he: "הצג את כל פרטי השורה", en: "Show the row's full record" },
   checkImportFirst: {
     he: "ייבא שלד (בלשונית ייבוא) כדי לבדוק זמינות.",
     en: "Import a skeleton (Import tab) to check availability.",
@@ -278,6 +295,45 @@ export const ROLE_LABEL: Record<string, Record<Lang, string>> = {
   replacement: { he: "חלופי", en: "replacement" },
   lab: { he: "מעבדה", en: "lab" },
 };
+
+// Labels for the pass-through skeleton columns (parser._DETAIL_HEADERS). The
+// review screen renders whatever `details` keys a row happens to carry, so an
+// unlabelled key falls back to its slug rather than disappearing.
+export const DETAIL_LABEL: Record<string, Record<Lang, string>> = {
+  // First-class row fields shown alongside the pass-through ones.
+  person: { he: "אדם מוקצה", en: "Assigned person" },
+  faculty: { he: "פקולטה", en: "Faculty" },
+  language: { he: "שפת הוראת אירוע", en: "Event language" },
+  building: { he: "בניין", en: "Building" },
+  academic_level: { he: "רמה אקדמית", en: "Academic level" },
+  course_language: { he: "שפת הוראת מקצוע", en: "Course language" },
+  weekly_hours: { he: "שעות הוראה בשבוע", en: "Hours per week" },
+  central_planning: { he: "תכנון מרכזי", en: "Central planning" },
+  room_approval_status: { he: "סטאטוס אישור חדר", en: "Room approval" },
+  registered_ug: { he: "רשומים UG", en: "Registered UG" },
+  requests_ug: { he: "בקשות רישום UG", en: "Requests UG" },
+  waitlist_ug: { he: "רשימת המתנה UG", en: "Waitlist UG" },
+  registered_ug_total: { he: 'רשומים UG סה"כ', en: "Registered UG (total)" },
+  requests_ug_total: { he: 'בקשות רישום UG סה"כ', en: "Requests UG (total)" },
+  waitlist_ug_total: { he: 'רשימת המתנה UG סה"כ', en: "Waitlist UG (total)" },
+  registered_gr: { he: "רשומים GR", en: "Registered GR" },
+  requests_gr: { he: "בקשות רישום GR", en: "Requests GR" },
+  registered_gr_total: { he: 'רשומים GR סה"כ', en: "Registered GR (total)" },
+  requests_gr_total: { he: 'בקשות רישום GR סה"כ', en: "Requests GR (total)" },
+  grad_package_capacity: { he: "קיבולת חבילת מוסמכים", en: "Grad package capacity" },
+  exam_a_date: { he: "מועד א", en: "Exam A" },
+  exam_b_date: { he: "מועד ב", en: "Exam B" },
+  quiz_date: { he: "בחן", en: "Quiz" },
+  show_in_catalog: { he: "מוצג בקטלוג", en: "Shown in catalog" },
+  course_in_tens: { he: "מקצוע בעשרה", en: "Course in tens" },
+  semester_note: { he: "הערה לסמסטר", en: "Semester note" },
+  semester_note_2: { he: "הערה לסמסטר 2", en: "Semester note 2" },
+  semester_note_3: { he: "הערה לסמסטר 3", en: "Semester note 3" },
+};
+
+export function detailLabel(key: string, lang: Lang): string {
+  return DETAIL_LABEL[key]?.[lang] ?? key;
+}
 
 export const DAY_NAMES: Record<Lang, string[]> = {
   en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],

@@ -25,6 +25,9 @@ export interface EvalResult {
 export interface UploadResult {
   count: number;
   offered: OfferedRow[];
+  // "no_courses_of_interest": the file parsed, but nothing says which courses we
+  // care about, so nothing was kept. Not an error — the list just isn't loaded.
+  warning?: string;
 }
 
 // Dev: "/api" (Vite proxies it to the backend, stripping the prefix).
@@ -159,6 +162,16 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items }),
     }).then(json<CourseOfInterest[]>),
+
+  coiExportUrl: () => `${BASE}/courses-of-interest/export.csv`,
+  coiTemplateUrl: () => `${BASE}/courses-of-interest/template.csv`,
+
+  importCoursesOfInterest: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetch(`${BASE}/courses-of-interest/import`, { method: "POST", body: fd })
+      .then(json<CourseOfInterest[]>);
+  },
 
   exportCsvUrl: () => `${BASE}/export/csv`,
   exportPdfUrl: (layout: "cohort" | "flat" = "cohort") =>

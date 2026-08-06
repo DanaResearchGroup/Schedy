@@ -386,6 +386,15 @@ table.data.editable td { padding: 0.25rem 0.4rem; }
 .cell { width: 100%; min-width: 64px; padding: 0.25rem; border: 1px solid var(--border); border-radius: 5px; font-size: 0.82rem; color: var(--ink); background: #fff; }
 td .cell[type=time] { min-width: 96px; }
 
+/* ---- expanded skeleton row: the course's whole record ---- */
+/* The detail cell spans the table, so it lays its pairs out on its own grid —
+   it fills across before it wraps down, whatever the browser width. */
+table.data tr.detail-row td { background: #f8fafc; padding: 0.6rem 1rem; }
+.row-name { font-weight: 600; margin-bottom: 0.5rem; }
+.row-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.35rem 1.2rem; margin: 0; }
+.row-details dt { color: var(--muted); font-size: 0.78rem; }
+.row-details dd { margin: 0; font-size: 0.85rem; }
+
 /* ---- violations ---- */
 .violations ul { list-style: none; padding: 0; margin: 0; }
 .violations li { padding: 0.4rem 0.2rem; font-size: 0.85rem; border-bottom: 1px solid var(--border); cursor: pointer; }
