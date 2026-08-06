@@ -28,6 +28,8 @@ export interface Course {
   // Sitting out this semester? Absent means offered (older catalogs).
   offered?: boolean;
   skip_reason?: string;
+  // Academic credit points (e.g. 2.5). Absent for pre-existing catalogs.
+  credit?: number | null;
 }
 
 export const ROOMS: { id: string; name: string; capacity: number; farm?: boolean }[] = [

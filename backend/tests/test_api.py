@@ -79,6 +79,14 @@ def test_export_before_solve_is_404(client):
     assert client.get("/export/csv").status_code == 404
 
 
+def test_credit_persists_through_upsert(client):
+    course = _core("00540319", "dr_a")
+    course["credit"] = 2.5
+    assert client.post("/catalog/courses", json=course).status_code == 200
+    got = {c["number"]: c for c in client.get("/catalog/courses").json()}
+    assert got["00540319"]["credit"] == 2.5
+
+
 def test_export_after_deleting_a_solved_course_does_not_500(client):
     # Solve with two courses, then delete one. The last-schedule setting still
     # holds a placement for the removed session; the export path must ignore

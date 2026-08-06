@@ -71,6 +71,7 @@ export const STRINGS = {
   labHours: { he: "שעות מעבדה", en: "Lab hours" },
   labDays: { he: "ימי מעבדה", en: "Lab days" },
   enrollment: { he: "מספר נרשמים צפוי", en: "Expected enrollment" },
+  credit: { he: "נקודות זכות", en: "Credit points" },
   computerFarm: { he: "דורש חוות מחשבים", en: "Needs computer farm" },
   remote: { he: "מקוון (זום)", en: "Remote (Zoom)" },
   external: { he: "קורס חיצוני (קבוע)", en: "External course (fixed)" },

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from schedy.catalog import Course
 from schedy.catalog_io import from_csv, template_csv, to_csv
 from schedy.domain import CourseRole, Program
@@ -62,6 +64,37 @@ def test_catalog_file_without_offered_column_stays_offered():
 
     blank = "number,lecture_boxes,offered\n00540315,2,\n"
     assert from_csv(blank)[0].offered is True
+
+
+def test_credit_points_survive_a_roundtrip():
+    courses = [
+        Course(number="00540315", programs=[Program.CHEME], year=2,
+               lecture_boxes=2, credit=3.5),
+        Course(number="00540777", programs=[Program.CHEME], year=3, lecture_boxes=2),
+    ]
+    back = {c.number: c for c in from_csv(to_csv(courses))}
+    assert back["00540315"].credit == 3.5
+    assert back["00540777"].credit is None  # unset stays unset, never coerced to 0
+
+
+def test_catalog_file_without_credit_column_leaves_it_unset():
+    # Files exported before the column existed have no cell here; a missing or
+    # blank credit must read as unset (None), never 0.0.
+    legacy = (
+        "number,name_en,programs,year,role,lecture_boxes\n"
+        "00540315,Thermo,ChemE,2,core,2\n"
+    )
+    assert from_csv(legacy)[0].credit is None
+    blank = "number,lecture_boxes,credit\n00540315,2,\n"
+    assert from_csv(blank)[0].credit is None
+
+
+def test_credit_rejects_non_finite_and_negative():
+    # A crafted file could slip nan/inf past float() (they serialize as invalid
+    # JSON downstream) or a negative credit; both must fail the import loudly.
+    for bad in ("nan", "inf", "-inf", "-1"):
+        with pytest.raises(ValueError):
+            from_csv(f"number,lecture_boxes,credit\n00540315,2,{bad}\n")
 
 
 def test_template_is_self_consistent():
