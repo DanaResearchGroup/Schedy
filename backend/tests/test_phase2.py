@@ -156,3 +156,45 @@ def test_dropping_a_provisional_course_frees_its_hours(client):
     r = client.post("/solve/grad", json={"time_limit_s": 10}).json()
     assert r["solved"]
     assert "00580001-lec" not in r["placements"]
+
+
+# ---- found in adversarial review (spar round 1) ------------------------ #
+
+def test_phase_two_will_not_finalise_while_a_stand_in_is_unconfirmed(client):
+    # A provisional course is last year's guess holding an hour. Phase 2 is where
+    # the planner replaces the guess with the truth, so finalising around one
+    # would publish a course nobody confirmed is running.
+    client.post("/catalog/courses", json=_ug("00540001"))
+    client.post("/catalog/courses", json=_grad("00580001", provisional=True))
+    _publish(client)
+
+    r = client.post("/solve/grad", json={"time_limit_s": 5})
+    assert r.status_code == 409
+    assert "00580001" in r.text
+
+
+def test_phase_two_runs_once_the_stand_ins_are_confirmed_or_dropped(client):
+    client.post("/catalog/courses", json=_ug("00540001"))
+    client.post("/catalog/courses", json=_grad("00580001", provisional=True))
+    _publish(client)
+
+    got = next(c for c in client.get("/catalog/courses").json()
+               if c["number"] == "00580001")
+    client.post("/catalog/courses", json={**got, "provisional": False})
+    assert client.post("/solve/grad", json={"time_limit_s": 10}).status_code == 200
+
+
+def test_a_provisional_course_stays_off_the_graduate_timetable(client):
+    # Phase 1 exports are real documents; a placeholder must not appear on one as
+    # though it were a course.
+    from schedy.exporters import graduate_grid_cells
+    client.post("/catalog/courses", json=_ug("00540001"))
+    client.post("/catalog/courses", json=_grad("00580001", provisional=True))
+    client.post("/catalog/courses", json=_grad("00580002"))
+    client.post("/solve", json={"time_limit_s": 10})
+
+    from schedy.api import _problem, _schedule_from
+    problem = _problem(client.store)
+    sched = _schedule_from(problem, client.store.get_setting("last_schedule"))
+    numbers = {c.course_number for c in graduate_grid_cells(problem, sched)}
+    assert numbers == {"00580002"}

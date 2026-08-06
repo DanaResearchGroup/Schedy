@@ -173,35 +173,49 @@ class ModelBuilder:
                 m.AddNoOverlap(ivs)
 
     def _hard_grad_level(self) -> None:
-        """Graduate-level sessions share one no-overlap set.
+        """Graduate-level sessions may not overlap — the model half of `_grad_clash`.
 
-        Joint courses are exempt from each other, so they cannot simply join the
-        set: a joint session is instead forbidden to overlap each *graduate*
-        session pairwise. Graduate sessions themselves are mutually exclusive.
-
-        Cross-day lab alternatives sit out, mirroring the cohort rule — they are
-        meant to overlap other things. Exercise groups of one course stay in;
+        Joint courses are exempt from each other (D1), alternatives of one
+        cross-day lab are exempt from each other (a student takes the lab on one
+        of the offered days), and everything else that is graduate-level is
+        mutually exclusive. Exercise groups of one course stay in;
         `_hard_same_course_ta` already separates them, so nothing changes.
+
+        Another faculty's courses arrive as fixed walls carrying a level, and the
+        level has to mean the same thing there: a *graduate* wall excludes every
+        graduate and joint session, while two *joint* walls may overlap each
+        other — treating them alike would forbid that and could make the model
+        infeasible over a rule that does not exist.
+
+        Built pairwise rather than as one no-overlap set, because the exemptions
+        are per-pair: a set cannot say "these two may overlap each other but
+        neither may overlap that third one". At three or four graduate courses a
+        term the pair count is trivial, and mirroring `_grad_clash` exactly is
+        what keeps the model and the evaluator from drifting apart.
         """
         m = self.model
-        grad = [s for s in self.problem.sessions
-                if s.level is CourseLevel.GRAD and not s.lab_group]
-        joint = [s for s in self.problem.sessions
-                 if s.level is CourseLevel.JOINT and not s.lab_group]
 
-        ivs = [self.vars[s.id].interval for s in grad]
-        # Another faculty's graduate/joint course is an immovable obstacle.
+        # (interval, level, lab_group) for everything the rule reaches. A wall is
+        # another faculty's course: immovable, and belonging to no lab group.
+        items: list[tuple] = [
+            (self.vars[s.id].interval, s.level, s.lab_group)
+            for s in self.problem.sessions
+            if s.level in (CourseLevel.GRAD, CourseLevel.JOINT)
+        ]
         for fe in self.problem.fixed_events:
             if fe.is_blackout or fe.level not in (CourseLevel.GRAD, CourseLevel.JOINT):
                 continue
             b0, b1 = _interval_to_abs_boxes(fe.interval)
-            ivs.append(m.NewIntervalVar(b0, b1 - b0, b1, f"ext_grad_{fe.id}"))
-        if len(ivs) > 1:
-            m.AddNoOverlap(ivs)
+            items.append(
+                (m.NewIntervalVar(b0, b1 - b0, b1, f"ext_grad_{fe.id}"), fe.level, None))
 
-        for j in joint:
-            for g in grad:
-                m.AddNoOverlap([self.vars[j.id].interval, self.vars[g.id].interval])
+        for i, (iv_a, lvl_a, lab_a) in enumerate(items):
+            for iv_b, lvl_b, lab_b in items[i + 1:]:
+                if lvl_a is CourseLevel.JOINT and lvl_b is CourseLevel.JOINT:
+                    continue                       # D1: joint x joint is allowed
+                if lab_a is not None and lab_a == lab_b:
+                    continue                       # alternatives of one lab
+                m.AddNoOverlap([iv_a, iv_b])
 
     def _hard_person(self) -> None:
         m = self.model

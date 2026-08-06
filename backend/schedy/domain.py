@@ -199,6 +199,10 @@ class Session:
     # solver, but only this one is a promise already made to students: the
     # planner may drag a skeleton anchor and may not drag this.
     is_published: bool = False
+    # A stand-in for a course not yet confirmed (last year's, rolled over). It
+    # constrains the week exactly like a real course — that is its job — but it
+    # is a guess, so it must never reach an output meant for students.
+    provisional: bool = False
 
     @property
     def is_fixed(self) -> bool:

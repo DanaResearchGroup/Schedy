@@ -110,6 +110,17 @@ class Course:
 
     @property
     def cohorts(self) -> frozenset[Cohort]:
+        """The undergraduate year-groups this course belongs to.
+
+        A graduate course has none (PRD D4): a graduate student is not
+        "ChemE Y2", and their protection is the level rule, not a cohort. This is
+        enforced here rather than left to the form, because the catalog form
+        starts every new course as ChemE Y2 — so a course typed as `0058…` would
+        otherwise carry an undergraduate cohort it would then double-book and
+        appear on the timetable page of.
+        """
+        if self.effective_level is CourseLevel.GRAD:
+            return frozenset()
         return frozenset(Cohort(p, self.year) for p in self.programs)
 
     @property
@@ -134,6 +145,7 @@ def _course_sessions(
         expected_enrollment=c.expected_enrollment,
         needs_computer_farm=c.needs_computer_farm, is_remote=c.is_remote,
         lecturer_ids=tuple(c.lecturer_ids), level=c.effective_level,
+        provisional=c.provisional,
     )
     if c.lecture_boxes > 0:
         fd, fb = skeleton_slot(placements, c.number, "lecture", None)

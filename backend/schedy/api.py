@@ -153,6 +153,8 @@ def _session_meta(problem) -> dict:
             "is_remote": s.is_remote,
             "fixed": s.is_fixed,
             "published": s.is_published,
+            "provisional": s.provisional,
+            "level": s.level.value,
             "enrollment": s.expected_enrollment,
             "needs_farm": s.needs_computer_farm,
             "lab_group": s.lab_group,
@@ -815,6 +817,16 @@ def create_app(store: Store | None = None) -> FastAPI:
             raise HTTPException(409, "publish the term before appending graduate "
                                      "courses")
 
+        # Phase 2 is where last year's guesses become this year's facts. A
+        # provisional course held its hours through phase 1 on purpose, but
+        # finalising around one would schedule a course nobody has confirmed is
+        # running — and print it on the graduate timetable.
+        unconfirmed = sorted(c.number for c in store.list_courses() if c.provisional)
+        if unconfirmed:
+            raise HTTPException(
+                409, "confirm or remove the provisional course(s) first: "
+                     + ", ".join(unconfirmed))
+
         problem = _problem(store)
         result = solve(problem, time_limit_s=float(payload.get("time_limit_s", 10)))
         if not result.solved:
@@ -863,11 +875,17 @@ def create_app(store: Store | None = None) -> FastAPI:
         placements_in = payload.get("placements", {})
         problem = _problem(store)
         sched = _schedule_from(problem, placements_in)
-        store.set_setting("last_schedule", {
-            sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
-            for sid, pl in sched.placements.items()
-        })
         evaluation = evaluate(problem, sched)
+        # Evaluate first, and refuse to persist an edit that breaks the freeze.
+        # The exports read `last_schedule`, so persisting such an edit would put
+        # a published session somewhere the students were never told about.
+        breaks_freeze = any(v.kind in ("published_moved", "room_pin_broken")
+                            for v in evaluation.violations)
+        if not breaks_freeze:
+            store.set_setting("last_schedule", {
+                sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
+                for sid, pl in sched.placements.items()
+            })
         return {
             "feasible": evaluation.is_feasible,
             "soft_penalty": evaluation.soft_penalty,

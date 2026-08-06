@@ -452,3 +452,35 @@ def test_loading_a_save_that_predates_terms_needs_no_confirmation(client, tmp_pa
         "schema": 1, "name": "old", "created_at": "2020-01-01T00:00:00",
         "stats": {}, "payload": {"courses": [], "placements": {}}}))
     assert client.post("/schedules/old/load").status_code == 200
+
+
+# ---- found in adversarial review (spar round 1) ------------------------ #
+
+def test_an_edit_that_breaks_a_publication_is_not_persisted(client):
+    # /evaluate persists so exports reflect manual edits. An edit that breaks the
+    # freeze must not be the one it persists — the exports are what the students
+    # were given.
+    client.post("/catalog/courses", json=_course("00540001"))
+    placements = _solve(client)
+    _publish(client, confirm=True)
+    before = client.store.get_setting("last_schedule")
+
+    p = placements["00540001-lec"]
+    moved = {"00540001-lec": {**p, "day": (p["day"] + 1) % 5}}
+    r = client.post("/evaluate", json={"placements": moved}).json()
+
+    assert "published_moved" in [v["kind"] for v in r["violations"]]
+    assert client.store.get_setting("last_schedule") == before   # unchanged
+
+
+def test_a_legal_edit_is_still_persisted(client):
+    client.post("/catalog/courses", json=_course("00540001"))
+    client.post("/catalog/courses", json=_course("00580001"))        # grad, fluid
+    _solve(client)
+    _publish(client, confirm=True)
+
+    placements = dict(client.store.get_setting("last_schedule"))
+    g = placements["00580001-lec"]
+    placements["00580001-lec"] = {**g, "day": (g["day"] + 1) % 5}
+    client.post("/evaluate", json={"placements": placements})
+    assert client.store.get_setting("last_schedule") == placements

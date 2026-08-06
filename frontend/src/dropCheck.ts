@@ -33,6 +33,24 @@ export function canDrop(
     return a0 < b1 && b0 < a1;
   };
 
+  // Graduate-level courses may not overlap each other (grad x grad and
+  // grad x joint are hard; joint x joint is allowed). Mirrors the evaluator's
+  // `_grad_clash`, including its exemptions: alternatives of one cross-day lab,
+  // and exercise groups of a single course.
+  const gradLevel = (m: SessionMeta) => m.level === "grad" || m.level === "joint";
+  if (gradLevel(s)) {
+    for (const [oid, p] of Object.entries(placements)) {
+      if (oid === sid || p.day !== day) continue;
+      const o = sessions[oid];
+      if (!o || !gradLevel(o)) continue;
+      if (s.level === "joint" && o.level === "joint") continue;
+      if (s.lab_group != null && s.lab_group === o.lab_group) continue;
+      if (s.course_number === o.course_number
+          && s.type === "exercise" && o.type === "exercise") continue;
+      if (overlaps(p.start_box, o.length_boxes)) return false;
+    }
+  }
+
   // Forbidden regions: blackouts close every cohort (hard for everyone). An
   // external wall only blocks its own cohorts — and even then only as a SOFT
   // cost for electives (elective_vs_core), so the hint must not reject those.

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from schedy.catalog import Course, expand, suggest_level
 from schedy.catalog_io import from_csv, to_csv
-from schedy.domain import CourseLevel, CourseRole, Program
+from schedy.domain import Cohort, CourseLevel, CourseRole, Program
 from schedy.store import course_from_dict, course_to_dict
 
 
@@ -115,3 +115,21 @@ def test_role_and_level_are_independent():
     c = _course("00580310", role=CourseRole.ELECTIVE)
     assert c.role is CourseRole.ELECTIVE
     assert c.effective_level is CourseLevel.GRAD
+
+
+# ---- found in adversarial review (spar round 1) ------------------------ #
+
+def test_a_graduate_course_carries_no_cohort_even_if_given_programmes():
+    # D4 is structural, not a UI convention: the catalog form starts every new
+    # course as ChemE Y2, so typing a 0058 number would otherwise leave the
+    # graduate course carrying an undergraduate cohort — double-booking that
+    # cohort and printing on its timetable page.
+    c = Course(number="00580310", programs=[Program.CHEME], year=2)
+    assert c.effective_level is CourseLevel.GRAD
+    assert c.cohorts == frozenset()
+
+
+def test_a_joint_course_keeps_its_undergraduate_cohort():
+    # Joint courses are largely undergraduate-attended; they are cohort courses.
+    c = Course(number="00560310", programs=[Program.CHEME], year=2)
+    assert c.cohorts == frozenset({Cohort(Program.CHEME, 2)})

@@ -137,6 +137,10 @@ export interface SessionMeta {
   fixed: boolean;
   // Frozen by publication — already handed to students, so it cannot be dragged.
   published?: boolean;
+  // A stand-in for a course not yet confirmed: it holds hours through phase 1.
+  provisional?: boolean;
+  // Who may take it — drives the hard graduate non-overlap rule.
+  level?: CourseLevel;
   enrollment: number;
   needs_farm: boolean;
   lab_group: string | null;

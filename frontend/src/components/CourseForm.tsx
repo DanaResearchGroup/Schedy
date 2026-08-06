@@ -96,24 +96,33 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
         </p>
       )}
 
-      <fieldset>
-        <legend>{t("programs", lang)}</legend>
-        {level === "grad" && <p className="note">{t("levelGradHint", lang)}</p>}
-        {PROGRAMS.map((p) => (
-          <label key={p} className="chk">
-            <input type="checkbox" checked={c.programs.includes(p)}
-              onChange={() => toggleProgram(p)} />
-            {p}
-          </label>
-        ))}
-      </fieldset>
+      {/* A graduate course belongs to no cohort (D4), so programme and year say
+          nothing about it — `Course.cohorts` ignores them either way, and
+          leaving the controls up would invite the planner to set a value that
+          silently does nothing. */}
+      {level === "grad" ? (
+        <p className="note">{t("levelGradHint", lang)}</p>
+      ) : (
+        <fieldset>
+          <legend>{t("programs", lang)}</legend>
+          {PROGRAMS.map((p) => (
+            <label key={p} className="chk">
+              <input type="checkbox" checked={c.programs.includes(p)}
+                onChange={() => toggleProgram(p)} />
+              {p}
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       <div className="row">
-        <label>{t("year", lang)}
-          <select value={c.year} onChange={(e) => set({ year: Number(e.target.value) })}>
-            {[1, 2, 3, 4].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
+        {level !== "grad" && (
+          <label>{t("year", lang)}
+            <select value={c.year} onChange={(e) => set({ year: Number(e.target.value) })}>
+              {[1, 2, 3, 4].map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </label>
+        )}
         <label>{t("role", lang)}
           <select value={c.role} onChange={(e) => set({ role: e.target.value as Role })}>
             {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r][lang]}</option>)}

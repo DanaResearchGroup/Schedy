@@ -123,3 +123,45 @@ describe("canDrop — a published session has no legal target", () => {
     expect(canDrop("anc", 3, 5, "hall6", {}, sessions, [])).toBe(true);
   });
 });
+
+describe("canDrop — the hard graduate rule (mirrors the evaluator)", () => {
+  const grad = (over = {}) => meta({ level: "grad", role: "elective", ...over });
+
+  it("refuses to drop a graduate course onto another graduate course", () => {
+    const sessions: Record<string, SessionMeta> = {
+      a: grad({ course_number: "00580001" }),
+      b: grad({ course_number: "00580002" }),
+    };
+    expect(canDrop("a", 0, 0, "hall6", { b: at(0, 0, "hall1") }, sessions, []))
+      .toBe(false);
+  });
+
+  it("refuses to drop a joint course onto a graduate course", () => {
+    const sessions: Record<string, SessionMeta> = {
+      j: meta({ level: "joint", course_number: "00560001" }),
+      g: grad({ course_number: "00580001" }),
+    };
+    expect(canDrop("j", 0, 0, "hall6", { g: at(0, 0, "hall1") }, sessions, []))
+      .toBe(false);
+  });
+
+  it("lets two joint courses overlap (D1)", () => {
+    // Electives, so the existing cohort rule does not decide this for us — the
+    // point is that the graduate rule alone must not reject it.
+    const sessions: Record<string, SessionMeta> = {
+      a: meta({ level: "joint", role: "elective", course_number: "00560001" }),
+      b: meta({ level: "joint", role: "elective", course_number: "00560002" }),
+    };
+    expect(canDrop("a", 0, 0, "hall6", { b: at(0, 0, "hall1") }, sessions, []))
+      .toBe(true);
+  });
+
+  it("lets alternatives of one cross-day lab overlap each other", () => {
+    const sessions: Record<string, SessionMeta> = {
+      a: grad({ course_number: "00580001", type: "lab", lab_group: "00580001" }),
+      b: grad({ course_number: "00580001", type: "lab", lab_group: "00580001" }),
+    };
+    expect(canDrop("a", 0, 0, "hall6", { b: at(0, 0, "hall1") }, sessions, []))
+      .toBe(true);
+  });
+});

@@ -144,12 +144,17 @@ def graduate_grid_cells(problem: Problem, schedule: Schedule) -> list[GridCell]:
     Graduate courses carry no cohort (PRD D4), so they appear on no per-cohort
     page — this page is what makes that safe. Joint courses belong here too: a
     graduate student combines the two, and their week is both.
+
+    Provisional stand-ins are left off: they hold hours during phase 1, but this
+    page is a timetable handed to students, and a guess has no place on one.
     """
     out: list[GridCell] = []
     for sid, p in schedule.placements.items():
         s = problem.session(sid)
         if s.level not in (CourseLevel.GRAD, CourseLevel.JOINT):
             continue
+        if s.provisional:
+            continue    # a placeholder, not a course anyone can enrol in
         out.append(GridCell(
             session_id=sid, course_number=s.course_number, type=s.type.value,
             group=s.group, room=problem.room(p.room_id).name,

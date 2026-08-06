@@ -250,15 +250,18 @@ All new strings bilingual Hebrew (RTL) / English, per existing convention.
 
 **Level derivation** — each prefix maps correctly; unknown prefixes default to UG;
 a stored level always beats the derived one; a course stored before the field
-existed reads as UG.
+existed has no stored level and so *derives* from its number (D3) — a legacy
+`0058…` course therefore reads as graduate, not UG.
 
 **Clash rules** — grad↔grad hard; grad↔joint hard; joint↔joint produces no hard
 violation; **grad↔grad where both are `role=elective` is still hard** (the `elif`
 trap, as a named regression test); grad↔UG-elective remains soft; a grad
 `FixedEvent` from another faculty blocks a grad session.
 
-**Cohort-less grad** — a grad course with no programs expands without error,
-produces sessions, and triggers no `cohort_double_booked` against anything.
+**Cohort-less grad** — a grad course expands without error, produces sessions,
+and triggers no `cohort_double_booked` against anything. `Course.cohorts` returns
+empty for a graduate course whatever its `programs` say, so D4 holds structurally
+rather than depending on the form clearing the field.
 
 **Publish / freeze** — publishing stamps the term; a published session cannot be
 moved by phase 2, **including its room**; un-publishing requires explicit confirm.

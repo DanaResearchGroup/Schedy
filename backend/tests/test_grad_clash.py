@@ -144,12 +144,17 @@ def test_two_exercise_groups_of_one_course_are_not_a_grad_overlap():
     assert "ta_sessions_coincide" in _hard(ev)   # still caught, by its own rule
 
 
-def test_cross_day_lab_alternatives_are_exempt():
+def test_cross_day_lab_alternatives_are_exempt_from_each_other():
+    # Alternatives of ONE lab: a student takes it on one of the offered days, so
+    # the two offerings overlapping is the arrangement, not a clash. The
+    # exemption stops there — see
+    # `test_a_multi_day_grad_lab_still_clashes_an_unrelated_grad_course`.
     a = sess("a-lab1", "00580310", CourseLevel.GRAD, stype=SessionType.LAB,
              lab_group="00580310")
-    b = sess("b-lec", "00580415", CourseLevel.GRAD)
+    b = sess("a-lab2", "00580310", CourseLevel.GRAD, stype=SessionType.LAB,
+             lab_group="00580310")
     ev = evaluate(Problem(sessions=[a, b], fixed_events=[]),
-                  _at(("a-lab1", 0, 0, "room3"), ("b-lec", 0, 0, "room4")))
+                  _at(("a-lab1", 0, 0, "room3"), ("a-lab2", 0, 0, "room4")))
     assert "grad_overlap" not in _kinds(ev)
 
 
@@ -195,3 +200,58 @@ def test_the_solver_places_ours_clear_of_a_foreign_graduate_course():
     result = solve(Problem(sessions=[ours], fixed_events=[theirs]), time_limit_s=10)
     assert result.solved
     assert "grad_overlap" not in _hard(result.evaluation)
+
+
+# ---- holes found in adversarial review (spar round 1) ------------------ #
+
+def test_a_multi_day_grad_lab_still_clashes_an_unrelated_grad_course():
+    # Cross-day alternatives may overlap *each other* — a student picks one day.
+    # They are not thereby exempt from the rule against other courses: D2 covers
+    # every session, and a cohort-less graduate lab gets no protection from
+    # `lab_cross_day_unsatisfiable`, which reasons entirely about cohorts.
+    lab = sess("g-lab1", "00580001", CourseLevel.GRAD, SessionType.LAB,
+               lab_group="00580001")
+    lec = sess("g2-lec", "00580002", CourseLevel.GRAD)
+    ev = evaluate(Problem(sessions=[lab, lec], fixed_events=[]),
+                  _at(("g-lab1", 0, 0, "hall1"), ("g2-lec", 0, 0, "hall6")))
+    assert "grad_overlap" in _hard(ev)
+
+
+def test_two_alternatives_of_one_grad_lab_may_overlap_each_other():
+    # That is what a cross-day alternative is; only one runs for a given student.
+    a = sess("g-lab1", "00580001", CourseLevel.GRAD, SessionType.LAB,
+             lab_group="00580001")
+    b = sess("g-lab2", "00580001", CourseLevel.GRAD, SessionType.LAB,
+             lab_group="00580001")
+    ev = evaluate(Problem(sessions=[a, b], fixed_events=[]),
+                  _at(("g-lab1", 0, 0, "hall1"), ("g-lab2", 0, 0, "hall6")))
+    assert "grad_overlap" not in _hard(ev)
+
+
+# ---- external walls carry a level, and it has to mean the same thing ---- #
+
+def _ext(fid, day, start_min, end_min, level):
+    return FixedEvent(id=fid, label=fid, day=day, start_min=start_min,
+                      end_min=end_min, cohorts=frozenset(), level=level)
+
+
+def test_the_model_lets_two_external_joint_courses_overlap():
+    # D1: joint x joint is allowed. Putting external joint walls into the same
+    # no-overlap set as the graduate ones forbids it and can make the model
+    # infeasible over a rule that does not exist.
+    a = _ext("ext-j1", 0, 510, 630, CourseLevel.JOINT)
+    b = _ext("ext-j2", 0, 510, 630, CourseLevel.JOINT)
+    one = sess("u-lec", "00540001", CourseLevel.UG, cohorts=frozenset({CHEME2}),
+               role=CourseRole.CORE)
+    result = solve(Problem(sessions=[one], fixed_events=[a, b]), time_limit_s=5)
+    assert result.solved
+
+
+def test_the_model_keeps_a_joint_session_off_an_external_grad_course():
+    # The evaluator calls this hard, so the model must not be free to choose it.
+    wall = _ext("ext-g", 0, 510, 630, CourseLevel.GRAD)
+    joint = sess("j-lec", "00560001", CourseLevel.JOINT)
+    result = solve(Problem(sessions=[joint], fixed_events=[wall]), time_limit_s=5)
+    assert result.solved
+    p = result.schedule.placements["j-lec"]
+    assert not (p.day == 0 and p.start_box < 2)   # 08:30-10:30 is taken

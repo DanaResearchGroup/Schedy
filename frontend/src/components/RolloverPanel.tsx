@@ -47,7 +47,7 @@ export function RolloverPanel({ lang, onDone, onClose }: Props) {
 
   return (
     <div className="form">
-      <h3>{t("rolloverTitle", lang, { term: source ? termLabel(source, lang) : "" })}</h3>
+      <h3>{t("rolloverTitle", lang, { source: source ? termLabel(source, lang) : "" })}</h3>
       {error && <div className="error">{error}</div>}
       <p className="note">{t("rolloverHint", lang)}</p>
 

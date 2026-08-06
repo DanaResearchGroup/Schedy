@@ -100,13 +100,19 @@ def _grad_clash(sa: Session, sb: Session) -> bool:
     Two exemptions, so the rule reports only what it uniquely catches:
       * exercise groups of one course — students attend one, and their
         separation is already `ta_sessions_coincide`;
-      * cross-day lab alternatives, which are meant to overlap other things.
+      * alternatives of *one* cross-day lab, which exist precisely to overlap
+        each other — a student takes the lab on one of the offered days.
+
+    That second exemption is deliberately narrow. Exempting a lab from the rule
+    outright would leave a graduate lab free to sit on any graduate course:
+    `lab_cross_day_unsatisfiable` cannot cover for it, because that check reasons
+    about cohorts and a graduate course has none.
     """
     if not (_is_grad_level(sa) and _is_grad_level(sb)):
         return False
     if sa.level is CourseLevel.JOINT and sb.level is CourseLevel.JOINT:
         return False
-    if sa.lab_group or sb.lab_group:
+    if sa.lab_group is not None and sa.lab_group == sb.lab_group:
         return False
     if (sa.course_number == sb.course_number
             and sa.type is SessionType.EXERCISE and sb.type is SessionType.EXERCISE):

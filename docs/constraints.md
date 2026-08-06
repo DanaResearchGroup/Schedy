@@ -39,7 +39,11 @@ it carries this rule, so joint courses are genuinely pushed out of the hours it
 reserves rather than merely discouraged from them.
 
 Exempt: exercise groups of one course (already `ta_sessions_coincide`) and
-cross-day lab alternatives. The rule also applies against another faculty's
+alternatives of *one* cross-day lab against each other — a student takes the lab
+on one of the offered days. That second exemption is deliberately narrow: a lab
+exempt from the rule outright could sit on any graduate course, and
+`lab_cross_day_unsatisfiable` cannot cover for it, since that check reasons about
+cohorts and a graduate course has none. The rule also applies against another faculty's
 graduate courses, which carry a level on their `FixedEvent` wall — they own no
 cohort of ours, so blocking by cohort would never reach them.
 

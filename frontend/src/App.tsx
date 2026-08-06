@@ -280,6 +280,14 @@ export default function App() {
     try {
       const r = await api.publishTerm(terms.current);
       await refreshTerms();
+      // Re-read the session metadata: `published` is what makes the blocks
+      // refuse to be dragged, and until it is refreshed the week the planner
+      // just froze is still draggable in front of them.
+      if (placements) {
+        const ev = await api.evaluate(placements);
+        setSessions(ev.sessions);
+        setViolations(ev.violations);
+      }
       flash(t("publishDone", lang, { n: String(r.frozen) }));
     } catch (e) {
       setError(String(e));
@@ -293,6 +301,11 @@ export default function App() {
     try {
       await api.unpublishTerm(terms.current);
       await refreshTerms();
+      if (placements) {                      // the blocks are movable again
+        const ev = await api.evaluate(placements);
+        setSessions(ev.sessions);
+        setViolations(ev.violations);
+      }
     } catch (e) {
       setError(String(e));
     }
