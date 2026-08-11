@@ -63,6 +63,10 @@ class Course:
     offered: bool = True
     skip_reason: str = ""
 
+    # Academic credit points (e.g. 2.0, 2.5, 3.0). Optional: catalogs and files
+    # written before this field existed leave it unset, so no migration is needed.
+    credit: float | None = None
+
     @property
     def cohorts(self) -> frozenset[Cohort]:
         return frozenset(Cohort(p, self.year) for p in self.programs)

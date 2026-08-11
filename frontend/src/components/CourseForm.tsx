@@ -84,6 +84,13 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
           <input type="number" min={0} value={c.expected_enrollment ?? 0}
             onChange={(e) => set({ expected_enrollment: Number(e.target.value) })} />
         </label>
+        <label>{t("credit", lang)}
+          <input type="number" min={0} step={0.5} value={c.credit ?? ""}
+            onChange={(e) => {
+              const v = e.target.valueAsNumber;  // NaN for empty/partial input
+              set({ credit: Number.isFinite(v) ? v : null });
+            }} />
+        </label>
       </div>
 
       {/* Offered-this-term. Absent means offered, so an older catalog entry

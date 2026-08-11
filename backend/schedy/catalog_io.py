@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import math
 
 from .catalog import Course
 from .domain import CourseRole, Program
@@ -23,7 +24,7 @@ COLUMNS = [
     "expected_enrollment", "needs_computer_farm", "is_remote",
     "is_external", "ext_day", "ext_start_min", "ext_end_min", "ext_room",
     "lecturer_ids", "ta_ids",
-    "offered", "skip_reason",
+    "offered", "skip_reason", "credit",
 ]
 
 
@@ -53,6 +54,7 @@ def _course_to_row(c: Course) -> dict:
         "ext_room": c.ext_room or "",
         "lecturer_ids": _join(c.lecturer_ids), "ta_ids": _join(c.ta_ids),
         "offered": _bool(c.offered), "skip_reason": c.skip_reason,
+        "credit": "" if c.credit is None else c.credit,
     }
 
 
@@ -79,6 +81,18 @@ def _int(s, default: int = 0) -> int:
 def _opt_int(s):
     s = str(s or "").strip()
     return int(float(s)) if s else None
+
+
+def _opt_float(s):
+    s = str(s or "").strip()
+    if not s:
+        return None
+    v = float(s)  # raises ValueError on non-numeric text, as before
+    # Reject nan/inf (a crafted file could smuggle them past float(); they later
+    # serialize as invalid JSON) and negatives (nonsensical as credit points).
+    if not math.isfinite(v) or v < 0:
+        raise ValueError(f"expected a non-negative finite number, got {s!r}")
+    return v
 
 
 def _truthy(s) -> bool:
@@ -129,6 +143,7 @@ def row_to_course(row: dict) -> Course | None:
         ta_ids=_split(row.get("ta_ids")),
         offered=_offered(row.get("offered")),
         skip_reason=str(row.get("skip_reason") or "").strip(),
+        credit=_opt_float(row.get("credit")),
     )
 
 
