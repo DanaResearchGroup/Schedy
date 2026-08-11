@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date, datetime
 
 import pytest
 
@@ -10,18 +11,23 @@ from schedy.domain import SessionType
 from schedy.parser import parse_rows, parse_skeleton, _extract_group_code
 from schedy.validator import ChecklistItem, find_missing
 
-# A hand-built skeleton mirroring the real column layout (Hebrew headers).
+# A hand-built skeleton mirroring the real column layout (Hebrew headers). The
+# trailing block is the pass-through columns that land in `details`; the total
+# header uses the real file's punctuation (en-dash, gershayim) on purpose.
 HEADER = [
     "מקצוע", "תיאור מקצוע עברית", "תיאור חבילת רישום", "סוג אירוע D",
     "ראשון", "שני", "שלישי", "רביעי", "חמישי",
     "חדר", "פקולטה", "שפת הוראת אירוע", "אדם מוקצה", "תיאור מקצוע אנגלית",
+    "בניין", "שעות הוראה בשבוע", "תאריך מועד א", 'מספר רשומים UG – סה"כ',
 ]
 
 
 def row(course, package, etype, *, sun="", mon="", tue="", wed="", thu="",
-        room="", faculty="הנדסה כימית", lang="HE", person="", en=""):
+        room="", faculty="הנדסה כימית", lang="HE", person="", en="",
+        building="", hours="", exam_a="", registered=""):
     return [course, "קורס", package, etype, sun, mon, tue, wed, thu,
-            room, faculty, lang, person, en]
+            room, faculty, lang, person, en,
+            building, hours, exam_a, registered]
 
 
 def test_parses_event_type_day_and_time():
@@ -68,6 +74,60 @@ def test_row_without_course_number_is_skipped():
 def test_missing_course_column_raises():
     with pytest.raises(ValueError):
         parse_rows(["foo", "bar"], [["a", "b"]])
+
+
+# --------------------------------------------------------------------------- #
+# The whole record: pass-through columns
+# --------------------------------------------------------------------------- #
+
+def test_pass_through_columns_land_in_details():
+    rows = [row("00540319", "SE011", "הרצאה", sun="09:30-10:30",
+                building="בניין הנדסה כימית", hours=4, registered=68)]
+    [s] = parse_rows(HEADER, rows)
+    assert s.details["building"] == "בניין הנדסה כימית"
+    assert s.details["weekly_hours"] == "4"
+    # An en-dash and a gershayim in the header must still match.
+    assert s.details["registered_ug_total"] == "68"
+
+
+def test_blank_cells_are_left_out_of_details():
+    [s] = parse_rows(HEADER, [row("00540319", "SE011", "הרצאה", building="בניין א")])
+    assert "building" in s.details
+    assert "weekly_hours" not in s.details   # blank cell -> absent, not ""
+    assert "exam_a_date" not in s.details
+
+
+def test_date_cells_become_iso_dates():
+    rows = [row("00540319", "SE011", "הרצאה", exam_a=datetime(2026, 2, 11, 9, 0))]
+    [s] = parse_rows(HEADER, rows)
+    assert s.details["exam_a_date"] == "2026-02-11"
+
+    rows = [row("00540319", "SE011", "הרצאה", exam_a=date(2026, 2, 18))]
+    [s] = parse_rows(HEADER, rows)
+    assert s.details["exam_a_date"] == "2026-02-18"
+
+
+def test_details_follow_a_fixed_order_not_the_files_column_order():
+    """Reordering the export must not reorder the review screen."""
+    shuffled = list(HEADER)
+    i, j = shuffled.index("בניין"), shuffled.index("שעות הוראה בשבוע")
+    shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+    cells = row("00540319", "SE011", "הרצאה", building="בניין א", hours=3)
+    cells[i], cells[j] = cells[j], cells[i]
+
+    [s] = parse_rows(shuffled, [cells])
+    assert s.details == {"building": "בניין א", "weekly_hours": "3"}
+    assert list(s.details) == ["building", "weekly_hours"]
+
+
+def test_person_identifier_columns_are_never_captured():
+    """The employee number and national ID are dropped, the name is kept."""
+    header = HEADER + ["אדם מוקצה (מספר עובד)", "אדם מוקצה (ת.ז.)"]
+    cells = row("00540319", "SE011", "הרצאה", person="מרצה א׳") + ["12345", "023456789"]
+    [s] = parse_rows(header, [cells])
+    assert s.person == "מרצה א׳"
+    assert "12345" not in str(s.details)
+    assert "023456789" not in str(s.details)
 
 
 def test_visual_timetable_grid_gives_a_clear_error():

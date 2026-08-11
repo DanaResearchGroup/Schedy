@@ -177,7 +177,7 @@ Weights are tunable by the planner.
 
 ## Implementation Status
 
-> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **73 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
+> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **156 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
 
 ### What is built
 
@@ -200,8 +200,13 @@ Implemented from the ground up, committed module-by-module. Stack as specified: 
 - **Catalog** — full course editor + one-click "Load sample catalog".
 - **Availability** — per-person click grid → hard `person_unavailable` walls on re-solve.
 - **Calendar** — semester dates, blocked days, day-substitutions; Analyze → per-weekday teaching counts, uneven sessions, order inversions.
-- **Import** — Technion XLSX upload, parsed and filtered to the catalog into an
-  editable table (day/time/group); grid-aligned times pin as hard placements (🔒).
+- **Import** — Technion XLSX upload, parsed and filtered to our **courses of
+  interest** into an editable table (day/time/group); each row expands to its
+  whole record (building, staff, hours, enrolment, exam dates…); grid-aligned
+  times pin as hard placements (🔒).
+- **Checklist** — the courses-of-interest list itself: loadable from a CSV/Excel
+  file the planner keeps year to year, exportable, and verified against the
+  university-wide skeleton. This list is what the Import tab filters by.
 
 Exports: CSV and a printable PDF — one weekly Sun–Thu grid page **per cohort**
 (Hebrew names, spanning blocks), or a flat assignments list.

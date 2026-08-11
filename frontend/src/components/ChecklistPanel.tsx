@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { CourseOfInterest } from "../types";
 import { t, type Lang } from "../i18n";
 
-// Courses-of-interest check: the planner lists the course numbers we care about
-// (editable each term) and we verify each one appears in the imported, full
-// university-wide skeleton. Missing courses get a bold red alert; otherwise a
-// simple green all-clear.
+// Courses of interest: the hand-maintained list of course numbers the department
+// cares about. It is the filter applied to the university-wide skeleton on
+// import, so it is a real input file — loadable, exportable, templated — and the
+// table below stays editable for the odd one-off correction.
+//
+// The panel also verifies each number actually appears in the imported skeleton.
+// Missing courses get a bold red alert; otherwise a simple green all-clear.
 export function ChecklistPanel({ lang }: { lang: Lang }) {
   const [items, setItems] = useState<CourseOfInterest[]>([]);
   const [skeleton, setSkeleton] = useState<{ imported: boolean; numbers: string[] }>(
@@ -14,13 +17,28 @@ export function ChecklistPanel({ lang }: { lang: Lang }) {
   );
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([api.getCoursesOfInterest(), api.skeletonCourseNumbers()])
       .then(([coi, sk]) => { setItems(coi); setSkeleton(sk); })
       .catch((e) => setError(String(e)));
   }, []);
+
+  const pickFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (items.length > 0 && !window.confirm(t("coiImportConfirm", lang))) return;
+    setError(null);
+    setLoaded(null);
+    try {
+      const next = await api.importCoursesOfInterest(f);
+      setItems(next);
+      setLoaded(next.length);
+      setDirty(false);
+    } catch (e) { setError(String(e)); }
+  };
 
   const present = useMemo(() => new Set(skeleton.numbers), [skeleton.numbers]);
   const missing = items.filter((it) => it.number && !present.has(it.number));
@@ -58,16 +76,35 @@ export function ChecklistPanel({ lang }: { lang: Lang }) {
     <div className="checklist-panel">
       <p className="muted">{t("coiHint", lang)}</p>
       {error && <div className="error">{error}</div>}
+      {loaded !== null && (
+        <div className="check-banner ok">
+          {t("coiLoaded", lang).replace("{n}", String(loaded))}
+        </div>
+      )}
 
       {banner}
 
       <div className="toolbar">
+        <input ref={fileRef} type="file" accept=".csv,.xlsx,.xlsm" hidden
+          onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
+        <button className="primary" onClick={() => fileRef.current?.click()}>
+          {t("coiImport", lang)}
+        </button>
+        <a className="ghost" href={api.coiTemplateUrl()} download>
+          {t("coiTemplate", lang)}
+        </a>
+        {items.length > 0 && (
+          <a className="ghost" href={api.coiExportUrl()} download>
+            {t("coiExport", lang)}
+          </a>
+        )}
         <button className="ghost" onClick={addRow}>＋ {t("addNumber", lang)}</button>
         <div className="spacer" />
         <button className="primary" disabled={!dirty || saving} onClick={save}>
           {saving ? t("saving", lang) : t("save", lang)}
         </button>
       </div>
+      <p className="muted">{t("coiFileHint", lang)}</p>
 
       <table className="data editable coi-table">
         <thead>

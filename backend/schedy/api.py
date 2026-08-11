@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import catalog as catalog_mod
 from . import catalog_io
+from . import coi_io
 from .archive import Archive
 from .calendar_engine import (
     SemesterCalendar,
@@ -316,19 +317,23 @@ def create_app(store: Store | None = None) -> FastAPI:
 
     @app.post("/skeleton/upload")
     async def skeleton_upload(file: UploadFile = File(...)) -> dict:
-        """Upload a Technion skeleton XLSX; parse it, filtered to catalog courses."""
+        """Upload a Technion skeleton XLSX, filtered to our courses of interest.
+
+        The university-wide file is thousands of rows; the interest list is the
+        few dozen course numbers the department maintains by hand. Only those
+        survive, and for each surviving row the whole record is kept.
+        """
         data = await file.read()
-        relevant = {c.number for c in store.list_courses()} or None
+        relevant = _interest_numbers()
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
             tmp.write(data)
             path = tmp.name
         try:
             # Parse the whole skeleton once; keep the full course-number set (for
             # the courses-of-interest check against the university-wide file),
-            # then filter to our catalog for the rows that drive the solve.
+            # then filter to the interest list for the rows that drive the solve.
             all_offered = parse_skeleton(path, None)
-            offered = [s for s in all_offered
-                       if relevant is None or s.course_number in relevant]
+            offered = [s for s in all_offered if s.course_number in relevant]
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(400, f"could not parse skeleton: {exc}")
         finally:
@@ -341,10 +346,18 @@ def create_app(store: Store | None = None) -> FastAPI:
              "group_code": s.group_code, "name_he": s.name_he, "name_en": s.name_en,
              "day": s.day, "start_min": s.start_min, "end_min": s.end_min,
              "room": s.room, "package": s.package, "row": s.row,
+             "faculty": s.faculty, "language": s.language, "person": s.person,
+             "details": s.details,
              "pinned": catalog_mod.pinnable(s.day, s.start_min)}
             for s in offered
         ])
-        return {"count": len(offered), "offered": store.get_setting("offered_rows")}
+        out = {"count": len(offered), "offered": store.get_setting("offered_rows")}
+        if not relevant:
+            # Not an error: the file parsed, and the university-wide course
+            # numbers are stored so the checklist still works. There is simply
+            # nothing yet that says which of them we care about.
+            out["warning"] = "no_courses_of_interest"
+        return out
 
     @app.get("/skeleton/rows")
     def get_skeleton_rows() -> list[dict]:
@@ -420,18 +433,52 @@ def create_app(store: Store | None = None) -> FastAPI:
         store.set_setting("people", merged)
         return merged
 
+    # ---- courses of interest --------------------------------------- #
+    # The hand-maintained list of course numbers the department cares about. It
+    # is what filters the university-wide skeleton on import, so it is a real
+    # input file — importable, exportable, and templated like the catalog.
+    def _interest_numbers() -> set[str]:
+        return {it["number"] for it in (store.get_setting("courses_of_interest") or [])
+                if it.get("number")}
+
     @app.get("/courses-of-interest")
     def get_courses_of_interest() -> list[dict]:
-        """Our course numbers to verify against the skeleton (editable per term)."""
+        """Our course numbers; the filter applied to the skeleton on import."""
         return store.get_setting("courses_of_interest") or []
 
     @app.put("/courses-of-interest")
     def put_courses_of_interest(payload: dict = Body(...)) -> list[dict]:
         items = []
         for it in payload.get("items", []):
-            number = str(it.get("number", "")).strip()
+            number = coi_io.normalize_number(it.get("number", ""))
             if number:
                 items.append({"number": number, "name": str(it.get("name", "")).strip()})
+        store.set_setting("courses_of_interest", items)
+        return items
+
+    @app.get("/courses-of-interest/export.csv")
+    def export_courses_of_interest() -> Response:
+        """Download the current list, to version it or carry it to next year."""
+        return _csv_download(
+            coi_io.to_csv(store.get_setting("courses_of_interest") or []),
+            "schedy-courses-of-interest.csv")
+
+    @app.get("/courses-of-interest/template.csv")
+    def courses_of_interest_template() -> Response:
+        """Download a documented example file showing the expected format."""
+        return _csv_download(coi_io.template_csv(),
+                             "schedy-courses-of-interest-template.csv")
+
+    @app.post("/courses-of-interest/import")
+    async def import_courses_of_interest(file: UploadFile = File(...)) -> list[dict]:
+        """Load the list from a CSV/Excel file, replacing the current one."""
+        data = await file.read()
+        try:
+            items = coi_io.from_upload(data, file.filename or "")
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"could not parse courses-of-interest file: {exc}")
+        if not items:
+            raise HTTPException(400, "no course numbers found in the file")
         store.set_setting("courses_of_interest", items)
         return items
 
