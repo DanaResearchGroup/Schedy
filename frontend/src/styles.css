@@ -300,6 +300,8 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .folder-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.3rem 0; }
 .folder-path { flex: 1; background: #f1f5f9; padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .schedules-panel .hint { font-size: 0.76rem; margin: 0.2rem 0 0; }
+.saves-folder .warn { font-size: 0.78rem; margin: 0.3rem 0 0; padding: 0.4rem 0.6rem; border-radius: 6px; background: #fef3c7; color: #92400e; }
+.saves-folder .warn code, .schedules-panel .hint code { background: rgba(0, 0, 0, 0.06); padding: 0.1rem 0.3rem; border-radius: 4px; }
 .save-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .save-row input { flex: 1; min-width: 140px; padding: 0.45rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
 .saves-table { width: 100%; border-collapse: collapse; }

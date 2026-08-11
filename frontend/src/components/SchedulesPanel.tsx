@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, type Config } from "../api";
 import type { Placement, SavedMeta, ScheduleDiff, SolveResult } from "../types";
 import { ROOMS } from "../types";
 import { DAY_NAMES, boxLabel, t, type Lang } from "../i18n";
@@ -21,10 +21,12 @@ function fmtDate(iso: string): string {
 // The Saved tab: a managed folder of self-contained schedule snapshots. Save the
 // current solution under a name, browse saved scenarios with their stats, and
 // load one back (replacing the working state). The saves live as one file each
-// in a folder the planner can point anywhere (synced folder, network drive).
+// in a folder the planner chooses, anywhere under the root the app was
+// installed with (a synced folder or network drive is set up there, once).
 export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
   const [saves, setSaves] = useState<SavedMeta[]>([]);
-  const [savesDir, setSavesDir] = useState("");
+  const [config, setConfig] = useState<Config | null>(null);
+  const savesDir = config?.saves_dir ?? "";
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,7 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
 
   const refresh = () =>
     Promise.all([api.listSchedules(), api.getConfig()])
-      .then(([list, cfg]) => { setSaves(list); setSavesDir(cfg.saves_dir); })
+      .then(([list, cfg]) => { setSaves(list); setConfig(cfg); })
       .catch((e) => setError(String(e)));
 
   useEffect(() => { refresh(); }, []);
@@ -97,7 +99,7 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
     setError(null);
     try {
       const cfg = await api.setSavesDir(next.trim());
-      setSavesDir(cfg.saves_dir);
+      setConfig(cfg);
       await refresh();
     } catch (e) { setError(String(e)); }
   };
@@ -112,7 +114,18 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
           <code className="folder-path" title={savesDir}>{savesDir}</code>
           <button className="ghost" onClick={changeFolder}>{t("change", lang)}</button>
         </div>
-        <p className="muted hint">{t("savesFolderHint", lang)}</p>
+        {/* A folder stored before the boundary existed would otherwise just
+            stop being used, and the saves would look as though they had gone. */}
+        {config?.rejected_saves_dir && (
+          <p className="warn">
+            {t("savesFolderRejected", lang)}{" "}
+            <code>{config.rejected_saves_dir}</code>
+          </p>
+        )}
+        <p className="muted hint">
+          {t("savesFolderHint", lang)}{" "}
+          {config && <>{t("savesFolderRoot", lang)} <code>{config.saves_root}</code></>}
+        </p>
       </section>
 
       <section className="save-current">

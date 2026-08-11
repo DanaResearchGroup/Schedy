@@ -496,7 +496,8 @@ def test_save_schedule_guards(client):
 
 
 def test_config_saves_dir_roundtrip(client, tmp_path):
-    # Defaults to a folder beside the DB; can be pointed anywhere writable.
+    # Defaults to a folder beside the DB; can be pointed at any folder under
+    # the root (see the containment tests below).
     default_dir = client.get("/config").json()["saves_dir"]
     assert default_dir.endswith("saves")
     target = str(tmp_path / "my-saves")
@@ -509,6 +510,77 @@ def test_config_saves_dir_roundtrip(client, tmp_path):
     client.post("/schedules", json={"name": "here"})
     import glob
     assert glob.glob(os.path.join(target, "*.schedy.json"))
+
+
+# ---- the saves folder is confined ---------------------------------------- #
+#
+# Which folder holds the saves arrives in a request body, so it is the one
+# piece of filesystem addressing a caller controls. Left open, a single PUT
+# points the app at any folder on the machine and it then creates, reads,
+# rewrites and deletes files there. The boundary belongs to whoever installed
+# the app, not to the request.
+
+def test_a_saves_folder_outside_the_root_is_refused(client, tmp_path):
+    outside = tmp_path.parent / "outside-the-root"
+    r = client.put("/config", json={"saves_dir": str(outside)})
+    assert r.status_code == 400
+    # Refused *before* touching the filesystem — a rejected request must not
+    # leave a folder behind on the way out.
+    assert not outside.exists()
+    # ...and the working folder is unchanged.
+    assert client.get("/config").json()["saves_dir"].endswith("saves")
+
+
+def test_traversal_out_of_the_root_is_refused(client, tmp_path):
+    r = client.put("/config", json={"saves_dir": str(tmp_path / ".." / "escape")})
+    assert r.status_code == 400
+
+
+def test_a_sibling_of_the_root_is_not_inside_it(client, tmp_path):
+    # Containment is a path check, not a string prefix: "<root>-next-door"
+    # starts with the root's name and is still a different folder.
+    r = client.put("/config", json={"saves_dir": str(tmp_path) + "-next-door"})
+    assert r.status_code == 400
+
+
+def test_a_relative_folder_is_read_under_the_root(client, tmp_path):
+    # The only reading of a relative name that cannot escape.
+    out = client.put("/config", json={"saves_dir": "saves-2026"}).json()
+    assert out["saves_dir"] == str((tmp_path / "saves-2026").resolve())
+
+
+def test_config_reports_the_root_so_the_boundary_is_visible(client, tmp_path):
+    # The planner gets told where they may put saves, rather than discovering
+    # it by being refused.
+    assert client.get("/config").json()["saves_root"] == str(tmp_path.resolve())
+
+
+def test_a_stored_folder_outside_the_root_is_reported_not_silently_used(client, tmp_path):
+    # A value stored before this boundary existed. It must not quietly keep
+    # working — and it must not quietly disappear either, or the planner just
+    # finds their saves gone with nothing said.
+    stale = str(tmp_path.parent / "configured-long-ago")
+    client.app.state.store.set_setting("saves_dir", stale)
+    cfg = client.get("/config").json()
+    assert cfg["saves_dir"] == str((tmp_path / "saves").resolve())
+    assert cfg["rejected_saves_dir"] == stale
+
+
+def test_an_operator_can_move_the_root_but_a_request_cannot(tmp_path, monkeypatch):
+    # The synced-Drive workflow: widening the boundary is an install-time act
+    # (an environment variable), not something a request can do for itself.
+    elsewhere = tmp_path / "Drive" / "Schedy"
+    elsewhere.mkdir(parents=True)
+    monkeypatch.setenv("SCHEDY_SAVES_ROOT", str(elsewhere))
+    store = Store(str(tmp_path / "moved.sqlite"))
+    with TestClient(create_app(store)) as c:
+        out = c.put("/config", json={"saves_dir": str(elsewhere / "saves")})
+        assert out.status_code == 200
+        assert out.json()["saves_dir"] == str((elsewhere / "saves").resolve())
+        # The DB's own folder is now outside the root, so it is refused too:
+        # the root is the boundary, not "anywhere familiar".
+        assert c.put("/config", json={"saves_dir": str(tmp_path)}).status_code == 400
+    store.close()
 
 
 def test_clear_skeleton_rows(client):

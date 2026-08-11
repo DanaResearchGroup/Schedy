@@ -101,6 +101,12 @@ mkdocs serve           # or: mkdocs build -> site/
 **First run:** open the app, go to **Catalog → Load sample catalog** (or click
 the prompt on the empty Schedule tab), then **Solve** to see a full timetable.
 
+**Saved schedules** live one file per save in a folder beside the database, and
+the planner can move them to any folder under that one. To keep them elsewhere —
+a synced folder, a network drive — set `SCHEDY_SAVES_ROOT` before launch. The
+root is environment-only on purpose: the folder inside it is chosen through the
+app, so confining it is what keeps a request from naming any folder on the disk.
+
 Packaging a one-click Windows app: see [docs/windows.md](docs/windows.md).
 
 ## Status

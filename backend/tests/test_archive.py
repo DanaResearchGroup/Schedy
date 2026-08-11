@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 
-from schedy.archive import EXT, Archive
+import pytest
+
+from schedy.archive import EXT, Archive, contained
 
 
 def _payload():
@@ -89,6 +92,33 @@ def test_unknown_id_and_traversal_are_rejected(tmp_path):
     assert arc.delete("../secret") is False
 
 
+def test_an_id_can_only_ever_name_a_file_in_the_folder(tmp_path):
+    """The id is matched against the folder's listing, never joined onto it.
+
+    Stated as a property rather than a list of bad strings: a deny-list only
+    rejects the traversals someone thought of, and the three below — an absolute
+    path, a Windows separator, a reserved device name — are ones a `..` check
+    alone would hand straight to the filesystem.
+    """
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / f"secret{EXT}"
+    secret.write_text('{"name": "secret"}', encoding="utf-8")
+    arc = Archive(tmp_path / "saves")
+    arc.save("real", _payload(), {})
+
+    for hostile in ("../outside/secret", "..\\outside\\secret", str(outside / "secret"),
+                    "CON", "", ".", "real/../../outside/secret"):
+        got = arc.get(hostile)
+        deleted = arc.delete(hostile)
+        renamed = arc.rename(hostile, "renamed")
+        assert (got, deleted, renamed) == (None, False, None), hostile
+
+    # ...and the one real save is still reachable, the outsider untouched.
+    assert arc.get("real")["name"] == "real"
+    assert secret.exists()
+
+
 def test_forbidden_chars_stripped_from_filename(tmp_path):
     arc = Archive(tmp_path)
     meta = arc.save('a/b:c*?"<>|d', _payload(), {})
@@ -105,3 +135,57 @@ def test_malformed_file_is_skipped_not_fatal(tmp_path):
     metas = arc.list()  # must not raise
     assert [m.name for m in metas] == ["ok"]
     assert json.loads  # sanity: json imported
+
+
+# ---- the folder itself ---------------------------------------------------- #
+
+def test_contained_accepts_the_root_and_what_sits_under_it(tmp_path):
+    root = tmp_path / "Schedy"
+    root.mkdir()
+    assert contained(root, str(root)) == root.resolve()
+    assert contained(root, str(root / "saves")) == (root / "saves").resolve()
+    assert contained(root, str(root / "a" / "b")) == (root / "a" / "b").resolve()
+    # A relative folder is read as relative to the root, which is the only
+    # reading that cannot escape it.
+    assert contained(root, "saves-2026") == (root / "saves-2026").resolve()
+    # The target need not exist yet — the planner is naming a folder to create.
+    assert contained(root, str(root / "not-there")) is not None
+
+
+def test_contained_rejects_anything_outside_the_root(tmp_path):
+    root = tmp_path / "Schedy"
+    root.mkdir()
+    for outside in (str(tmp_path), str(tmp_path / "elsewhere"),
+                    str(root) + "-next-door",  # prefix match is not containment
+                    str(root / ".." / "elsewhere")):
+        assert contained(root, outside) is None, outside
+
+
+def test_contained_follows_symlinks_out_of_the_root(tmp_path):
+    """A link inside the root pointing out of it is still outside the root.
+
+    Resolving before comparing is what makes this hold; comparing the literal
+    path would accept the link and write the planner's saves anywhere.
+    """
+    root = tmp_path / "Schedy"
+    root.mkdir()
+    (tmp_path / "elsewhere").mkdir()
+    try:
+        (root / "escape").symlink_to(tmp_path / "elsewhere", target_is_directory=True)
+    except (OSError, NotImplementedError):  # Windows without developer mode
+        pytest.skip("symlinks not available")
+    assert contained(root, str(root / "escape")) is None
+
+
+def test_contained_holds_when_the_case_differs(tmp_path):
+    """Windows folder names are case-insensitive; a plain compare is not.
+
+    On a case-sensitive filesystem these genuinely are different folders and
+    the rejection is correct, so the test asserts only that the call is decided
+    rather than crashing — the point is that `normcase` drives it either way.
+    """
+    root = tmp_path / "Schedy"
+    root.mkdir()
+    got = contained(root, str(tmp_path / "schedy" / "saves"))
+    expected = (tmp_path / "schedy" / "saves").resolve() if os.name == "nt" else None
+    assert got == expected

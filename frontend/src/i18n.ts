@@ -264,8 +264,16 @@ export const STRINGS = {
   delete: { he: "מחק", en: "Delete" },
   savesFolder: { he: "תיקיית השמירה", en: "Saves folder" },
   savesFolderHint: {
-    he: "כל מערכת נשמרת כקובץ נפרד בתיקייה זו. ניתן להצביע על תיקייה מסונכרנת או כונן רשת.",
-    en: "Each schedule is saved as its own file in this folder. Point it at a synced folder or network drive if you like.",
+    he: "כל מערכת נשמרת כקובץ נפרד בתיקייה זו.",
+    en: "Each schedule is saved as its own file in this folder.",
+  },
+  savesFolderRoot: {
+    he: "ניתן לבחור כל תיקייה תחת:",
+    en: "You can choose any folder under:",
+  },
+  savesFolderRejected: {
+    he: "התיקייה שהוגדרה קודם נמצאת מחוץ לתחום המותר ולכן אינה בשימוש. השמירות שבה לא נמחקו:",
+    en: "The folder configured earlier lies outside the permitted root and is not in use. The saves in it were not deleted:",
   },
   change: { he: "שנה", en: "Change" },
   loadConfirm: {
