@@ -49,6 +49,15 @@ export function canDrop(
           && s.type === "exercise" && o.type === "exercise") continue;
       if (overlaps(p.start_box, o.length_boxes)) return false;
     }
+    // Another faculty's graduate/joint course owns no cohort of ours, so the
+    // cohort loop below can never reach it — only the level rule can. Mirrors
+    // the evaluator's `_check_vs_fixed_events`.
+    for (const w of walls) {
+      if (w.kind === "blackout" || w.day !== day) continue;
+      if (w.level !== "grad" && w.level !== "joint") continue;
+      if (s.level === "joint" && w.level === "joint") continue;
+      if (overlaps(w.start_box, w.length_boxes)) return false;
+    }
   }
 
   // Forbidden regions: blackouts close every cohort (hard for everyone). An

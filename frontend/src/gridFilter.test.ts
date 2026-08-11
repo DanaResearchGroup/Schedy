@@ -87,6 +87,24 @@ describe("filterPlacements", () => {
     expect(shown(filter({ lecturers: ["ron"] }))).toEqual(["grad"]);
   });
 
+  it("follows an explicit level over the course number", () => {
+    // The number is only ever a suggestion (docs/grad-scheduling-prd.md D2):
+    // another faculty's graduate course carries no 0058, and one of ours can be
+    // overridden. The audience filter has to follow the planner, not the digits.
+    const sessions: Record<string, SessionMeta> = {
+      flagged: meta({ course_number: "01340501", cohorts: [], level: "grad" }),
+      overridden: meta({ course_number: "00580222", cohorts: ["ChemE Y4"], level: "ug" }),
+    };
+    const placements = { flagged: at("hall1"), overridden: at("room3") };
+    const graduate = filter({ audience: [GRAD_AUDIENCE] });
+    expect(Object.keys(filterPlacements(placements, sessions, graduate))).toEqual(["flagged"]);
+  });
+
+  it("still reads the number when no level is stored", () => {
+    // Older placements predate the level field; nothing should change for them.
+    expect(shown(filter({ audience: [GRAD_AUDIENCE] }))).toEqual(["grad"]);
+  });
+
   it("drops sessions with no metadata once a filter is on", () => {
     const p = { ...PLACEMENTS, ghost: at() };
     expect(Object.keys(filterPlacements(p, SESSIONS, filter({ groups: ["0054"] })))).toEqual(["ug"]);
@@ -121,6 +139,17 @@ describe("filterWalls", () => {
   it("follows the course-number filter via the wall's course number", () => {
     expect(ids(filter({ groups: ["other"] }))).toEqual(["bk-1", "ext-01040032"]);
     expect(ids(filter({ groups: ["0054"] }))).toEqual(["bk-1"]);
+  });
+
+  it("keeps another faculty's graduate wall for the graduate audience", () => {
+    // It has no cohort of ours and no 0058 number, so its level is the only
+    // thing that puts it on a graduate student's week.
+    const bio: FixedEvent = {
+      id: "ext-01340501", label: "Peritoneal biology", day: 1, start_box: 1,
+      length_boxes: 2, kind: "external", cohorts: [], level: "grad",
+    };
+    expect(filterWalls([blackout, bio], filter({ audience: [GRAD_AUDIENCE] })).map((w) => w.id))
+      .toEqual(["bk-1", "ext-01340501"]);
   });
 
   it("hides external walls under a room or lecturer filter", () => {

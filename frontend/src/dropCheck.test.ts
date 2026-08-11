@@ -156,6 +156,57 @@ describe("canDrop — the hard graduate rule (mirrors the evaluator)", () => {
       .toBe(true);
   });
 
+  it("refuses to drop a graduate course onto another faculty's graduate wall", () => {
+    // The flagship case: an advanced thermodynamics course must not sit on the
+    // biology faculty's graduate course. That wall carries no cohort of ours,
+    // so only its level can reject the drop.
+    const sessions: Record<string, SessionMeta> = { g: grad() };
+    const wall: FixedEvent = {
+      id: "ext-01340501",
+      label: "Peritoneal biology",
+      day: 0,
+      start_box: 0,
+      length_boxes: 2,
+      kind: "external",
+      cohorts: [],
+      level: "grad",
+    };
+    expect(canDrop("g", 0, 0, "hall1", {}, sessions, [wall])).toBe(false);
+  });
+
+  it("lets a joint course sit on another faculty's joint wall (D1)", () => {
+    const sessions: Record<string, SessionMeta> = {
+      j: meta({ level: "joint", role: "elective" }),
+    };
+    const wall: FixedEvent = {
+      id: "ext-01340502",
+      label: "Joint biology course",
+      day: 0,
+      start_box: 0,
+      length_boxes: 2,
+      kind: "external",
+      cohorts: [],
+      level: "joint",
+    };
+    expect(canDrop("j", 0, 0, "hall1", {}, sessions, [wall])).toBe(true);
+  });
+
+  it("lets an undergraduate course sit on a graduate wall", () => {
+    // The rule protects graduate students, who are the ones taking both.
+    const sessions: Record<string, SessionMeta> = { u: meta({ level: "ug" }) };
+    const wall: FixedEvent = {
+      id: "ext-01340501",
+      label: "Peritoneal biology",
+      day: 0,
+      start_box: 0,
+      length_boxes: 2,
+      kind: "external",
+      cohorts: [],
+      level: "grad",
+    };
+    expect(canDrop("u", 0, 0, "hall1", {}, sessions, [wall])).toBe(true);
+  });
+
   it("lets alternatives of one cross-day lab overlap each other", () => {
     const sessions: Record<string, SessionMeta> = {
       a: grad({ course_number: "00580001", type: "lab", lab_group: "00580001" }),

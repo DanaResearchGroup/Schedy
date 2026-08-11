@@ -177,6 +177,10 @@ def _fixed_event_dicts(problem) -> list[dict]:
             "start_box": int(start_box), "length_boxes": int(length),
             "kind": "blackout" if fe.is_blackout else "external",
             "cohorts": sorted(c.label for c in fe.cohorts),
+            # Another faculty's graduate course owns no cohort of ours, so the
+            # level is the only thing that ties it to our graduate courses —
+            # the drag hint and the grid's audience filter both need it.
+            "level": fe.level.value if fe.level else None,
         })
     return out
 

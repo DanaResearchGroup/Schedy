@@ -179,6 +179,9 @@ export interface FixedEvent {
   length_boxes: number;
   kind: "blackout" | "external";
   cohorts: string[];
+  // Another faculty's graduate course owns no cohort of ours, so only its level
+  // ties it to our graduate courses. Null for a blackout, which has no course.
+  level?: CourseLevel | null;
 }
 
 export interface SemesterCalendar {

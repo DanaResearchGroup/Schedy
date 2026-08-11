@@ -5,13 +5,13 @@
 // inside one category OR together (0054 *or* 0056); the categories AND
 // (a 0054 course *and* in hall1).
 
-import type { FixedEvent, Placement, SessionMeta } from "./types";
+import type { CourseLevel, FixedEvent, Placement, SessionMeta } from "./types";
 
 // The leading four digits of a course number carry the department's taxonomy:
 // 0054 is our own undergraduate teaching, 0056 is joint undergraduate/graduate,
-// 0058 is purely graduate, and anything else comes from another faculty. See
-// docs/grad-scheduling-prd.md — a course will eventually be able to store its
-// level explicitly, but the number is what the catalog gives us today.
+// 0058 is purely graduate, and anything else comes from another faculty. This
+// stays purely about the number, because that is what the category names say;
+// who may actually *take* a course is `isGraduate` below.
 export type CourseGroup = "0054" | "0056" | "0058" | "other";
 
 const DEPT_PREFIXES = ["0054", "0056", "0058"] as const;
@@ -22,7 +22,12 @@ export function courseGroup(courseNumber: string): CourseGroup {
   return DEPT_PREFIXES.find((p) => p === prefix) ?? "other";
 }
 
-export const isGraduate = (courseNumber: string) => courseGroup(courseNumber) === "0058";
+// Whether a graduate student is the audience. The stored level wins when there
+// is one, because the number is only ever a suggestion (PRD D2): another
+// faculty's graduate course carries no 0058, and one of ours can be overridden.
+// Falling back to the number keeps placements that predate the field working.
+export const isGraduate = (courseNumber: string, level?: CourseLevel | null) =>
+  level ? level === "grad" : courseGroup(courseNumber) === "0058";
 
 // A graduate audience has no cohort — a graduate student is not "ChemE Y2" — so
 // it rides in the cohort list under a reserved token. The `*` cannot collide
@@ -49,9 +54,9 @@ export const filterCount = (f: GridFilter): number =>
 const matches = (chosen: string[], has: (value: string) => boolean) =>
   chosen.length === 0 || chosen.some(has);
 
-/** Cohorts a session serves, plus the graduate token when the course is 0058. */
-const audienceOf = (courseNumber: string, cohorts: string[]) =>
-  isGraduate(courseNumber) ? [...cohorts, GRAD_AUDIENCE] : cohorts;
+/** Cohorts a session serves, plus the graduate token for a graduate course. */
+const audienceOf = (courseNumber: string, cohorts: string[], level?: CourseLevel | null) =>
+  isGraduate(courseNumber, level) ? [...cohorts, GRAD_AUDIENCE] : cohorts;
 
 export function filterPlacements(
   placements: Record<string, Placement>,
@@ -65,7 +70,7 @@ export function filterPlacements(
     if (!m) continue; // no metadata, nothing to match a filter against
     const keep =
       matches(f.groups, (g) => g === courseGroup(m.course_number)) &&
-      matches(f.audience, (a) => audienceOf(m.course_number, m.cohorts).includes(a)) &&
+      matches(f.audience, (a) => audienceOf(m.course_number, m.cohorts, m.level).includes(a)) &&
       matches(f.rooms, (r) => r === p.room_id) &&
       matches(f.lecturers, (l) => m.lecturers.includes(l));
     if (keep) out[sid] = p;
@@ -92,7 +97,7 @@ export function filterWalls(walls: FixedEvent[], f: GridFilter): FixedEvent[] {
     const number = wallCourseNumber(w);
     return (
       matches(f.groups, (g) => number !== "" && g === courseGroup(number)) &&
-      matches(f.audience, (a) => audienceOf(number, w.cohorts).includes(a))
+      matches(f.audience, (a) => audienceOf(number, w.cohorts, w.level).includes(a))
     );
   });
 }
