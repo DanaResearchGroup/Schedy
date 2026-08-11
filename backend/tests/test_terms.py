@@ -264,12 +264,10 @@ def test_a_failed_migration_leaves_the_database_untouched(tmp_path, monkeypatch)
 
     # Fail *after* the course rows have been inserted — the case where a
     # non-transactional migration would leave the file half-rewritten.
-    import schedy.store as store_mod
-
     def explode(*_a, **_k):
         raise RuntimeError("simulated crash mid-migration")
 
-    monkeypatch.setattr(store_mod.json, "dumps", explode)
+    monkeypatch.setattr("schedy.store.json.dumps", explode)
     with pytest.raises(RuntimeError):
         Store(path)
     monkeypatch.undo()

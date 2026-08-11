@@ -13,7 +13,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from schedy.catalog import Cadence, Course, expand
-from schedy.domain import Program
 from schedy.api import create_app
 from schedy.store import Store, TermId
 

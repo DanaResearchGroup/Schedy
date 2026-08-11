@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from schedy.catalog import Course, expand
-from schedy.domain import CourseLevel, Program
+from schedy.domain import Program
 from schedy.api import create_app
 from schedy.store import Store
 
@@ -286,7 +286,8 @@ def test_unpublishing_needs_confirmation(client):
     _solve(client)
     _publish(client, confirm=True)
     term = client.get("/terms/current").json()["id"]
-    assert client.delete(f"/terms/{term}/publish").status_code == 400
+    r = client.delete(f"/terms/{term}/publish")
+    assert r.status_code == 400
 
 
 def test_unpublishing_clears_the_stamp_and_the_pins(client):
