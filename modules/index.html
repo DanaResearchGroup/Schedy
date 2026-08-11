@@ -626,8 +626,12 @@ small total functions.</p>
 <p>Overlays a dated <code>SemesterCalendar</code> on the weekly template.</p>
 <ul>
 <li><code>realize(cal)</code> → dated teaching/non-teaching sequence (applies substitutions).</li>
+<li><code>week_anchor(cal)</code> → weekday the first teaching day runs; the week's start for
+  every ordering rule (<code>Problem.week_anchor</code>, applied via <code>domain.day_rank</code>).</li>
 <li><code>meeting_counts</code> / <code>lost_sessions</code> → per-session realised counts + deficits.</li>
-<li><code>order_inversions</code> → realised weeks where a swap flips lecture-before-exercise.</li>
+<li><code>order_inversions</code> → exercises meeting before their lecture, each tagged
+  <code>template_order</code> (recurs every week; one entry carrying <code>weeks</code>) or
+  <code>substitution</code> (one flipped week; one entry per week).</li>
 </ul>
 <h3 id="evaluator-pure-the-correctness-core"><code>evaluator</code> (pure) — the correctness core<a class="headerlink" href="#evaluator-pure-the-correctness-core" title="Permanent link">&para;</a></h3>
 <p><code>evaluate(problem, schedule) → EvaluationResult</code> returns every hard and soft
