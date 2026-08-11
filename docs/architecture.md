@@ -58,7 +58,17 @@ solver's output was.
 The solver optimises the **abstract weekly template**. The `CalendarEngine`
 overlays a dated semester (start date, blocked dates, day-substitutions) to:
 
-- report each session's realised meeting count and flag deficits, and
-- flag realised weeks where a day-substitution inverts lecture-before-exercise
-  order (flagged, never prevented — preventing it across every realised week
-  would blow up the model).
+- report each session's realised meeting count and flag deficits,
+- tell the solver which weekday the teaching week starts on (`week_anchor` — the
+  first teaching day), so ordering rules rank days from there rather than from
+  Sunday, and
+- flag exercises that still meet before their lecture, split by cause: the
+  template orders them so (recurs every week, reported once with its reach), or
+  a day-substitution flipped one week. Flagged, never prevented — preventing it
+  across every realised week would blow up the model.
+
+A semester starting mid-week rotates the whole teaching week. Open on a Tuesday
+and the week runs Tue, Wed, Thu, Sun, Mon: a Monday lecture now falls *after* a
+Thursday exercise, so the pair has to swap. `domain.day_rank(day, anchor)` is the
+single place that rotation lives; the solver objective, the evaluator, and the
+inversion report all read order through it.

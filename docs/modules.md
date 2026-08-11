@@ -15,8 +15,12 @@ small total functions.
 Overlays a dated `SemesterCalendar` on the weekly template.
 
 - `realize(cal)` → dated teaching/non-teaching sequence (applies substitutions).
+- `week_anchor(cal)` → weekday the first teaching day runs; the week's start for
+  every ordering rule (`Problem.week_anchor`, applied via `domain.day_rank`).
 - `meeting_counts` / `lost_sessions` → per-session realised counts + deficits.
-- `order_inversions` → realised weeks where a swap flips lecture-before-exercise.
+- `order_inversions` → exercises meeting before their lecture, each tagged
+  `template_order` (recurs every week; one entry carrying `weeks`) or
+  `substitution` (one flipped week; one entry per week).
 
 ### `evaluator` (pure) — the correctness core
 `evaluate(problem, schedule) → EvaluationResult` returns every hard and soft

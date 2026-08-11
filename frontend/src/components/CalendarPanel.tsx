@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { CalendarAnalysis, SemesterCalendar } from "../types";
-import { DAY_NAMES, t, type Lang } from "../i18n";
+import type { CalendarAnalysis, OrderInversion, SemesterCalendar } from "../types";
+import { boxLabel, DAY_NAMES, t, type Lang } from "../i18n";
 
 interface Sub { date: string; template: number }
+
+// "exercise before lecture", dated. Same-weekday pairs repeat on one date every
+// week, so naming it twice reads as a bug — show the date once and let the two
+// hours carry the ordering.
+function inversionWhen(o: OrderInversion): string {
+  const ex = boxLabel(o.exercise_box);
+  const lec = boxLabel(o.lecture_box);
+  return o.exercise_date === o.lecture_date
+    ? `${o.exercise_date} ${ex} < ${lec}`
+    : `${o.exercise_date} ${ex} < ${o.lecture_date} ${lec}`;
+}
 
 // Semester calendar editor: overlays the dated semester on the abstract weekly
 // template. The planner enters the start/end dates, blocked (no-teaching) dates,
@@ -11,6 +22,8 @@ interface Sub { date: string; template: number }
 // "Analyze" persists the calendar (PUT /calendar) and realizes it (GET
 // /calendar/analyze): teaching-day counts per weekday plus, against the last
 // solved schedule, uneven sessions and lecture-before-exercise inversions.
+// The start date also sets the weekday the teaching week begins on, which is
+// what the ordering rules rank from — a mid-week start rotates the whole week.
 export function CalendarPanel({ lang }: { lang: Lang }) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -136,7 +149,13 @@ export function CalendarPanel({ lang }: { lang: Lang }) {
             <span className="stat"><b>{analysis.teaching_days}</b> {t("teachingDaysLabel", lang)}</span>
             <span className="stat"><b>{analysis.weeks}</b> {t("weeksLabel", lang)}</span>
             <span className="stat"><b>{analysis.blocked_count}</b> {t("blockedLabel", lang)}</span>
+            <span className="stat">
+              {t("weekStartsOn", lang)} <b>{dayName(analysis.week_anchor)}</b>
+            </span>
           </div>
+          {analysis.week_anchor !== 0 && (
+            <p className="muted">{t("weekStartsHint", lang)}</p>
+          )}
 
           <h3>{t("perWeekday", lang)}</h3>
           <table className="data weekday-counts">
@@ -175,9 +194,12 @@ export function CalendarPanel({ lang }: { lang: Lang }) {
             <ul className="cal-issues">
               {analysis.order_inversions.map((o, i) => (
                 <li key={i} className="warn">
-                  <span className="kind">{o.course_number}</span> · {t("weekLabel", lang)} {o.week_index + 1}
+                  <span className="kind">{o.course_number}</span> ·{" "}
+                  {o.cause === "template_order"
+                    ? `${t("causeTemplateOrder", lang)} (${o.weeks} ${t("weeksAffected", lang)})`
+                    : `${t("causeSubstitution", lang)} · ${t("weekLabel", lang)} ${o.week_index + 1}`}
                   {o.exercise_group ? ` (${o.exercise_group})` : ""} ·
-                  {" "}{o.exercise_date} &lt; {o.lecture_date}
+                  {" "}{inversionWhen(o)}
                 </li>
               ))}
             </ul>

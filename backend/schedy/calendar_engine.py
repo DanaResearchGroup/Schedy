@@ -7,8 +7,10 @@ weekly template that the solver fills. It answers three questions the PRD asks:
      (Day-substitutions let a real Tuesday run the Wednesday template.)
   2. How many real meetings does each placed session actually get, and which
      sessions come up short ("lost/uneven sessions")?
-  3. In which realized weeks does a day-substitution invert a course's intended
-     lecture-before-exercise order? (Flagged, never prevented.)
+  3. Which courses meet their exercise before their lecture, and why — because
+     the weekly template itself orders them that way (repeats every week), or
+     because a day-substitution flipped one particular week? (Flagged, never
+     prevented.)
 
 No I/O — everything is a pure function over the inputs.
 """
@@ -22,6 +24,7 @@ from .domain import (
     Problem,
     Schedule,
     SessionType,
+    day_rank,
 )
 
 # Python's date.weekday(): Monday=0 .. Sunday=6. Map to our Sunday=0 .. Thursday=4.
@@ -65,13 +68,24 @@ class LostSession:
         return self.baseline - self.realized
 
 
+# Why an exercise lands before its lecture.
+CAUSE_TEMPLATE_ORDER = "template_order"  # the template orders them so; every week
+CAUSE_SUBSTITUTION = "substitution"      # a day-swap flipped this one week
+
+
 @dataclass(frozen=True)
 class OrderInversion:
     course_number: str
-    week_index: int
+    week_index: int          # first realized week affected
     lecture_date: date
     exercise_date: date
     exercise_group: str | None
+    cause: str = CAUSE_SUBSTITUTION
+    weeks: int = 1           # how many realized weeks this same inversion hits
+    # Academic-hour boxes. The two dates are equal when both sit on the same
+    # weekday, and then only the boxes tell the pair apart.
+    lecture_box: int = 0
+    exercise_box: int = 0
 
 
 # --------------------------------------------------------------------------- #
@@ -101,6 +115,20 @@ def realize(cal: SemesterCalendar) -> list[RealizedDay]:
         )
         d += timedelta(days=1)
     return days
+
+
+def week_anchor(cal: SemesterCalendar) -> int:
+    """The weekday-template the semester's first teaching day runs (0..4).
+
+    This is the day students actually start on, so it is where the teaching week
+    begins for every ordering question. A semester opening on a Tuesday anchors
+    at 2: its weeks run Tue, Wed, Thu, Sun, Mon. Defaults to Sunday (0) for a
+    calendar with no teaching days at all.
+    """
+    for rd in realize(cal):
+        if rd.is_teaching and rd.template is not None:
+            return rd.template
+    return 0
 
 
 def teaching_days_by_template(cal: SemesterCalendar) -> dict[int, list[date]]:
@@ -160,18 +188,29 @@ def lost_sessions(
 
 
 # --------------------------------------------------------------------------- #
-# 3. Swap-induced lecture-before-exercise inversions
+# 3. Lecture-before-exercise inversions, with their cause
 # --------------------------------------------------------------------------- #
 
 def order_inversions(
     cal: SemesterCalendar, schedule: Schedule, problem: Problem
 ) -> list[OrderInversion]:
-    """Realized weeks where a substitution flips a course's lecture/exercise order.
+    """Courses whose exercise meets before its lecture, and why.
 
-    The template intends lecture before exercise (by day-index, then box). A
-    day-substitution can make an exercise's real date fall before its lecture's
-    real date within a single realized week. Those weeks are flagged.
+    Weeks are cut from the semester's start date, so a week runs from the
+    starting weekday onwards — a Tuesday start gives Tue..Mon weeks. Template
+    order is read the same way (`day_rank` against `problem.week_anchor`), which
+    keeps the two views consistent: inside an unsubstituted week, rank order and
+    date order always agree.
+
+    Two causes, reported differently because they need different responses:
+
+      * CAUSE_TEMPLATE_ORDER — the template itself puts the exercise first once
+        the semester's own week start is accounted for. It recurs every week, so
+        it collapses to one entry carrying `weeks`; the fix is to move a session.
+      * CAUSE_SUBSTITUTION — a day-substitution flipped one otherwise-correct
+        week. One entry per affected week; the fix, if any, is that week's swap.
     """
+    anchor = problem.week_anchor
     # Group placed sessions per course into lectures and exercises.
     by_course: dict[str, dict[str, list[tuple[int, int, str | None]]]] = {}
     for session_id, placement in schedule.placements.items():
@@ -195,27 +234,63 @@ def order_inversions(
         exercises = parts["exercise"]
         if not lectures or not exercises:
             continue
-        # Intended order: earliest lecture by (day, box).
-        lec_day, lec_box, _ = min(lectures, key=lambda t: (t[0], t[1]))
-        for week_index, by_template in weeks.items():
-            lec_dates = by_template.get(lec_day, [])
-            if not lec_dates:
-                continue
-            earliest_lecture = min(lec_dates)
-            for ex_day, ex_box, ex_group in exercises:
-                # Only consider exercises the template places after the lecture.
-                if (ex_day, ex_box) <= (lec_day, lec_box):
+        # Intended order: the lecture the week reaches first.
+        lec_rank, lec_box, lec_day = min(
+            (day_rank(d, anchor), b, d) for d, b, _ in lectures)
+
+        for ex_day, ex_box, ex_group in exercises:
+            ex_rank = day_rank(ex_day, anchor)
+            if (ex_rank, ex_box) == (lec_rank, lec_box):
+                continue  # simultaneous, not out of order — a clash check owns it
+            template_inverted = (ex_rank, ex_box) < (lec_rank, lec_box)
+
+            # Realized weeks where this exercise beats the lecture. Compared as
+            # (date, box), not date alone: when the two share a weekday their
+            # dates are equal every week and the box is the whole difference.
+            hits: list[tuple[int, date, date]] = []
+            for week_index in sorted(weeks):
+                by_template = weeks[week_index]
+                lec_dates = by_template.get(lec_day, [])
+                if not lec_dates:
                     continue
+                earliest_lecture = min(lec_dates)
                 for ex_date in by_template.get(ex_day, []):
-                    if ex_date < earliest_lecture:
-                        out.append(
-                            OrderInversion(
-                                course_number=course,
-                                week_index=week_index,
-                                lecture_date=earliest_lecture,
-                                exercise_date=ex_date,
-                                exercise_group=ex_group,
-                            )
+                    if (ex_date, ex_box) < (earliest_lecture, lec_box):
+                        hits.append((week_index, earliest_lecture, ex_date))
+            if not hits:
+                continue
+
+            if template_inverted:
+                # Same inversion every week — report it once, with its reach.
+                week_index, lecture_date, exercise_date = hits[0]
+                out.append(
+                    OrderInversion(
+                        course_number=course,
+                        week_index=week_index,
+                        lecture_date=lecture_date,
+                        exercise_date=exercise_date,
+                        exercise_group=ex_group,
+                        cause=CAUSE_TEMPLATE_ORDER,
+                        weeks=len(hits),
+                        lecture_box=lec_box,
+                        exercise_box=ex_box,
+                    )
+                )
+            else:
+                for week_index, lecture_date, exercise_date in hits:
+                    out.append(
+                        OrderInversion(
+                            course_number=course,
+                            week_index=week_index,
+                            lecture_date=lecture_date,
+                            exercise_date=exercise_date,
+                            exercise_group=ex_group,
+                            cause=CAUSE_SUBSTITUTION,
+                            weeks=1,
+                            lecture_box=lec_box,
+                            exercise_box=ex_box,
                         )
-    out.sort(key=lambda x: (x.week_index, x.course_number))
+                    )
+    # Recurring inversions first — they cost the most weeks.
+    out.sort(key=lambda x: (-x.weeks, x.week_index, x.course_number))
     return out

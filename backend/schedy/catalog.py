@@ -56,6 +56,13 @@ class Course:
     lecturer_ids: list[str] = field(default_factory=list)
     ta_ids: list[str] = field(default_factory=list)
 
+    # Offered this semester? A course sits out a term — an elective whose
+    # lecturer is on sabbatical — without leaving the catalog, so its structure,
+    # staff and history survive the gap. `skip_reason` records why, for the
+    # planner who reopens the catalog next year.
+    offered: bool = True
+    skip_reason: str = ""
+
     @property
     def cohorts(self) -> frozenset[Cohort]:
         return frozenset(Cohort(p, self.year) for p in self.programs)
@@ -212,6 +219,7 @@ def expand(
     soft_weights: SoftWeights | None = None,
     biology_intervals: list[DayInterval] | None = None,
     include_blackouts: bool = True,
+    week_anchor: int = 0,
 ) -> Problem:
     """Build a solver Problem from the catalog.
 
@@ -224,6 +232,11 @@ def expand(
     groups_by_course = offered_exercise_groups(offered_rows) if offered_rows else {}
     placements = offered_placements(offered_rows) if offered_rows else {}
     for c in courses:
+        # Not offered this term: it contributes nothing at all — no sessions to
+        # place, and no wall either, since an external course that isn't running
+        # doesn't occupy its cohorts' week.
+        if not c.offered:
+            continue
         if c.is_external:
             fe = _external_event(c)
             if fe:
@@ -237,4 +250,5 @@ def expand(
         availability=availability or {},
         soft_weights=soft_weights or SoftWeights(),
         biology_intervals=biology_intervals or [],
+        week_anchor=week_anchor,
     )

@@ -20,14 +20,29 @@ export function AvailabilityPanel({ courses, lang }: { courses: Course[]; lang: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const people = useMemo(() => {
+  // Only staff on courses actually offered this semester constrain the solve —
+  // a lecturer whose course is sitting out is never consulted by the solver.
+  const teaching = useMemo(() => {
     const s = new Set<string>();
     for (const c of courses) {
+      if (c.offered === false) continue;
       (c.lecturer_ids ?? []).forEach((p) => s.add(p));
       (c.ta_ids ?? []).forEach((p) => s.add(p));
     }
     return [...s].sort();
   }, [courses]);
+
+  // Blocks stored for people not teaching this term. The data is deliberately
+  // kept — they return next year — and is inert for the solve, but it stays
+  // listed here rather than lurking unseen in the database.
+  const notTeaching = useMemo(() => {
+    const on = new Set(teaching);
+    return Object.keys(blocked)
+      .filter((p) => !on.has(p) && (blocked[p]?.size ?? 0) > 0)
+      .sort();
+  }, [teaching, blocked]);
+
+  const people = useMemo(() => [...teaching, ...notTeaching], [teaching, notTeaching]);
 
   useEffect(() => {
     api.getAvailability()
@@ -101,10 +116,17 @@ export function AvailabilityPanel({ courses, lang }: { courses: Course[]; lang: 
         <label className="view">
           {t("person", lang)}:
           <select value={person ?? ""} onChange={(e) => setPerson(e.target.value)}>
-            {people.map((p) => {
+            {teaching.map((p) => {
               const n = blocked[p]?.size ?? 0;
               return <option key={p} value={p}>{p}{n ? ` (${n})` : ""}</option>;
             })}
+            {notTeaching.length > 0 && (
+              <optgroup label={t("notTeachingGroup", lang)}>
+                {notTeaching.map((p) => (
+                  <option key={p} value={p}>{p} ({blocked[p]?.size ?? 0})</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         <button className="ghost" onClick={clearPerson} disabled={current.size === 0}>
@@ -117,6 +139,9 @@ export function AvailabilityPanel({ courses, lang }: { courses: Course[]; lang: 
       </div>
 
       <p className="muted">{t("availabilityHint", lang)}</p>
+      {person && notTeaching.includes(person) && (
+        <p className="muted note-idle">{t("notTeachingNote", lang)}</p>
+      )}
       {error && <div className="error">{error}</div>}
 
       <table className="grid avail-grid">

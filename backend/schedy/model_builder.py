@@ -31,6 +31,7 @@ from .domain import (
     Schedule,
     Session,
     SessionType,
+    day_rank,
 )
 
 HORIZON = NUM_DAYS * BOXES_PER_DAY
@@ -65,6 +66,9 @@ class ModelBuilder:
         self.model = cp_model.CpModel()
         self.vars: dict[str, _SessionVars] = {}
         self.has_objective = False
+        # Lazily built week-position vars (see `_week_pos`); only the handful of
+        # sessions in an ordering constraint ever need one.
+        self._week_pos: dict[str, cp_model.IntVar] = {}
         self._build()
 
     # ------------------------------------------------------------------ #
@@ -335,7 +339,10 @@ class ModelBuilder:
             m.AddBoolOr([hi.Not(), mid.Not()])
             terms.append((w.zoom_timing, mid))
 
-        # lecture before exercise (low weight): per course, exercise vs lecture
+        # lecture before exercise (low weight): per course, exercise vs lecture.
+        # Compared in week-position space, so a semester starting mid-week is
+        # judged on the order students meet the sessions in, not on Sunday-first
+        # day indices (a Tuesday start ranks Monday last, after Thursday).
         by_course: dict[str, dict[str, list[Session]]] = {}
         for s in sessions:
             if s.type in (SessionType.LECTURE, SessionType.EXERCISE):
@@ -345,15 +352,40 @@ class ModelBuilder:
         for course, parts in by_course.items():
             for lec in parts["lec"]:
                 for ex in parts["ex"]:
-                    lv, ev = self.vars[lec.id], self.vars[ex.id]
+                    lp, ep = self.week_pos(lec), self.week_pos(ex)
                     bad = m.NewBoolVar(f"lbe_{course}_{ex.id}_{lec.id}")
-                    m.Add(ev.abs_start < lv.abs_start).OnlyEnforceIf(bad)
-                    m.Add(ev.abs_start >= lv.abs_start).OnlyEnforceIf(bad.Not())
+                    m.Add(ep < lp).OnlyEnforceIf(bad)
+                    m.Add(ep >= lp).OnlyEnforceIf(bad.Not())
                     terms.append((w.lecture_before_exercise, bad))
 
         if terms:
             m.Minimize(sum(weight * var for weight, var in terms))
             self.has_objective = True
+
+    # ------------------------------------------------------------------ #
+    def week_pos(self, s: Session) -> cp_model.IntVar:
+        """Position of a session within the semester's own teaching week.
+
+        `abs_start` counts from Sunday, which is only the week's first day when
+        the semester starts on one. Ordering rules must instead count from the
+        first teaching day, so this re-expresses the position as
+        (day_rank * BOXES_PER_DAY + start). With a Sunday anchor the two are
+        identical and `abs_start` is reused as-is.
+        """
+        anchor = self.problem.week_anchor
+        v = self.vars[s.id]
+        if not anchor:
+            return v.abs_start
+        cached = self._week_pos.get(s.id)
+        if cached is not None:
+            return cached
+        m = self.model
+        rank = m.NewIntVar(0, NUM_DAYS - 1, f"rank_{s.id}")
+        m.AddElement(v.day, [day_rank(d, anchor) for d in range(NUM_DAYS)], rank)
+        pos = m.NewIntVar(0, HORIZON - 1, f"wpos_{s.id}")
+        m.Add(pos == rank * BOXES_PER_DAY + v.start)
+        self._week_pos[s.id] = pos
+        return pos
 
     # ------------------------------------------------------------------ #
     def _room_index(self, room_id: str) -> int | None:

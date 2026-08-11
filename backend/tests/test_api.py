@@ -378,6 +378,58 @@ def test_clear_skeleton_rows(client):
     assert client.get("/skeleton/rows").json() == []
 
 
+def test_unoffered_course_persists_but_leaves_the_solve(client):
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    client.post("/catalog/courses", json=_core("00540777", "dr_b"))
+    solved = client.post("/solve", json={"time_limit_s": 10}).json()
+    assert {s["course_number"] for s in solved["sessions"].values()} == {
+        "00540319", "00540777"}
+
+    # Take one out for the term — it stays in the catalog, with its reason.
+    off = {**_core("00540777", "dr_b"), "offered": False,
+           "skip_reason": "Prof. B sabbatical 2026"}
+    assert client.post("/catalog/courses", json=off).status_code == 200
+    stored = {c["number"]: c for c in client.get("/catalog/courses").json()}
+    assert len(stored) == 2
+    assert stored["00540777"]["offered"] is False
+    assert stored["00540777"]["skip_reason"] == "Prof. B sabbatical 2026"
+
+    solved = client.post("/solve", json={"time_limit_s": 10}).json()
+    assert {s["course_number"] for s in solved["sessions"].values()} == {"00540319"}
+
+
+def test_courses_stored_before_the_flag_existed_are_offered(client):
+    # A row written by an older build has no "offered" key; it must read as
+    # offered rather than silently dropping out of the semester.
+    store = client.app.state.store
+    payload = _core("00540319", "dr_a")
+    payload.pop("offered", None)
+    client.post("/catalog/courses", json=payload)
+    assert store.list_courses()[0].offered is True
+    solved = client.post("/solve", json={"time_limit_s": 10}).json()
+    assert solved["sessions"]
+
+
+def test_reset_requires_confirmation_then_wipes_everything(client):
+    store = client.app.state.store
+    client.post("/catalog/courses", json=_core("00540319", "dr_a"))
+    client.put("/availability", json={"dr_a": [[0, 0]]})
+    store.set_setting("saves_dir", "/somewhere/saves")
+
+    # Unconfirmed resets are refused — nothing is touched.
+    assert client.post("/reset").status_code == 400
+    assert len(client.get("/catalog/courses").json()) == 1
+
+    r = client.post("/reset", params={"confirm": "true"})
+    assert r.status_code == 200
+    assert r.json()["courses"] == 1
+    assert client.get("/catalog/courses").json() == []
+    assert client.get("/availability").json() == {}
+    assert client.get("/skeleton/rows").json() == []
+    # The saves folder is a machine preference, not planning data: it survives.
+    assert store.get_setting("saves_dir") == "/somewhere/saves"
+
+
 def test_seed_catalog_loads_and_solves(client):
     assert client.get("/catalog/courses").json() == []
     r = client.post("/catalog/seed").json()

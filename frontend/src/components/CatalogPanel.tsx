@@ -26,6 +26,8 @@ export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed, onImport 
     onImport(f);
   };
 
+  const skipped = courses.filter((c) => c.offered === false).length;
+
   const startNew = () => { setDraft(blankCourse()); setIsNew(true); };
   const startEdit = (c: Course) => { setDraft({ ...c }); setIsNew(false); };
   const close = () => setDraft(null);
@@ -57,25 +59,41 @@ export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed, onImport 
       ) : courses.length === 0 ? (
         <p className="empty">{t("emptyCatalog", lang)}</p>
       ) : (
-        <ul className="course-list">
-          {courses.map((c) => (
-            <li key={c.number}>
-              <button className="course-link" onClick={() => startEdit(c)}>
-                <strong>{c.number}</strong>
-                <span className="muted">
-                  {(lang === "he" ? c.name_he : c.name_en) || ""}
-                </span>
-                <span className="tags">
-                  <span className={`tag role-${c.role}`}>{ROLE_LABEL[c.role][lang]}</span>
-                  {c.programs.map((p) => <span key={p} className="tag">{p}</span>)}
-                  <span className="tag">Y{c.year}</span>
-                  {c.is_external && <span className="tag ext">ext</span>}
-                </span>
-              </button>
-              <button className="link" title="delete" onClick={() => onDelete(c.number)}>✕</button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {skipped > 0 && (
+            <p className="muted">{skipped} {t("notOfferedCount", lang)}</p>
+          )}
+          <ul className="course-list">
+            {courses.map((c) => (
+              <li key={c.number} className={c.offered === false ? "row-skipped" : undefined}>
+                <button className="course-link" onClick={() => startEdit(c)}>
+                  <strong>{c.number}</strong>
+                  <span className="muted">
+                    {(lang === "he" ? c.name_he : c.name_en) || ""}
+                  </span>
+                  <span className="tags">
+                    <span className={`tag role-${c.role}`}>{ROLE_LABEL[c.role][lang]}</span>
+                    {c.programs.map((p) => <span key={p} className="tag">{p}</span>)}
+                    <span className="tag">Y{c.year}</span>
+                    {c.is_external && <span className="tag ext">ext</span>}
+                    {c.offered === false && (
+                      <span className="tag skipped" title={c.skip_reason || undefined}>
+                        {t("notOffered", lang)}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {/* One-click skip/restore: the common case is toggling an elective
+                    for the year, which shouldn't need a trip through the form. */}
+                <button className="link toggle-offered" title={t("offeredHint", lang)}
+                  onClick={() => onAdd({ ...c, offered: c.offered === false })}>
+                  {c.offered === false ? "▶" : "⏸"}
+                </button>
+                <button className="link" title="delete" onClick={() => onDelete(c.number)}>✕</button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

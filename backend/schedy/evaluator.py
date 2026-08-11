@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .domain import (
+    DAY_NAMES,
     CourseRole,
     Cohort,
     DayInterval,
@@ -23,6 +24,7 @@ from .domain import (
     Schedule,
     Session,
     SessionType,
+    day_rank,
 )
 
 HARD = "hard"
@@ -97,7 +99,7 @@ def evaluate(problem: Problem, schedule: Schedule) -> EvaluationResult:
     _check_vs_fixed_events(problem, placed, w, violations)
     _check_single_session(problem, placed, w, violations)
     _check_fixed_placement(placed, violations)
-    _check_lecture_before_exercise(placed, w, violations)
+    _check_lecture_before_exercise(problem, placed, w, violations)
     _check_lab_cross_day(problem, placed, violations)
 
     return EvaluationResult(violations)
@@ -294,7 +296,16 @@ def _check_fixed_placement(placed, out: list[Violation]) -> None:
 # Soft: every exercise should fall after its course's lecture
 # --------------------------------------------------------------------------- #
 
-def _check_lecture_before_exercise(placed, w, out: list[Violation]) -> None:
+def _check_lecture_before_exercise(problem, placed, w, out: list[Violation]) -> None:
+    """Order is read from the semester's first teaching day, not from Sunday.
+
+    With a Tuesday start the week runs Tue..Mon, so a Monday lecture comes
+    *after* a Thursday exercise even though its day index is lower.
+    """
+    anchor = problem.week_anchor
+    def pos(p: _Placed) -> tuple[int, int]:
+        return (day_rank(p.day, anchor), p.start_box)
+
     by_course: dict[str, dict[str, list[_Placed]]] = {}
     for pl in placed:
         if pl.session.type in (SessionType.LECTURE, SessionType.EXERCISE):
@@ -302,16 +313,20 @@ def _check_lecture_before_exercise(placed, w, out: list[Violation]) -> None:
                                      {"lecture": [], "exercise": []})
             key = "lecture" if pl.session.type is SessionType.LECTURE else "exercise"
             b[key].append(pl)
+    week_note = (
+        f" (the semester's teaching week starts on {DAY_NAMES[anchor]})"
+        if anchor else ""
+    )
     for course, parts in by_course.items():
         if not parts["lecture"] or not parts["exercise"]:
             continue
-        lec = min(parts["lecture"], key=lambda p: (p.day, p.start_box))
+        lec = min(parts["lecture"], key=pos)
         for ex in parts["exercise"]:
-            if (ex.day, ex.start_box) < (lec.day, lec.start_box):
+            if pos(ex) < pos(lec):
                 out.append(Violation(
                     "lecture_before_exercise", SOFT,
                     f"Exercise {ex.session.id} is scheduled before lecture "
-                    f"{lec.session.id} of course {course}.",
+                    f"{lec.session.id} of course {course}{week_note}.",
                     (ex.session.id, lec.session.id),
                     weight=w.lecture_before_exercise,
                 ))

@@ -86,6 +86,22 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
         </label>
       </div>
 
+      {/* Offered-this-term. Absent means offered, so an older catalog entry
+          without the field reads as running. */}
+      <label className="chk" title={t("offeredHint", lang)}>
+        <input type="checkbox" checked={c.offered !== false}
+          onChange={(e) => set({ offered: e.target.checked })} />
+        {t("offered", lang)}
+      </label>
+
+      {c.offered === false && (
+        <label>{t("skipReason", lang)}
+          <input value={c.skip_reason ?? ""}
+            placeholder={t("skipReasonPlaceholder", lang)}
+            onChange={(e) => set({ skip_reason: e.target.value })} />
+        </label>
+      )}
+
       <label className="chk">
         <input type="checkbox" checked={!!c.is_external}
           onChange={(e) => set({ is_external: e.target.checked })} />
@@ -191,5 +207,6 @@ export function blankCourse(): Course {
     number: "", programs: ["ChemE"], year: 2, role: "core",
     lecture_boxes: 2, num_exercise_groups: 1, exercise_boxes: 1, lab_boxes: 0,
     lab_days: [], expected_enrollment: 40, lecturer_ids: [], ta_ids: [],
+    offered: true, skip_reason: "",
   };
 }

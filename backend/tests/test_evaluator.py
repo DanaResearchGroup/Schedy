@@ -271,6 +271,30 @@ def test_lecture_before_exercise_is_soft():
     assert result.is_feasible
 
 
+def test_lecture_before_exercise_is_ranked_from_the_semester_start():
+    # Monday lecture, Thursday exercise. Fine in a Sunday-first week...
+    lec = lecture("lec", length=1)
+    ex = exercise("ex")
+    sunday_start = Problem(sessions=[lec, ex])
+    sched = Schedule()
+    sched.place("lec", day=1, start_box=0, room_id="hall1")
+    sched.place("ex", day=4, start_box=0, room_id="room3")
+    assert "lecture_before_exercise" not in kinds(evaluate(sunday_start, sched))
+
+    # ...but a Tuesday-start semester runs Tue..Mon, so students reach the
+    # Thursday exercise a week before the Monday lecture.
+    tuesday_start = Problem(sessions=[lec, ex], week_anchor=2)
+    result = evaluate(tuesday_start, sched)
+    assert "lecture_before_exercise" in kinds(result)
+    assert result.is_feasible  # soft, never blocking
+
+    # Swapping the two days is what that semester wants.
+    swapped = Schedule()
+    swapped.place("lec", day=4, start_box=0, room_id="hall1")
+    swapped.place("ex", day=1, start_box=0, room_id="room3")
+    assert "lecture_before_exercise" not in kinds(evaluate(tuesday_start, swapped))
+
+
 def test_zoom_in_middle_of_day_is_soft():
     a = lecture("a", length=1, is_remote=True)
     problem = Problem(sessions=[a])

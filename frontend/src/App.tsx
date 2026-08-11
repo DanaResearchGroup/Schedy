@@ -57,6 +57,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<GridFilter>(NO_FILTER);
+  const [notice, setNotice] = useState<string | null>(null);
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
   const [selected, setSelected] = useState<string | null>(null);
   // Undo/redo stack of placement snapshots; idx points at the current state.
@@ -161,6 +162,29 @@ export default function App() {
     }
   };
 
+  // Erase everything and return to a first-run state. Destructive with no undo,
+  // so the planner has to approve it first; the API demands its own confirm too.
+  const resetAll = async () => {
+    if (!window.confirm(t("resetConfirm", lang))) return;
+    try {
+      await api.reset();
+      setPlacements(null);
+      setSessions({});
+      setWalls([]);
+      setViolations([]);
+      setSelected(null);
+      setHist({ stack: [], idx: -1 });
+      setFilter(NO_FILTER);
+      setError(null);
+      await refresh();
+      setTab("schedule");
+      setNotice(t("resetDone", lang));
+      window.setTimeout(() => setNotice(null), 2500);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   // room is supplied by the per-room boards (drag across cards reassigns it);
   // the weekly grid omits it and the session keeps its current room.
   const onMove = (sid: string, day: number, startBox: number, room?: string) => {
@@ -239,12 +263,16 @@ export default function App() {
           ))}
         </nav>
         <div className="spacer" />
+        <button className="ghost danger" onClick={resetAll} title={t("resetHint", lang)}>
+          ⟲ {t("reset", lang)}
+        </button>
         <button className="ghost" onClick={() => setLang(lang === "he" ? "en" : "he")}>
           {lang === "he" ? "EN" : "עב"}
         </button>
       </header>
 
       {error && <div className="error">{error}</div>}
+      {notice && <div className="notice">{notice}</div>}
 
       {tab === "catalog" && (
         <div className="panel">

@@ -22,6 +22,43 @@ export const STRINGS = {
   empty: { he: "לא נמצאה מערכת — הוסף קורסים ולחץ פתור", en: "No schedule yet — add courses and Solve" },
   save: { he: "שמור", en: "Save" },
   cancel: { he: "ביטול", en: "Cancel" },
+  reset: { he: "איפוס", en: "Reset" },
+  resetHint: {
+    he: "מוחק את כל הנתונים ומתחיל מחדש",
+    en: "Delete all data and start over",
+  },
+  resetConfirm: {
+    he: "לאפס את סקדי?\n\nכל הנתונים יימחקו: קטלוג הקורסים, הסגל, אילוצי הזמינות, "
+      + "לוח הסמסטר, השלד המיובא והמערכת הנוכחית.\n\n"
+      + "מערכות שנשמרו (לשונית \"מערכות שמורות\") יישארו.\n\n"
+      + "לא ניתן לבטל פעולה זו.",
+    en: "Reset Schedy?\n\nThis deletes everything: the course catalog, faculty, "
+      + "availability, the semester calendar, the imported skeleton, and the "
+      + "current schedule.\n\nSaved schedules (Schedules tab) are kept.\n\n"
+      + "This cannot be undone.",
+  },
+  resetDone: { he: "הנתונים נמחקו", en: "Everything was deleted" },
+  offered: { he: "ניתן הסמסטר", en: "Offered this semester" },
+  notOffered: { he: "לא ניתן הסמסטר", en: "Not offered" },
+  offeredHint: {
+    he: "בטל סימון כדי לדלג על הקורס בסמסטר זה מבלי למחוק אותו מהקטלוג",
+    en: "Uncheck to skip this course this semester without deleting it from the catalog",
+  },
+  skipReason: { he: "סיבת הדילוג", en: "Reason for skipping" },
+  skipReasonPlaceholder: {
+    he: "למשל: פרופ׳ כהן בשבתון תשפ״ו",
+    en: "e.g. Prof. Cohen on sabbatical 2026",
+  },
+  showNotOffered: { he: "הצג קורסים שאינם ניתנים", en: "Show courses not offered" },
+  notOfferedCount: { he: "אינם ניתנים הסמסטר", en: "not offered this semester" },
+  notTeachingGroup: {
+    he: "אינם מלמדים הסמסטר (נשמר)",
+    en: "Not teaching this semester (kept)",
+  },
+  notTeachingNote: {
+    he: "אדם זה אינו מלמד בסמסטר זה — האילוצים שלו נשמרים אך אינם משפיעים על השיבוץ.",
+    en: "This person isn't teaching this semester — their blocks are kept but do not affect the solve.",
+  },
   nameHe: { he: "שם בעברית", en: "Hebrew name" },
   nameEn: { he: "שם באנגלית", en: "English name" },
   programs: { he: "תוכניות", en: "Programs" },
@@ -129,6 +166,18 @@ export const STRINGS = {
   },
   deficitLabel: { he: "חוסר", en: "deficit" },
   weekLabel: { he: "שבוע", en: "Week" },
+  weekStartsOn: { he: "שבוע הלימודים מתחיל ביום", en: "Teaching week starts on" },
+  weekStartsHint: {
+    he:
+      "הסמסטר נפתח באמצע השבוע, ולכן סדר ״הרצאה לפני תרגול״ נמדד מהיום הזה " +
+      "ולא מיום ראשון.",
+    en:
+      "The semester opens mid-week, so lecture-before-exercise order is measured " +
+      "from this day rather than from Sunday.",
+  },
+  causeTemplateOrder: { he: "סדר קבוע בכל שבוע", en: "Every week" },
+  causeSubstitution: { he: "בעקבות החלפת יום", en: "Day substitution" },
+  weeksAffected: { he: "שבועות", en: "weeks" },
   loadSample: { he: "טען קטלוג לדוגמה", en: "Load sample catalog" },
   exportCatalog: { he: "ייצוא קטלוג", en: "Export catalog" },
   importCatalogLabel: { he: "ייבוא קטלוג", en: "Import catalog" },

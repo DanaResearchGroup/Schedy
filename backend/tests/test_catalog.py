@@ -38,6 +38,29 @@ def test_skeleton_groups_override_declared_count():
     assert any(s.type is SessionType.LECTURE for s in problem.sessions)
 
 
+def test_unoffered_course_contributes_no_sessions():
+    # An elective sitting out the term (lecturer on sabbatical) stays in the
+    # catalog but must not reach the solver at all.
+    on = _course(num="00540319", num_exercise_groups=2)
+    off = _course(num="00540777", num_exercise_groups=2,
+                  offered=False, skip_reason="Prof. X sabbatical 2026")
+    problem = expand([on, off])
+    assert {s.course_number for s in problem.sessions} == {"00540319"}
+
+
+def test_unoffered_external_course_raises_no_wall():
+    # A cancelled external course must stop blocking its cohorts' week too.
+    ext = _course(num="01040031", is_external=True, ext_day=1,
+                  ext_start_min=510, ext_end_min=630, offered=False)
+    problem = expand([ext])
+    assert [fe for fe in problem.fixed_events if fe.is_external_course] == []
+
+
+def test_courses_are_offered_by_default():
+    assert _course().offered is True
+    assert expand([_course()]).sessions
+
+
 def test_falls_back_to_declared_count_without_skeleton():
     problem = expand([_course(num_exercise_groups=3)])
     ex = [s for s in problem.sessions if s.type is SessionType.EXERCISE]
