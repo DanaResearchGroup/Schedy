@@ -391,6 +391,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#coi_io-pure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        coi_io (pure)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -643,10 +654,18 @@ weighted soft ladder.</p>
 <ul>
 <li><code>parser.parse_rows</code> locates columns by <strong>Hebrew header text</strong> (robust to
   reordering) and yields <code>OfferedSession</code>s, filtered to relevant course numbers.
-  <code>parse_skeleton</code> is the thin file shell.</li>
+  Columns the scheduler reasons about become fields; every other named column is
+  carried verbatim in <code>details</code>, so the review screen shows a course's whole
+  record without a field per column. <code>parse_skeleton</code> is the thin file shell.</li>
 <li><code>validator.find_missing</code> checks the parsed skeleton against a user-defined
   <code>ChecklistItem</code> list (matches dedicated groups like <em>HEDVA 13</em> by substring).</li>
 </ul>
+<h3 id="coi_io-pure"><code>coi_io</code> (pure)<a class="headerlink" href="#coi_io-pure" title="Permanent link">&para;</a></h3>
+<p>Reads the hand-maintained <strong>courses-of-interest</strong> file — the list of course
+numbers that filters the skeleton on import. Deliberately tolerant: CSV or Excel,
+headed (<code>number,name</code>, either order, Hebrew or English) or a bare list of numbers,
+and <code>normalize_number</code> restores the leading zeros Excel strips off <code>00540315</code>.
+Format and examples: <a href="https://github.com/DanaResearchGroup/Schedy/blob/main/examples/README.md"><code>examples/README.md</code></a>.</p>
 <h2 id="engine">Engine<a class="headerlink" href="#engine" title="Permanent link">&para;</a></h2>
 <h3 id="model_builder"><code>model_builder</code><a class="headerlink" href="#model_builder" title="Permanent link">&para;</a></h3>
 <p>Translates a <code>Problem</code> into a CP-SAT model (hard no-overlap / forbidden regions;
@@ -664,8 +683,9 @@ attaches the evaluator's report (<code>SolveResult</code>).</p>
 <p><code>to_csv</code> (deterministic, golden-tested) and <code>to_pdf</code> (reportlab) — per the PRD,
 <strong>no</strong> university XLSX writeback.</p>
 <h3 id="api"><code>api</code><a class="headerlink" href="#api" title="Permanent link">&para;</a></h3>
-<p>FastAPI: catalog CRUD, availability, skeleton parse/validate, solve, CSV/PDF
-export. Thin — all logic lives in the engine modules.</p>
+<p>FastAPI: catalog CRUD, courses-of-interest file import/export, availability,
+skeleton parse/validate, solve, CSV/PDF export. Thin — all logic lives in the
+engine modules.</p>
 <h2 id="test-coverage">Test coverage<a class="headerlink" href="#test-coverage" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -685,7 +705,11 @@ export. Thin — all logic lives in the engine modules.</p>
 </tr>
 <tr>
 <td>parser / validator</td>
-<td>column mapping, group codes, missing items, real XLSX smoke</td>
+<td>column mapping, pass-through details, group codes, missing items, real XLSX smoke</td>
+</tr>
+<tr>
+<td>coi_io</td>
+<td>headed / bare / Excel shapes, leading-zero repair, round trips</td>
 </tr>
 <tr>
 <td>model_builder / solver</td>
