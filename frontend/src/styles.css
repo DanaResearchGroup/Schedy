@@ -45,6 +45,15 @@ header {
 }
 .tab.active { background: var(--primary); color: var(--primary-ink); }
 
+/* Which academic year + semester is open. Everything below the header belongs
+   to it, so it sits in the header rather than in any one tab. */
+.term-picker { display: flex; align-items: center; gap: 0.25rem; }
+.term-picker select {
+  border: 1px solid var(--border); background: #f8fafc; border-radius: 8px;
+  padding: 0.45rem 0.6rem; font-size: 0.9rem; color: var(--ink); cursor: pointer;
+}
+.term-picker button { padding: 0.45rem 0.6rem; }
+
 button, .ghost {
   cursor: pointer; border: 1px solid var(--border); background: #fff;
   border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.9rem; color: var(--ink);
@@ -354,6 +363,12 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .tag.role-lab { background: var(--role-lab); color: #166534; }
 .tag.ext { background: #fde68a; color: #92400e; }
 .tag.skipped { background: #e2e8f0; color: #475569; text-decoration: line-through; }
+/* Level: only grad and joint are tagged — they carry the hard non-overlap rule,
+   and undergraduate is the unremarkable default. */
+.tag.level-grad { background: #ede9fe; color: #5b21b6; }
+.tag.level-joint { background: #e0e7ff; color: #3730a3; }
+/* A stand-in for a course not yet confirmed — dashed, because it is a guess. */
+.tag.provisional { background: #fff; color: #6d28d9; border: 1px dashed #a78bfa; }
 
 /* A course sitting out the semester: still listed, visibly inactive. */
 .course-list li.row-skipped .course-link strong,
@@ -376,6 +391,9 @@ table.avail-grid td.avail-cell.blocked:hover { background: #fecaca; }
 .lab-days { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; font-size: 0.82rem; }
 .form-actions { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
 .hint { color: var(--conflict); font-size: 0.8rem; margin: 0; }
+/* Informational, unlike .hint — which is the conflict colour and reads as a
+   warning. Used for "we derived this for you, override if wrong" notes. */
+.note { color: var(--muted); font-size: 0.8rem; margin: 0.15rem 0 0; }
 
 /* ---- import / data tables ---- */
 .upload { margin: 0.5rem 0 1rem; }

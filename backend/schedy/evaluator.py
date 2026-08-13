@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 
 from .domain import (
     DAY_NAMES,
+    CourseLevel,
     CourseRole,
     Cohort,
     DayInterval,
@@ -86,6 +87,39 @@ def _is_elective(s: Session) -> bool:
     return s.role is CourseRole.ELECTIVE
 
 
+def _is_grad_level(s: Session) -> bool:
+    return s.level in (CourseLevel.GRAD, CourseLevel.JOINT)
+
+
+def _grad_clash(sa: Session, sb: Session) -> bool:
+    """Whether an overlap between these two breaks the graduate rule.
+
+    Both must be graduate-level, and at least one genuinely graduate — joint
+    courses are exempt from each other, being largely undergraduate-attended.
+
+    Two exemptions, so the rule reports only what it uniquely catches:
+      * exercise groups of one course — students attend one, and their
+        separation is already `ta_sessions_coincide`;
+      * alternatives of *one* cross-day lab, which exist precisely to overlap
+        each other — a student takes the lab on one of the offered days.
+
+    That second exemption is deliberately narrow. Exempting a lab from the rule
+    outright would leave a graduate lab free to sit on any graduate course:
+    `lab_cross_day_unsatisfiable` cannot cover for it, because that check reasons
+    about cohorts and a graduate course has none.
+    """
+    if not (_is_grad_level(sa) and _is_grad_level(sb)):
+        return False
+    if sa.level is CourseLevel.JOINT and sb.level is CourseLevel.JOINT:
+        return False
+    if sa.lab_group is not None and sa.lab_group == sb.lab_group:
+        return False
+    if (sa.course_number == sb.course_number
+            and sa.type is SessionType.EXERCISE and sb.type is SessionType.EXERCISE):
+        return False
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
@@ -143,6 +177,18 @@ def _check_pairwise(placed, w, out: list[Violation]) -> None:
                     ids,
                 ))
 
+            # Graduate rule — deliberately its own statement, NOT a branch of
+            # the elective chain below. Graduate courses are nearly always
+            # electives, so folding it in would let the soft elective branch
+            # win and silently downgrade a hard rule to a warning.
+            if _grad_clash(sa, sb):
+                out.append(Violation(
+                    "grad_overlap", HARD,
+                    f"Graduate-level {sa.id} and {sb.id} overlap; a graduate "
+                    f"student cannot take both.",
+                    ids,
+                ))
+
             ae, be = _is_elective(sa), _is_elective(sb)
             shared_cohorts = sa.cohorts & sb.cohorts
             if ae and be:
@@ -192,6 +238,17 @@ def _check_vs_fixed_events(problem, placed, w, out: list[Violation]) -> None:
                     f"{s.id} shares room {pl.room_id} with external '{fe.label}'.",
                     (s.id,),
                 ))
+            # Another faculty's graduate/joint course owns no cohort of
+            # ours, so only the level rule can reach it.
+            if _is_grad_level(s) and fe.level in (CourseLevel.GRAD, CourseLevel.JOINT):
+                if not (s.level is CourseLevel.JOINT and fe.level is CourseLevel.JOINT):
+                    out.append(Violation(
+                        "grad_overlap", HARD,
+                        f"Graduate-level {s.id} overlaps external "
+                        f"graduate course '{fe.label}'.",
+                        (s.id,),
+                    ))
+
             shared = s.cohorts & fe.cohorts
             if shared:
                 if _is_elective(s):
@@ -244,6 +301,15 @@ def _check_single_session(problem, placed, w, out: list[Violation]) -> None:
                 (s.id,),
             ))
 
+        # A published session is pinned to its room; moving it would change a
+        # schedule students have already been given.
+        if s.fixed_room is not None and pl.room_id != s.fixed_room:
+            out.append(Violation(
+                "room_pin_broken", HARD,
+                f"{s.id} is pinned to room {s.fixed_room} but sits in {pl.room_id}.",
+                (s.id,),
+            ))
+
         # Availability: every occupied (day, box) must be free for all people.
         for person in s.people:
             unavail = problem.availability.get(person, set())
@@ -279,17 +345,27 @@ def _check_fixed_placement(placed, out: list[Violation]) -> None:
     # user may still drag it in the editor; that's allowed, so a manual move off
     # the skeleton slot is a soft, non-blocking notice (weight 0) — the solver
     # re-anchors it on the next solve.
+    # A published session is the exception: its slot was handed to students, so
+    # moving it is a hard break rather than a notice.
     for pl in placed:
         s = pl.session
         if (s.fixed_day is not None and pl.day != s.fixed_day) or \
            (s.fixed_box is not None and pl.start_box != s.fixed_box):
-            out.append(Violation(
-                "fixed_placement", SOFT,
-                f"{s.id} was moved off its skeleton anchor "
-                f"(day {s.fixed_day} box {s.fixed_box}); the solver will "
-                f"re-anchor it on re-solve.",
-                (s.id,),
-            ))
+            if s.is_published:
+                out.append(Violation(
+                    "published_moved", HARD,
+                    f"{s.id} was published at day {s.fixed_day} box {s.fixed_box}; "
+                    f"moving it breaks the schedule the students were given.",
+                    (s.id,),
+                ))
+            else:
+                out.append(Violation(
+                    "fixed_placement", SOFT,
+                    f"{s.id} was moved off its skeleton anchor "
+                    f"(day {s.fixed_day} box {s.fixed_box}); the solver will "
+                    f"re-anchor it on re-solve.",
+                    (s.id,),
+                ))
 
 
 # --------------------------------------------------------------------------- #

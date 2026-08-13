@@ -1,6 +1,11 @@
 import { useState } from "react";
-import type { Course, Program, Role } from "../types";
-import { PROGRAMS, ROLES, ROOMS } from "../types";
+import type { Cadence, Course, CourseLevel, Program, Role } from "../types";
+import { effectiveLevel, PROGRAMS, ROLES, ROOMS } from "../types";
+
+const LEVELS: CourseLevel[] = ["ug", "joint", "grad"];
+const LEVEL_KEY = {
+  ug: "levelUg", joint: "levelJoint", grad: "levelGrad",
+} as const;
 import {
   DAY_NAMES,
   ROLE_LABEL,
@@ -39,7 +44,12 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
 
   const csv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
-  const valid = c.number.trim() !== "" && c.programs.length > 0;
+  const level = effectiveLevel(c);
+  const isGradLevel = level === "grad" || level === "joint";
+  // A graduate student is not "ChemE Y2" (PRD D4): a graduate course belongs to
+  // no cohort, so demanding a programme would be demanding a wrong answer.
+  const valid = c.number.trim() !== ""
+    && (c.programs.length > 0 || level === "grad");
 
   return (
     <div className="form">
@@ -58,23 +68,61 @@ export function CourseForm({ initial, isNew, lang, onSave, onCancel }: Props) {
         </label>
       </div>
 
-      <fieldset>
-        <legend>{t("programs", lang)}</legend>
-        {PROGRAMS.map((p) => (
-          <label key={p} className="chk">
-            <input type="checkbox" checked={c.programs.includes(p)}
-              onChange={() => toggleProgram(p)} />
-            {p}
-          </label>
-        ))}
-      </fieldset>
-
+      {/* Who may take it, distinct from `role`, which is what it is. The number
+          suggests a level; the planner overrides it for another faculty's
+          courses, which follow no convention of ours. */}
       <div className="row">
-        <label>{t("year", lang)}
-          <select value={c.year} onChange={(e) => set({ year: Number(e.target.value) })}>
-            {[1, 2, 3, 4].map((y) => <option key={y} value={y}>{y}</option>)}
+        <label>{t("level", lang)}
+          <select value={level}
+            onChange={(e) => set({ level: e.target.value as CourseLevel })}>
+            {LEVELS.map((l) => (
+              <option key={l} value={l}>{t(LEVEL_KEY[l], lang)}</option>
+            ))}
           </select>
         </label>
+        {isGradLevel && (
+          <label>{t("cadence", lang)}
+            <select value={c.cadence ?? "annual"}
+              onChange={(e) => set({ cadence: e.target.value as Cadence })}>
+              <option value="annual">{t("cadenceAnnual", lang)}</option>
+              <option value="biennial">{t("cadenceBiennial", lang)}</option>
+            </select>
+          </label>
+        )}
+      </div>
+      {c.level == null && (
+        <p className="note">
+          {t("levelFromNumber", lang, { level: t(LEVEL_KEY[level], lang) })}
+        </p>
+      )}
+
+      {/* A graduate course belongs to no cohort (D4), so programme and year say
+          nothing about it — `Course.cohorts` ignores them either way, and
+          leaving the controls up would invite the planner to set a value that
+          silently does nothing. */}
+      {level === "grad" ? (
+        <p className="note">{t("levelGradHint", lang)}</p>
+      ) : (
+        <fieldset>
+          <legend>{t("programs", lang)}</legend>
+          {PROGRAMS.map((p) => (
+            <label key={p} className="chk">
+              <input type="checkbox" checked={c.programs.includes(p)}
+                onChange={() => toggleProgram(p)} />
+              {p}
+            </label>
+          ))}
+        </fieldset>
+      )}
+
+      <div className="row">
+        {level !== "grad" && (
+          <label>{t("year", lang)}
+            <select value={c.year} onChange={(e) => set({ year: Number(e.target.value) })}>
+              {[1, 2, 3, 4].map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </label>
+        )}
         <label>{t("role", lang)}
           <select value={c.role} onChange={(e) => set({ role: e.target.value as Role })}>
             {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r][lang]}</option>)}

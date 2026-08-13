@@ -3,6 +3,46 @@
 export type Program = "ChemE" | "BioChemE" | "ChemE-Chemistry";
 export type Role = "core" | "elective" | "replacement" | "lab";
 
+// An academic year plus a semester — the unit everything else is scoped by.
+export type Semester = "winter" | "spring";
+
+const SEMESTER_WORDS: Record<Semester, string[]> = {
+  winter: ["winter", "חורף"],
+  spring: ["spring", "אביב"],
+};
+
+/**
+ * Read a typed semester, or null if it isn't one.
+ *
+ * Null rather than a default, because everything in the app is scoped to a
+ * term: a misread semester doesn't fail, it quietly files a year's work under
+ * the wrong half of the year. An abbreviation is accepted only while it can
+ * still mean one semester — "spr" is spring, "sprng" is nothing.
+ */
+export function parseSemester(raw: string): Semester | null {
+  const s = raw.trim().toLowerCase();
+  if (!s) return null;
+  const hits = (Object.keys(SEMESTER_WORDS) as Semester[])
+    .filter((k) => SEMESTER_WORDS[k].some((w) => w.startsWith(s)));
+  return hits.length === 1 ? hits[0] : null;
+}
+
+export interface Term {
+  id: string;        // "2026-27-winter"
+  year: string;      // "2026-27"
+  semester: Semester;
+  created: string;
+  published: string | null;
+}
+
+export interface TermList {
+  terms: Term[];
+  current: string;
+  // Set only on a database migrated from before terms existed: the name was
+  // guessed and the planner still has to confirm it.
+  needs_naming: string | null;
+}
+
 export interface Course {
   number: string;
   name_he?: string;
@@ -30,6 +70,32 @@ export interface Course {
   skip_reason?: string;
   // Academic credit points (e.g. 2.5). Absent for pre-existing catalogs.
   credit?: number | null;
+  // Who may take it. Null/absent means "derive from the number".
+  level?: CourseLevel | null;
+  cadence?: Cadence;
+  // A rolled-over graduate course standing in for one not yet confirmed.
+  provisional?: boolean;
+}
+
+export type CourseLevel = "ug" | "joint" | "grad";
+export type Cadence = "annual" | "biennial";
+
+// Mirrors `catalog.suggest_level`: our numbering says who a course is for, and
+// anything else belongs to another faculty where no convention holds.
+const LEVEL_PREFIXES: Record<string, CourseLevel> = {
+  "0054": "ug", "0056": "joint", "0058": "grad",
+};
+
+export function suggestLevel(number: string): CourseLevel {
+  return LEVEL_PREFIXES[number.trim().slice(0, 4)] ?? "ug";
+}
+
+export const effectiveLevel = (c: Course): CourseLevel =>
+  c.level ?? suggestLevel(c.number);
+
+export interface RolloverCourse extends Course {
+  last_run: string;   // the term it was last taught in
+  due: boolean;       // its cadence says it should run this term
 }
 
 export const ROOMS: { id: string; name: string; capacity: number; farm?: boolean }[] = [
@@ -69,6 +135,12 @@ export interface SessionMeta {
   tas: string[];
   is_remote: boolean;
   fixed: boolean;
+  // Frozen by publication — already handed to students, so it cannot be dragged.
+  published?: boolean;
+  // A stand-in for a course not yet confirmed: it holds hours through phase 1.
+  provisional?: boolean;
+  // Who may take it — drives the hard graduate non-overlap rule.
+  level?: CourseLevel;
   enrollment: number;
   needs_farm: boolean;
   lab_group: string | null;
@@ -83,6 +155,17 @@ export interface SolveResult {
   placements: Record<string, Placement>;
   sessions: Record<string, SessionMeta>;
   violations: Violation[];
+  // Published sessions the catalog no longer produces — they have dropped out
+  // of a frozen schedule without breaking any rule.
+  published_missing?: string[];
+  // Published sessions the re-imported university skeleton now wants elsewhere.
+  published_conflicts?: PublishedConflict[];
+}
+
+export interface PublishedConflict {
+  session_id: string;
+  published: [number, number];   // day, start box
+  skeleton: [number, number];
 }
 
 // person id -> list of [day, box] cells the person is NOT available to teach.
@@ -96,6 +179,9 @@ export interface FixedEvent {
   length_boxes: number;
   kind: "blackout" | "external";
   cohorts: string[];
+  // Another faculty's graduate course owns no cohort of ours, so only its level
+  // ties it to our graduate courses. Null for a blackout, which has no course.
+  level?: CourseLevel | null;
 }
 
 export interface SemesterCalendar {
@@ -164,6 +250,8 @@ export interface SavedMeta {
   created_at: string; // ISO timestamp
   stats: { sessions?: number; hard?: number; soft_penalty?: number };
   note: string | null;
+  // Which term it came from. Null for saves written before terms existed.
+  term?: string | null;
 }
 
 export interface DiffChange {

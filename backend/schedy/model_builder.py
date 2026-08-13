@@ -25,6 +25,7 @@ from .domain import (
     BOX_MINUTES,
     DAY_START_MIN,
     NUM_DAYS,
+    CourseLevel,
     CourseRole,
     DayInterval,
     Problem,
@@ -74,6 +75,15 @@ class ModelBuilder:
     # ------------------------------------------------------------------ #
     def _candidate_rooms(self, s: Session) -> list[int]:
         rooms = self.problem.rooms
+        # A pinned room is the only candidate — including when it no longer fits
+        # (enrolment can be edited after a schedule is published). Narrowing to
+        # it here rather than adding an equality constraint keeps the model
+        # satisfiable, so the mismatch surfaces as a `capacity_exceeded`
+        # violation the planner can read instead of a bare INFEASIBLE.
+        if s.fixed_room is not None:
+            pinned = self._room_index(s.fixed_room)
+            if pinned is not None:
+                return [pinned]
         cands = []
         for i, r in enumerate(rooms):
             if s.needs_computer_farm and not r.is_computer_farm:
@@ -102,6 +112,7 @@ class ModelBuilder:
 
         self._hard_room()
         self._hard_cohort()
+        self._hard_grad_level()
         self._hard_person()
         self._hard_same_course_ta()
         self._hard_fixed_events()
@@ -161,6 +172,51 @@ class ModelBuilder:
             if len(ivs) > 1:
                 m.AddNoOverlap(ivs)
 
+    def _hard_grad_level(self) -> None:
+        """Graduate-level sessions may not overlap — the model half of `_grad_clash`.
+
+        Joint courses are exempt from each other (D1), alternatives of one
+        cross-day lab are exempt from each other (a student takes the lab on one
+        of the offered days), and everything else that is graduate-level is
+        mutually exclusive. Exercise groups of one course stay in;
+        `_hard_same_course_ta` already separates them, so nothing changes.
+
+        Another faculty's courses arrive as fixed walls carrying a level, and the
+        level has to mean the same thing there: a *graduate* wall excludes every
+        graduate and joint session, while two *joint* walls may overlap each
+        other — treating them alike would forbid that and could make the model
+        infeasible over a rule that does not exist.
+
+        Built pairwise rather than as one no-overlap set, because the exemptions
+        are per-pair: a set cannot say "these two may overlap each other but
+        neither may overlap that third one". At three or four graduate courses a
+        term the pair count is trivial, and mirroring `_grad_clash` exactly is
+        what keeps the model and the evaluator from drifting apart.
+        """
+        m = self.model
+
+        # (interval, level, lab_group) for everything the rule reaches. A wall is
+        # another faculty's course: immovable, and belonging to no lab group.
+        items: list[tuple] = [
+            (self.vars[s.id].interval, s.level, s.lab_group)
+            for s in self.problem.sessions
+            if s.level in (CourseLevel.GRAD, CourseLevel.JOINT)
+        ]
+        for fe in self.problem.fixed_events:
+            if fe.is_blackout or fe.level not in (CourseLevel.GRAD, CourseLevel.JOINT):
+                continue
+            b0, b1 = _interval_to_abs_boxes(fe.interval)
+            items.append(
+                (m.NewIntervalVar(b0, b1 - b0, b1, f"ext_grad_{fe.id}"), fe.level, None))
+
+        for i, (iv_a, lvl_a, lab_a) in enumerate(items):
+            for iv_b, lvl_b, lab_b in items[i + 1:]:
+                if lvl_a is CourseLevel.JOINT and lvl_b is CourseLevel.JOINT:
+                    continue                       # D1: joint x joint is allowed
+                if lab_a is not None and lab_a == lab_b:
+                    continue                       # alternatives of one lab
+                m.AddNoOverlap([iv_a, iv_b])
+
     def _hard_person(self) -> None:
         m = self.model
         per_person: dict[str, list[cp_model.IntervalVar]] = {}
@@ -198,7 +254,12 @@ class ModelBuilder:
                 m.AddBoolOr([before, after])
 
     def _hard_fixed_placements(self) -> None:
-        """Pin skeleton-fixed sessions to their (day, box) — room stays free."""
+        """Pin fixed sessions to their day, box and room.
+
+        A skeleton import pins only the hour; a published session pins all three.
+        The room pin is applied in `_candidate_rooms`, which leaves the variable
+        no other value to take.
+        """
         m = self.model
         for s in self.problem.sessions:
             v = self.vars[s.id]

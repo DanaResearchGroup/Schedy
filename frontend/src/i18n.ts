@@ -28,16 +28,133 @@ export const STRINGS = {
     en: "Delete all data and start over",
   },
   resetConfirm: {
-    he: "לאפס את סקדי?\n\nכל הנתונים יימחקו: קטלוג הקורסים, הסגל, אילוצי הזמינות, "
-      + "לוח הסמסטר, השלד המיובא והמערכת הנוכחית.\n\n"
-      + "מערכות שנשמרו (לשונית \"מערכות שמורות\") יישארו.\n\n"
+    he: "לאפס את הסמסטר {term}?\n\nכל נתוני הסמסטר יימחקו: קטלוג הקורסים, אילוצי "
+      + "הזמינות, לוח הסמסטר, השלד המיובא והמערכת הנוכחית.\n\n"
+      + "סמסטרים אחרים, רשימת הסגל ומערכות שנשמרו (לשונית \"מערכות שמורות\") יישארו.\n\n"
       + "לא ניתן לבטל פעולה זו.",
-    en: "Reset Schedy?\n\nThis deletes everything: the course catalog, faculty, "
+    en: "Reset {term}?\n\nThis deletes the term's data: the course catalog, "
       + "availability, the semester calendar, the imported skeleton, and the "
-      + "current schedule.\n\nSaved schedules (Schedules tab) are kept.\n\n"
-      + "This cannot be undone.",
+      + "current schedule.\n\nOther terms, the faculty registry and saved "
+      + "schedules (Schedules tab) are kept.\n\nThis cannot be undone.",
   },
-  resetDone: { he: "הנתונים נמחקו", en: "Everything was deleted" },
+  resetDone: { he: "נתוני הסמסטר נמחקו", en: "The term's data was deleted" },
+  term: { he: "סמסטר", en: "Term" },
+  winter: { he: "חורף", en: "Winter" },
+  spring: { he: "אביב", en: "Spring" },
+  newTerm: { he: "סמסטר חדש…", en: "New term…" },
+  newTermPrompt: {
+    he: "שנה אקדמית חדשה (למשל 2027-28):",
+    en: "New academic year (e.g. 2027-28):",
+  },
+  newTermSemester: {
+    he: "איזה סמסטר? הקלד חורף או אביב:",
+    en: "Which semester? Type winter or spring:",
+  },
+  semesterUnrecognised: {
+    he: "לא זוהה סמסטר. הקלד חורף או אביב — לא בוצע שינוי.",
+    en: "That is not a semester I recognise. Type winter or spring — nothing was changed.",
+  },
+  renameTerm: { he: "שנה שם…", en: "Rename…" },
+  renameTermHint: {
+    he: "תיקון השנה האקדמית או הסמסטר של הסמסטר הנוכחי",
+    en: "Correct the academic year or semester of the current term",
+  },
+  level: { he: "רמה", en: "Level" },
+  levelUg: { he: "תואר ראשון", en: "Undergraduate" },
+  levelJoint: { he: "משותף", en: "Joint UG/grad" },
+  levelGrad: { he: "תואר שני", en: "Graduate" },
+  levelFromNumber: {
+    he: "לפי מספר הקורס: {level}. ניתן לשנות ידנית.",
+    en: "From the course number: {level}. Override if needed.",
+  },
+  levelGradHint: {
+    he: "קורסי תואר שני אינם משויכים למחזור, ולכן מסלול ושנה אינם נדרשים",
+    en: "Graduate courses belong to no cohort, so programme and year are optional",
+  },
+  cadence: { he: "תדירות", en: "Runs" },
+  cadenceAnnual: { he: "כל שנה", en: "Every year" },
+  cadenceBiennial: { he: "אחת לשנתיים", en: "Every other year" },
+  provisional: { he: "משוער", en: "Provisional" },
+  provisionalHint: {
+    he: "קורס משנה שעברה השומר על שעותיו עד לאישור סופי בשלב השני",
+    en: "Last year's course holding its hours until phase 2 confirms it",
+  },
+  rollover: { he: "העבר משנה קודמת…", en: "Roll over…" },
+  rolloverTitle: {
+    he: "קורסי תואר שני מ־{source}",
+    en: "Graduate courses from {source}",
+  },
+  rolloverHint: {
+    he: "הקורסים שייבחרו ייכנסו כמשוערים וישמרו על שעותיהם כבר בשלב הראשון, "
+      + "כך שקורסים משותפים יידחקו מהן בפועל.",
+    en: "The courses you pick come in as provisional and hold their hours "
+      + "already in phase 1, so joint courses are genuinely pushed out of them.",
+  },
+  rolloverNone: {
+    he: "אין קורסי תואר שני להעביר משנה קודמת",
+    en: "No graduate courses to roll over",
+  },
+  rolloverLastRun: { he: "ניתן לאחרונה ב־{term}", en: "Last taught {term}" },
+  rolloverAdd: { he: "הוסף כמשוערים", en: "Add as provisional" },
+  appendGrad: { he: "הוסף קורסי תואר שני", en: "Add graduate courses" },
+  appendGradHint: {
+    he: "שלב שני: משבץ את קורסי התואר השני סביב המערכת שפורסמה, מבלי להזיז דבר ממנה",
+    en: "Phase 2: place graduate courses around the published week without "
+      + "moving any of it",
+  },
+  appendGradDone: { he: "{n} שיעורים נוספו", en: "{n} sessions appended" },
+  appendGradFailed: {
+    he: "לא נמצא שיבוץ לקורסי התואר השני. המערכת שפורסמה לא שונתה.",
+    en: "No placement found for the graduate courses. The published week is "
+      + "unchanged.",
+  },
+  loadOtherTerm: {
+    he: "המערכת השמורה שייכת ל־{term}, לא לסמסטר הפתוח.\n\n"
+      + "טעינתה תחליף את קטלוג הסמסטר הנוכחי בקטלוג של אותה שנה. להמשיך?",
+    en: "That saved schedule belongs to {term}, not the open term.\n\n"
+      + "Loading it replaces this term's catalog with that year's. Continue?",
+  },
+  published: { he: "פורסם", en: "Published" },
+  publish: { he: "פרסם וקבע", en: "Publish & freeze" },
+  publishHint: {
+    he: "מקבע את מערכת התואר הראשון והקורסים המשותפים — יום, שעה וחדר — "
+      + "כדי שאפשר יהיה להוסיף קורסי תואר שני מבלי להזיז דבר",
+    en: "Freeze the undergraduate and joint week — day, hour and room — so "
+      + "graduate courses can be added later without moving anything",
+  },
+  publishConfirm: {
+    he: "לפרסם ולקבע את {term}?\n\nכל שיעורי התואר הראשון והקורסים המשותפים "
+      + "יינעלו ליום, לשעה ולחדר שלהם. קורסי התואר השני יישארו חופשיים לשלב השני."
+      + "\n\nניתן לבטל בהמשך בעזרת \"בטל פרסום\".",
+    en: "Publish and freeze {term}?\n\nEvery undergraduate and joint session is "
+      + "locked to its day, hour and room. Graduate courses stay free for "
+      + "phase 2.\n\nYou can undo this later with \"Unpublish\".",
+  },
+  publishDone: { he: "{n} שיעורים נקבעו", en: "{n} sessions frozen" },
+  unpublish: { he: "בטל פרסום", en: "Unpublish" },
+  unpublishConfirm: {
+    he: "לבטל את פרסום {term}?\n\nהמערכת תשוחרר והפותר יוכל להזיז שיעורים "
+      + "שכבר נמסרו לסטודנטים.",
+    en: "Unpublish {term}?\n\nThe week is released, and the solver may move "
+      + "sessions the students have already been given.",
+  },
+  publishedMissing: {
+    he: "שיעורים שפורסמו ואינם קיימים עוד בקטלוג: {ids}. הם נשמטו מהמערכת הקפואה.",
+    en: "Published sessions the catalog no longer has: {ids}. They have dropped "
+      + "out of the frozen schedule.",
+  },
+  publishedConflict: {
+    he: "השלד המיובא מבקש זמן אחר עבור שיעורים שפורסמו: {ids}. "
+      + "הזמן שפורסם הוא שנשמר.",
+    en: "The imported skeleton wants a different time for published sessions: "
+      + "{ids}. The published time is what holds.",
+  },
+  confirmTermName: {
+    he: "סקדי שיער שהנתונים הקיימים שייכים לסמסטר {term}. "
+      + "אשר או תקן זאת בעזרת \"שנה שם…\".",
+    en: "Schedy guessed the existing data belongs to {term}. "
+      + "Confirm or correct it with \"Rename…\".",
+  },
   offered: { he: "ניתן הסמסטר", en: "Offered this semester" },
   notOffered: { he: "לא ניתן הסמסטר", en: "Not offered" },
   offeredHint: {
@@ -363,7 +480,21 @@ export function boxLabel(box: number): string {
   return `${fmt(start)}-${fmt(end)}`;
 }
 
-export const t = (key: keyof typeof STRINGS, lang: Lang): string => STRINGS[key][lang];
+export const t = (
+  key: keyof typeof STRINGS, lang: Lang, vars?: Record<string, string>,
+): string => {
+  const s = STRINGS[key][lang];
+  return vars ? s.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m) : s;
+};
+
+// "2026-27-winter" reads as "2026-27 Winter" / "2026-27 חורף". The id is the
+// backend's key; this is the only place it is made human.
+export function termLabel(id: string, lang: Lang): string {
+  const [year, , semester] = [id.slice(0, id.lastIndexOf("-")), "", id.slice(id.lastIndexOf("-") + 1)];
+  const name = semester === "winter" || semester === "spring"
+    ? t(semester, lang) : semester;
+  return `${year} ${name}`;
+}
 
 export function minutesToHHMM(m: number | null | undefined): string {
   if (m == null) return "";

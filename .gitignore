@@ -48,3 +48,6 @@ site/
 
 # Scratch
 scratch/
+
+# Agent worktrees — local scratch, never part of the repo
+.claude/worktrees/

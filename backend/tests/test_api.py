@@ -717,6 +717,23 @@ def test_fixed_events_overlay(client):
     assert wed["day"] == 3 and wed["start_box"] == 4 and wed["length_boxes"] == 2
 
 
+def test_an_external_wall_carries_its_level(client):
+    # Another faculty's graduate course owns no cohort of ours, so its level is
+    # the only thing that makes our graduate courses avoid it. The grid's drag
+    # hint and its audience filter both read it from here.
+    client.post("/catalog/courses", json={
+        "number": "01340501", "name_en": "Peritoneal biology", "level": "grad",
+        "is_external": True, "ext_day": 1, "ext_start_min": 9 * 60 + 30,
+        "ext_end_min": 11 * 60 + 30, "programs": [], "year": 2,
+    })
+    events = client.get("/fixed-events").json()
+    wall = next(e for e in events if e["id"] == "ext-01340501")
+    assert wall["level"] == "grad"
+    # A blackout belongs to no course and so has no level to report.
+    blackout = next(e for e in events if e["kind"] == "blackout")
+    assert blackout["level"] is None
+
+
 def test_calendar_round_trips_and_analyzes(client):
     assert client.get("/calendar").json() == {}
     # Analyze before any calendar is a 404.

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type Config } from "../api";
 import type { Placement, SavedMeta, ScheduleDiff, SolveResult } from "../types";
 import { ROOMS } from "../types";
-import { DAY_NAMES, boxLabel, t, type Lang } from "../i18n";
+import { DAY_NAMES, boxLabel, t, termLabel, type Lang } from "../i18n";
 
 const ROOM_NAME = Object.fromEntries(ROOMS.map((r) => [r.id, r.name.split(" (")[0]]));
 
@@ -10,6 +10,7 @@ interface Props {
   lang: Lang;
   canSave: boolean; // a schedule is currently solved/loaded
   onLoaded: (result: SolveResult) => void;
+  currentTerm: string | null;
 }
 
 function fmtDate(iso: string): string {
@@ -23,7 +24,7 @@ function fmtDate(iso: string): string {
 // load one back (replacing the working state). The saves live as one file each
 // in a folder the planner chooses, anywhere under the root the app was
 // installed with (a synced folder or network drive is set up there, once).
-export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
+export function SchedulesPanel({ lang, canSave, onLoaded, currentTerm }: Props) {
   const [saves, setSaves] = useState<SavedMeta[]>([]);
   const [config, setConfig] = useState<Config | null>(null);
   const savesDir = config?.saves_dir ?? "";
@@ -72,9 +73,14 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
 
   const load = async (s: SavedMeta) => {
     if (!window.confirm(t("loadConfirm", lang))) return;
+    // A save from another term brings that term's whole catalog with it, so it
+    // takes its own answer rather than riding on the generic one above.
+    const foreign = s.term != null && s.term !== currentTerm;
+    if (foreign && !window.confirm(
+        t("loadOtherTerm", lang, { term: termLabel(s.term!, lang) }))) return;
     setBusy(true); setError(null);
     try {
-      onLoaded(await api.loadSchedule(s.id));
+      onLoaded(await api.loadSchedule(s.id, foreign));
     } catch (e) { setError(String(e)); } finally { setBusy(false); }
   };
 
@@ -177,7 +183,12 @@ export function SchedulesPanel({ lang, canSave, onLoaded }: Props) {
                     {s.name}
                     {s.note && <span className="s-note"> — {s.note}</span>}
                   </td>
-                  <td className="s-date muted">{fmtDate(s.created_at)}</td>
+                  <td className="s-date muted">
+                    {fmtDate(s.created_at)}
+                    {s.term && s.term !== currentTerm && (
+                      <span className="tag"> {termLabel(s.term, lang)}</span>
+                    )}
+                  </td>
                   <td className="s-stats">
                     <span>{s.stats.sessions ?? 0} {t("sessionsShort", lang)}</span>
                     <span className={s.stats.hard ? "bad" : "ok"}>

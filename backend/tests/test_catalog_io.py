@@ -112,3 +112,26 @@ def test_from_csv_tolerates_bom_and_blank_lines():
 def test_number_less_rows_are_skipped():
     text = "number,year\n,3\n00540315,2\n"
     assert [c.number for c in from_csv(text)] == ["00540315"]
+
+
+def test_cadence_survives_a_csv_round_trip():
+    from schedy.catalog import Cadence
+    c = Course(number="00580001", programs=[], year=0, cadence=Cadence.BIENNIAL)
+    assert from_csv(to_csv([c]))[0].cadence is Cadence.BIENNIAL
+
+
+def test_a_file_written_before_cadence_existed_reads_as_annual():
+    from schedy.catalog import Cadence
+    # No column at all: the course ran every year, which is both the common case
+    # and the safe one — it reserves a slot rather than losing one.
+    assert from_csv("number\n00580001\n")[0].cadence is Cadence.ANNUAL
+
+
+def test_a_provisional_course_exports_as_provisional():
+    c = Course(number="00580001", programs=[], year=0, provisional=True)
+    assert from_csv(to_csv([c]))[0].provisional is True
+
+
+def test_a_file_without_the_provisional_column_reads_as_confirmed():
+    # Absent means settled: a hand-written catalog is not a set of guesses.
+    assert from_csv("number\n00580001\n")[0].provisional is False

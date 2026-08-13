@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { api } from "../api";
 import type { Course } from "../types";
+import { effectiveLevel } from "../types";
 import { ROLE_LABEL, t, type Lang } from "../i18n";
 import { CourseForm, blankCourse } from "./CourseForm";
 
@@ -73,8 +74,21 @@ export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed, onImport 
                   </span>
                   <span className="tags">
                     <span className={`tag role-${c.role}`}>{ROLE_LABEL[c.role][lang]}</span>
+                    {/* Level is who may take it, distinct from role, which is
+                        what it is. Undergraduate is the default and unremarkable,
+                        so only the two that carry the hard rule are tagged. */}
+                    {effectiveLevel(c) !== "ug" && (
+                      <span className={`tag level-${effectiveLevel(c)}`}>
+                        {t(effectiveLevel(c) === "grad" ? "levelGrad" : "levelJoint", lang)}
+                      </span>
+                    )}
+                    {c.provisional && (
+                      <span className="tag provisional" title={t("provisionalHint", lang)}>
+                        {t("provisional", lang)}
+                      </span>
+                    )}
                     {c.programs.map((p) => <span key={p} className="tag">{p}</span>)}
-                    <span className="tag">Y{c.year}</span>
+                    {c.programs.length > 0 && <span className="tag">Y{c.year}</span>}
                     {c.is_external && <span className="tag ext">ext</span>}
                     {c.offered === false && (
                       <span className="tag skipped" title={c.skip_reason || undefined}>

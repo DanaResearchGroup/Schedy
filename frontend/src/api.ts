@@ -7,11 +7,15 @@ import type {
   OfferedRow,
   Person,
   Placement,
+  RolloverCourse,
   SavedMeta,
   ScheduleDiff,
   SemesterCalendar,
+  Semester,
   SessionMeta,
   SolveResult,
+  Term,
+  TermList,
   Violation,
 } from "./types";
 
@@ -58,6 +62,60 @@ export const api = {
     fetch(`${BASE}/reset?confirm=true`, { method: "POST" }).then(
       json<{ reset: boolean; courses: number; settings: number }>,
     ),
+
+  // Terms — everything else on this client reads and writes whichever term is
+  // current, so switching moves the whole session, not one request.
+  listTerms: () => fetch(`${BASE}/terms`).then(json<TermList>),
+
+  createTerm: (year: string, semester: Semester) =>
+    fetch(`${BASE}/terms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year, semester }),
+    }).then(json<Term>),
+
+  setCurrentTerm: (term: string) =>
+    fetch(`${BASE}/terms/current`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term }),
+    }).then(json<Term>),
+
+  renameTerm: (term: string, year: string, semester: Semester) =>
+    fetch(`${BASE}/terms/${term}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year, semester }),
+    }).then(json<Term>),
+
+  // Freezes the undergraduate and joint week — day, hour and room — and stamps
+  // the term released. Graduate courses stay fluid for phase 2.
+  publishTerm: (term: string) =>
+    fetch(`${BASE}/terms/${term}/publish?confirm=true`, { method: "POST" })
+      .then(json<Term & { frozen: number }>),
+
+  unpublishTerm: (term: string) =>
+    fetch(`${BASE}/terms/${term}/publish?confirm=true`, { method: "DELETE" })
+      .then(json<Term>),
+
+  // Phase 2 — graduate courses placed around the published week.
+  solveGrad: (timeLimit = 10) =>
+    fetch(`${BASE}/solve/grad`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ time_limit_s: timeLimit }),
+    }).then(json<SolveResult & { appended: string[] }>),
+
+  rolloverPreview: () =>
+    fetch(`${BASE}/terms/current/rollover`)
+      .then(json<{ source: string; courses: RolloverCourse[] }>),
+
+  rolloverApply: (numbers: string[]) =>
+    fetch(`${BASE}/terms/current/rollover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ numbers }),
+    }).then(json<{ added: string[] }>),
 
   listCourses: () => fetch(`${BASE}/catalog/courses`).then(json<Course[]>),
 
@@ -205,9 +263,11 @@ export const api = {
       body: JSON.stringify({ name, note }),
     }).then(json<SavedMeta>),
 
-  loadSchedule: (id: string) =>
-    fetch(`${BASE}/schedules/${encodeURIComponent(id)}/load`, { method: "POST" })
-      .then(json<SolveResult>),
+  // `confirm` is required only to load a save from another term — it carries a
+  // whole catalog, so the wrong one replaces a semester's work.
+  loadSchedule: (id: string, confirm = false) =>
+    fetch(`${BASE}/schedules/${encodeURIComponent(id)}/load${confirm ? "?confirm=true" : ""}`,
+          { method: "POST" }).then(json<SolveResult>),
 
   compareSchedules: (a: string, b: string) =>
     fetch(`${BASE}/schedules/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`)

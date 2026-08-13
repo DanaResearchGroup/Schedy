@@ -73,6 +73,19 @@ class Program(str, Enum):
     CHEME_CHEM = "ChemE-Chemistry"
 
 
+class CourseLevel(str, Enum):
+    """Who may take a course — distinct from `CourseRole`, which is what it is.
+
+    Graduate and joint courses obey a hard mutual non-overlap rule that ordinary
+    undergraduate electives do not: a graduate student combines a handful of
+    courses from a small pool, so any clash between them is untakeable rather
+    than merely unfortunate.
+    """
+    UG = "ug"
+    JOINT = "joint"
+    GRAD = "grad"
+
+
 class CourseRole(str, Enum):
     CORE = "core"
     ELECTIVE = "elective"
@@ -167,19 +180,34 @@ class Session:
     is_remote: bool = False                  # Zoom-only -> prefer morning/late
     expected_enrollment: int = 0
     role: CourseRole = CourseRole.CORE
+    level: CourseLevel = CourseLevel.UG
     # For multi-day labs: the id of the alternative-group this session belongs
     # to. Sessions sharing a lab_group are day-alternatives; each served cohort
     # must keep >=1 attainable alternative (cross-day satisfiability).
     lab_group: str | None = None
     # Skeleton-fixed placement (option a): when the imported university skeleton
     # gives this session a concrete weekday/time, it is pinned there — a hard
-    # constraint for the solver and the editor. Room is still solver-chosen.
+    # constraint for the solver and the editor.
     fixed_day: int | None = None
     fixed_box: int | None = None
+    # Room pin. The skeleton dictates the hour but not our room, so an imported
+    # session leaves this None. A *published* session sets it: freezing the hour
+    # alone would let a later solve honour every published time while quietly
+    # reshuffling rooms, which is not a frozen schedule.
+    fixed_room: str | None = None
+    # Frozen by publication rather than anchored by the skeleton. Both pin the
+    # solver, but only this one is a promise already made to students: the
+    # planner may drag a skeleton anchor and may not drag this.
+    is_published: bool = False
+    # A stand-in for a course not yet confirmed (last year's, rolled over). It
+    # constrains the week exactly like a real course — that is its job — but it
+    # is a guess, so it must never reach an output meant for students.
+    provisional: bool = False
 
     @property
     def is_fixed(self) -> bool:
-        return self.fixed_day is not None or self.fixed_box is not None
+        return (self.fixed_day is not None or self.fixed_box is not None
+                or self.fixed_room is not None)
 
     @property
     def people(self) -> tuple[str, ...]:
@@ -218,6 +246,9 @@ class FixedEvent:
     room_id: str | None = None
     is_blackout: bool = False
     is_external_course: bool = False
+    # Another faculty's graduate or joint course blocks by *level*, not by
+    # cohort: it has no cohort of ours, yet our graduate courses must avoid it.
+    level: CourseLevel | None = None
 
     @property
     def interval(self) -> DayInterval:

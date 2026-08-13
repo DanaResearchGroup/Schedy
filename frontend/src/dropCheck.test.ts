@@ -106,3 +106,113 @@ describe("canDrop — coincident TA sessions of one course are a hard clash", ()
     ).toBe(true);
   });
 });
+
+describe("canDrop — a published session has no legal target", () => {
+  it("refuses every drop for a published session", () => {
+    // Its slot was handed to students; the evaluator scores a move as HARD
+    // (published_moved), so the live hint must not offer anywhere to put it.
+    const sessions: Record<string, SessionMeta> = {
+      pub: meta({ published: true, fixed: true }),
+    };
+    expect(canDrop("pub", 3, 5, "hall6", {}, sessions, [])).toBe(false);
+  });
+
+  it("still allows a merely skeleton-anchored session to move", () => {
+    // An anchor constrains the solver, not the planner — unchanged behaviour.
+    const sessions: Record<string, SessionMeta> = { anc: meta({ fixed: true }) };
+    expect(canDrop("anc", 3, 5, "hall6", {}, sessions, [])).toBe(true);
+  });
+});
+
+describe("canDrop — the hard graduate rule (mirrors the evaluator)", () => {
+  const grad = (over = {}) => meta({ level: "grad", role: "elective", ...over });
+
+  it("refuses to drop a graduate course onto another graduate course", () => {
+    const sessions: Record<string, SessionMeta> = {
+      a: grad({ course_number: "00580001" }),
+      b: grad({ course_number: "00580002" }),
+    };
+    expect(canDrop("a", 0, 0, "hall6", { b: at(0, 0, "hall1") }, sessions, []))
+      .toBe(false);
+  });
+
+  it("refuses to drop a joint course onto a graduate course", () => {
+    const sessions: Record<string, SessionMeta> = {
+      j: meta({ level: "joint", course_number: "00560001" }),
+      g: grad({ course_number: "00580001" }),
+    };
+    expect(canDrop("j", 0, 0, "hall6", { g: at(0, 0, "hall1") }, sessions, []))
+      .toBe(false);
+  });
+
+  it("lets two joint courses overlap (D1)", () => {
+    // Electives, so the existing cohort rule does not decide this for us — the
+    // point is that the graduate rule alone must not reject it.
+    const sessions: Record<string, SessionMeta> = {
+      a: meta({ level: "joint", role: "elective", course_number: "00560001" }),
+      b: meta({ level: "joint", role: "elective", course_number: "00560002" }),
+    };
+    expect(canDrop("a", 0, 0, "hall6", { b: at(0, 0, "hall1") }, sessions, []))
+      .toBe(true);
+  });
+
+  it("refuses to drop a graduate course onto another faculty's graduate wall", () => {
+    // The flagship case: an advanced thermodynamics course must not sit on the
+    // biology faculty's graduate course. That wall carries no cohort of ours,
+    // so only its level can reject the drop.
+    const sessions: Record<string, SessionMeta> = { g: grad() };
+    const wall: FixedEvent = {
+      id: "ext-01340501",
+      label: "Peritoneal biology",
+      day: 0,
+      start_box: 0,
+      length_boxes: 2,
+      kind: "external",
+      cohorts: [],
+      level: "grad",
+    };
+    expect(canDrop("g", 0, 0, "hall1", {}, sessions, [wall])).toBe(false);
+  });
+
+  it("lets a joint course sit on another faculty's joint wall (D1)", () => {
+    const sessions: Record<string, SessionMeta> = {
+      j: meta({ level: "joint", role: "elective" }),
+    };
+    const wall: FixedEvent = {
+      id: "ext-01340502",
+      label: "Joint biology course",
+      day: 0,
+      start_box: 0,
+      length_boxes: 2,
+      kind: "external",
+      cohorts: [],
+      level: "joint",
+    };
+    expect(canDrop("j", 0, 0, "hall1", {}, sessions, [wall])).toBe(true);
+  });
+
+  it("lets an undergraduate course sit on a graduate wall", () => {
+    // The rule protects graduate students, who are the ones taking both.
+    const sessions: Record<string, SessionMeta> = { u: meta({ level: "ug" }) };
+    const wall: FixedEvent = {
+      id: "ext-01340501",
+      label: "Peritoneal biology",
+      day: 0,
+      start_box: 0,
+      length_boxes: 2,
+      kind: "external",
+      cohorts: [],
+      level: "grad",
+    };
+    expect(canDrop("u", 0, 0, "hall1", {}, sessions, [wall])).toBe(true);
+  });
+
+  it("lets alternatives of one cross-day lab overlap each other", () => {
+    const sessions: Record<string, SessionMeta> = {
+      a: grad({ course_number: "00580001", type: "lab", lab_group: "00580001" }),
+      b: grad({ course_number: "00580001", type: "lab", lab_group: "00580001" }),
+    };
+    expect(canDrop("a", 0, 0, "hall6", { b: at(0, 0, "hall1") }, sessions, []))
+      .toBe(true);
+  });
+});

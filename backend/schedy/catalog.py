@@ -9,6 +9,7 @@ external courses become immovable `FixedEvent` walls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from .domain import (
     BOXES_PER_DAY,
@@ -16,6 +17,7 @@ from .domain import (
     DAY_START_MIN,
     NUM_DAYS,
     Cohort,
+    CourseLevel,
     CourseRole,
     FixedEvent,
     Problem,
@@ -26,6 +28,33 @@ from .domain import (
     DayInterval,
     standing_blackouts,
 )
+
+
+# The department's numbering encodes who a course is for. Anything else belongs
+# to another faculty, where no convention holds — so it is assumed undergraduate
+# (much the commoner case) until the planner says otherwise.
+_LEVEL_PREFIXES = {
+    "0054": CourseLevel.UG,
+    "0056": CourseLevel.JOINT,
+    "0058": CourseLevel.GRAD,
+}
+
+
+def suggest_level(number: str | None) -> CourseLevel:
+    """The level a course number implies. Only ever a suggestion."""
+    return _LEVEL_PREFIXES.get(str(number or "").strip()[:4], CourseLevel.UG)
+
+
+class Cadence(str, Enum):
+    """How often a course runs. Some graduate courses run every other year.
+
+    This drives *reservations* only (PRD D10): a stale flag costs an unused slot
+    in phase 1, never a wrong schedule, because the planner confirms what
+    actually runs in phase 2.
+    """
+
+    ANNUAL = "annual"
+    BIENNIAL = "biennial"
 
 
 @dataclass
@@ -67,9 +96,41 @@ class Course:
     # written before this field existed leave it unset, so no migration is needed.
     credit: float | None = None
 
+    # Who may take it. Left unset the number decides (see `suggest_level`), so
+    # an existing catalog and older files need no migration; set explicitly for
+    # the courses whose numbering does not follow our convention.
+    level: CourseLevel | None = None
+
+    # How often it runs, and whether this term's copy is still a guess. A
+    # provisional course is last year's graduate course standing in for one not
+    # yet confirmed — it holds hours in phase 1 so joint courses are genuinely
+    # pushed out of them, and the planner replaces it with the truth in phase 2.
+    cadence: Cadence = Cadence.ANNUAL
+    provisional: bool = False
+
     @property
     def cohorts(self) -> frozenset[Cohort]:
+        """The undergraduate year-groups this course belongs to.
+
+        A graduate course has none (PRD D4): a graduate student is not
+        "ChemE Y2", and their protection is the level rule, not a cohort. This is
+        enforced here rather than left to the form, because the catalog form
+        starts every new course as ChemE Y2 — so a course typed as `0058…` would
+        otherwise carry an undergraduate cohort it would then double-book and
+        appear on the timetable page of.
+        """
+        if self.effective_level is CourseLevel.GRAD:
+            return frozenset()
         return frozenset(Cohort(p, self.year) for p in self.programs)
+
+    @property
+    def effective_level(self) -> CourseLevel:
+        return self.level if self.level is not None else suggest_level(self.number)
+
+    @property
+    def is_grad_level(self) -> bool:
+        """Graduate or joint — the two that share the hard non-overlap rule."""
+        return self.effective_level in (CourseLevel.GRAD, CourseLevel.JOINT)
 
 
 def _course_sessions(
@@ -83,10 +144,11 @@ def _course_sessions(
         course_number=c.number, cohorts=cohorts, role=c.role,
         expected_enrollment=c.expected_enrollment,
         needs_computer_farm=c.needs_computer_farm, is_remote=c.is_remote,
-        lecturer_ids=tuple(c.lecturer_ids),
+        lecturer_ids=tuple(c.lecturer_ids), level=c.effective_level,
+        provisional=c.provisional,
     )
     if c.lecture_boxes > 0:
-        fd, fb = _fixed_for(placements, c.number, "lecture", None)
+        fd, fb = skeleton_slot(placements, c.number, "lecture", None)
         out.append(Session(id=f"{c.number}-lec", type=SessionType.LECTURE,
                            length_boxes=c.lecture_boxes,
                            fixed_day=fd, fixed_box=fb, **common))
@@ -98,7 +160,7 @@ def _course_sessions(
     if offered_groups:
         for code in offered_groups:
             safe = code.replace(" ", "_")
-            fd, fb = _fixed_for(placements, c.number, "exercise", code)
+            fd, fb = skeleton_slot(placements, c.number, "exercise", code)
             out.append(Session(
                 id=f"{c.number}-ex-{safe}", type=SessionType.EXERCISE,
                 length_boxes=c.exercise_boxes, group=code,
@@ -129,6 +191,7 @@ def _external_event(c: Course) -> FixedEvent | None:
         id=f"ext-{c.number}", label=c.name_en or c.name_he or c.number,
         day=c.ext_day, start_min=c.ext_start_min, end_min=c.ext_end_min,
         cohorts=c.cohorts, room_id=c.ext_room, is_external_course=True,
+        level=c.effective_level,
     )
 
 
@@ -178,7 +241,7 @@ def offered_placements(
     return out
 
 
-def _fixed_for(
+def skeleton_slot(
     placements: dict[tuple[str, str, str | None], tuple[int, int]] | None,
     number: str, etype: str, group: str | None,
 ) -> tuple[int | None, int | None]:
@@ -215,6 +278,16 @@ def offered_exercise_groups(offered_rows: list[dict]) -> dict[str, list[str]]:
     return groups
 
 
+def _apply_pin(s: Session, pin: dict | None) -> None:
+    """Freeze one session at a published placement — day, hour *and* room."""
+    if not pin:
+        return
+    s.fixed_day = int(pin["day"])
+    s.fixed_box = int(pin["start_box"])
+    s.fixed_room = pin["room_id"]
+    s.is_published = True
+
+
 def expand(
     courses: list[Course],
     *,
@@ -224,12 +297,19 @@ def expand(
     biology_intervals: list[DayInterval] | None = None,
     include_blackouts: bool = True,
     week_anchor: int = 0,
+    pins: dict[str, dict] | None = None,
 ) -> Problem:
     """Build a solver Problem from the catalog.
 
     When `offered_rows` from an imported skeleton are supplied, each course's
     exercise sessions are taken from the actual offered groups; otherwise the
     catalog's declared `num_exercise_groups` is used.
+
+    `pins` freezes named sessions at ``{session_id: {day, start_box, room_id}}``
+    — the published schedule. Unlike the skeleton's placements it pins the room
+    too, because a published course must not move rooms either. A pin naming a
+    session the catalog no longer produces is ignored here; callers that care
+    report it (see `published_missing` in the API).
     """
     sessions: list[Session] = []
     fixed: list[FixedEvent] = list(standing_blackouts()) if include_blackouts else []
@@ -248,6 +328,8 @@ def expand(
         else:
             sessions.extend(
                 _course_sessions(c, groups_by_course.get(c.number), placements))
+    for s in sessions if pins else ():
+        _apply_pin(s, pins.get(s.id))
     return Problem(
         sessions=sessions,
         fixed_events=fixed,

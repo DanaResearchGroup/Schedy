@@ -20,6 +20,9 @@ export function canDrop(
 ): boolean {
   const s = sessions[sid];
   if (!s) return true;
+  // Published: the slot was handed to students, so there is no legal target.
+  // The blocks are also non-draggable; this is the backstop.
+  if (s.published) return false;
   const len = Math.max(1, s.length_boxes);
   const a0 = startBox;
   const a1 = startBox + len; // half-open [a0, a1)
@@ -29,6 +32,33 @@ export function canDrop(
     const b1 = b0 + Math.max(1, blen);
     return a0 < b1 && b0 < a1;
   };
+
+  // Graduate-level courses may not overlap each other (grad x grad and
+  // grad x joint are hard; joint x joint is allowed). Mirrors the evaluator's
+  // `_grad_clash`, including its exemptions: alternatives of one cross-day lab,
+  // and exercise groups of a single course.
+  const gradLevel = (m: SessionMeta) => m.level === "grad" || m.level === "joint";
+  if (gradLevel(s)) {
+    for (const [oid, p] of Object.entries(placements)) {
+      if (oid === sid || p.day !== day) continue;
+      const o = sessions[oid];
+      if (!o || !gradLevel(o)) continue;
+      if (s.level === "joint" && o.level === "joint") continue;
+      if (s.lab_group != null && s.lab_group === o.lab_group) continue;
+      if (s.course_number === o.course_number
+          && s.type === "exercise" && o.type === "exercise") continue;
+      if (overlaps(p.start_box, o.length_boxes)) return false;
+    }
+    // Another faculty's graduate/joint course owns no cohort of ours, so the
+    // cohort loop below can never reach it — only the level rule can. Mirrors
+    // the evaluator's `_check_vs_fixed_events`.
+    for (const w of walls) {
+      if (w.kind === "blackout" || w.day !== day) continue;
+      if (w.level !== "grad" && w.level !== "joint") continue;
+      if (s.level === "joint" && w.level === "joint") continue;
+      if (overlaps(w.start_box, w.length_boxes)) return false;
+    }
+  }
 
   // Forbidden regions: blackouts close every cohort (hard for everyone). An
   // external wall only blocks its own cohorts — and even then only as a SOFT
