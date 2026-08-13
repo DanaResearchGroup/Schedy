@@ -19,6 +19,7 @@ against path traversal.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -42,6 +43,36 @@ def _slug(name: str) -> str:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def contained(root: str | Path, candidate: str | Path) -> Path | None:
+    """`candidate` as an absolute path under `root`, or None if it escapes.
+
+    The saves folder is chosen by the planner over HTTP, so "which folder" is
+    request data and cannot be trusted to stay where the app lives. This is the
+    boundary: a relative candidate is read as relative to `root` — the only
+    reading that cannot escape it — and an absolute one has to already be
+    inside.
+
+    Both sides are resolved first, so a symlink planted inside the root and
+    pointing out of it is rejected on where it leads rather than accepted on
+    where it sits. Comparison goes through `os.path.normcase`, because on
+    Windows ``C:\\Users\\X`` and ``c:\\users\\x`` are one folder and a plain
+    string compare would say otherwise. The separator is required after the
+    root so that a sibling named ``Schedy-next-door`` cannot pass as ``Schedy``.
+
+    The target need not exist: the planner is usually naming a folder to create.
+    """
+    try:
+        base = Path(root).resolve()
+        p = Path(candidate)
+        p = p.resolve() if p.is_absolute() else (base / p).resolve()
+    except (OSError, ValueError):  # unreadable, or a path the OS rejects outright
+        return None
+    b, c = os.path.normcase(str(base)), os.path.normcase(str(p))
+    if c != b and not c.startswith(b + os.sep):
+        return None
+    return p
 
 
 @dataclass(frozen=True)
@@ -73,17 +104,24 @@ class Archive:
         return self.root
 
     def _path_for(self, save_id: str) -> Path | None:
-        """Resolve an id to a file path, rejecting traversal / bad ids."""
-        if not save_id or "/" in save_id or "\\" in save_id or save_id in (".", ".."):
+        """Resolve a save id to its file, or None if the folder holds no such save.
+
+        The path comes from the folder's own listing rather than from joining
+        the id onto the root. The id is only ever *compared* with a stem already
+        found on disk, so nothing a caller can send — traversal, an absolute
+        path, a Windows separator, a reserved device name — is able to name a
+        file outside the folder. A deny-list would instead have to enumerate
+        every such trick correctly, forever.
+        """
+        if not save_id:
             return None
-        p = (self.root / f"{save_id}{EXT}")
-        # Defence in depth: the resolved file must sit directly in root.
         try:
-            if p.resolve().parent != self.root.resolve():
-                return None
-        except OSError:
+            for p in self.root.glob(f"*{EXT}"):
+                if p.name[: -len(EXT)] == save_id:
+                    return p
+        except OSError:  # folder gone or unreadable
             return None
-        return p
+        return None
 
     def _unique_stem(self, name: str, *, exclude: Path | None = None) -> str:
         base = _slug(name)

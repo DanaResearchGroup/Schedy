@@ -129,6 +129,12 @@ uvicorn schedy.api:create_app --factory --app-dir "%~dp0backend" --port 8000
   on first run. For wide distribution, code-sign the executable.
 - **Catalog location.** Data lives at `%APPDATA%\Schedy\schedy.sqlite`. Document
   this for backups; deleting it resets the catalog.
+- **Saves folder.** Saved schedules go in `%APPDATA%\Schedy\saves` by default,
+  and the planner can point them at any folder **under** `%APPDATA%\Schedy`.
+  To keep them somewhere else — a OneDrive folder, a network share — set
+  `SCHEDY_SAVES_ROOT` to that folder before launch. The root is deliberately
+  environment-only: the folder itself is chosen through the app, and confining
+  it to a root is what stops a request naming any folder on the machine.
 
 ## Cross-platform packaging note
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import tempfile
@@ -19,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import catalog as catalog_mod
 from . import catalog_io
 from . import coi_io
-from .archive import Archive
+from .archive import Archive, contained
 from .calendar_engine import (
     SemesterCalendar,
     lost_sessions,
@@ -555,21 +556,50 @@ def create_app(store: Store | None = None) -> FastAPI:
         }
 
     # ---- saved schedules (archive) ---------------------------------- #
-    def _saves_dir() -> str:
-        """The managed folder for saved schedules — user-chosen, else default.
+    def _app_dir() -> str:
+        """The folder the database lives in — where Schedy keeps its own data."""
+        db = getattr(store, "path", None) or os.environ.get("SCHEDY_DB", "schedy.sqlite")
+        return os.path.dirname(os.path.abspath(db)) or "."
 
-        Default sits beside the DB (``%APPDATA%\\Schedy\\saves`` on Windows,
-        ``~/Schedy/saves`` on Unix); overridable via the UI or ``SCHEDY_SAVES``.
+    def _saves_root() -> str:
+        """The one folder saved schedules may live under.
+
+        Deliberately not settable over HTTP: it is the boundary the HTTP-settable
+        folder is checked against, so a request that could move it would be no
+        boundary at all. An operator who keeps saves elsewhere — a synced Drive
+        folder — sets ``SCHEDY_SAVES_ROOT`` once, at install time.
+        """
+        return (os.environ.get("SCHEDY_SAVES_ROOT")
+                or os.environ.get("SCHEDY_SAVES")
+                or _app_dir())
+
+    def _default_saves_dir() -> str:
+        """Where saves go when the planner has not chosen a folder.
+
+        Beside the DB (``%APPDATA%\\Schedy\\saves`` on Windows, ``~/Schedy/saves``
+        on Unix), or ``SCHEDY_SAVES`` when the operator named one.
+        """
+        env = os.environ.get("SCHEDY_SAVES")
+        return env if env else os.path.join(_app_dir(), "saves")
+
+    def _configured_saves_dir() -> tuple[str, str | None]:
+        """The folder in use, and any stored value that had to be refused.
+
+        A stored folder outside the root — set before this boundary existed, or
+        by editing the database — is not quietly obeyed. Neither is it quietly
+        dropped: the rejected value is reported so the planner is told why their
+        saves are not where they left them, rather than finding them gone.
         """
         configured = store.get_setting("saves_dir")
         if configured:
-            return configured
-        env = os.environ.get("SCHEDY_SAVES")
-        if env:
-            return env
-        db = getattr(store, "path", None) or os.environ.get("SCHEDY_DB", "schedy.sqlite")
-        parent = os.path.dirname(os.path.abspath(db)) or "."
-        return os.path.join(parent, "saves")
+            ok = contained(_saves_root(), configured)
+            if ok is not None:
+                return str(ok), None
+            return _default_saves_dir(), configured
+        return _default_saves_dir(), None
+
+    def _saves_dir() -> str:
+        return _configured_saves_dir()[0]
 
     def _archive() -> Archive:
         return Archive(_saves_dir())
@@ -599,22 +629,39 @@ def create_app(store: Store | None = None) -> FastAPI:
             "calendar": store.get_setting("calendar"),
         }
 
+    def _config_body() -> dict:
+        current, rejected = _configured_saves_dir()
+        return {
+            "saves_dir": current,
+            # The boundary is reported so the planner is told where saves may
+            # go, instead of discovering it by being refused.
+            "saves_root": str(Path(_saves_root()).resolve()),
+            "rejected_saves_dir": rejected,
+        }
+
     @app.get("/config")
     def get_config() -> dict:
-        return {"saves_dir": _saves_dir()}
+        return _config_body()
 
     @app.put("/config")
     def put_config(payload: dict = Body(...)) -> dict:
         path = (payload.get("saves_dir") or "").strip()
         if path:
+            root = _saves_root()
+            target = contained(root, path)
+            if target is None:
+                # Refused before the filesystem is touched: a rejected request
+                # must not leave a folder behind on its way out.
+                raise HTTPException(
+                    400, f"the saves folder must sit under {Path(root).resolve()}")
             try:
-                os.makedirs(path, exist_ok=True)
+                target.mkdir(parents=True, exist_ok=True)
             except OSError as exc:  # noqa: BLE001
                 raise HTTPException(400, f"cannot use that folder: {exc}")
-            store.set_setting("saves_dir", path)
+            store.set_setting("saves_dir", str(target))
         else:
             store.set_setting("saves_dir", None)  # revert to default
-        return {"saves_dir": _saves_dir()}
+        return _config_body()
 
     @app.get("/schedules")
     def list_schedules() -> list[dict]:

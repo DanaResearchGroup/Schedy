@@ -15,6 +15,15 @@ import type {
   Violation,
 } from "./types";
 
+export interface Config {
+  /** The folder saved schedules are read from and written to. */
+  saves_dir: string;
+  /** The folder saves must sit under — set at install time, not from here. */
+  saves_root: string;
+  /** A stored folder that fell outside the root and had to be refused. */
+  rejected_saves_dir: string | null;
+}
+
 export interface EvalResult {
   feasible: boolean;
   soft_penalty: number;
@@ -178,14 +187,14 @@ export const api = {
     `${BASE}/export/pdf?layout=${layout}`,
 
   // ---- saved schedules (archive) ---- //
-  getConfig: () => fetch(`${BASE}/config`).then(json<{ saves_dir: string }>),
+  getConfig: () => fetch(`${BASE}/config`).then(json<Config>),
 
   setSavesDir: (saves_dir: string) =>
     fetch(`${BASE}/config`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ saves_dir }),
-    }).then(json<{ saves_dir: string }>),
+    }).then(json<Config>),
 
   listSchedules: () => fetch(`${BASE}/schedules`).then(json<SavedMeta[]>),
 
