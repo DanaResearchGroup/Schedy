@@ -629,6 +629,12 @@ uvicorn schedy.api:create_app --factory --app-dir <span class="s2">&quot;</span>
   on first run. For wide distribution, code-sign the executable.</li>
 <li><strong>Catalog location.</strong> Data lives at <code>%APPDATA%\Schedy\schedy.sqlite</code>. Document
   this for backups; deleting it resets the catalog.</li>
+<li><strong>Saves folder.</strong> Saved schedules go in <code>%APPDATA%\Schedy\saves</code> by default,
+  and the planner can point them at any folder <strong>under</strong> <code>%APPDATA%\Schedy</code>.
+  To keep them somewhere else — a OneDrive folder, a network share — set
+  <code>SCHEDY_SAVES_ROOT</code> to that folder before launch. The root is deliberately
+  environment-only: the folder itself is chosen through the app, and confining
+  it to a root is what stops a request naming any folder on the machine.</li>
 </ul>
 <h2 id="cross-platform-packaging-note">Cross-platform packaging note<a class="headerlink" href="#cross-platform-packaging-note" title="Permanent link">&para;</a></h2>
 <p>PyInstaller is <strong>not</strong> a cross-compiler — build the Windows artifact <em>on</em> Windows
