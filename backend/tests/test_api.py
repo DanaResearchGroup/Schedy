@@ -216,10 +216,19 @@ def test_courses_of_interest_import_restores_stripped_zeros(client):
     assert [it["number"] for it in r.json()] == ["00540315"]
 
 
-def test_courses_of_interest_import_explains_a_legacy_xls(client):
-    ole2 = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512
-    r = client.post("/courses-of-interest/import",
-                    files={"file": ("list.xls", ole2, "application/vnd.ms-excel")})
+# A pre-2007 .xls: OLE2 magic, not a zip, so openpyxl cannot read it.
+LEGACY_XLS = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512
+
+
+@pytest.mark.parametrize("endpoint", [
+    "/courses-of-interest/import",
+    "/catalog/import",
+    "/skeleton/upload",
+])
+def test_every_upload_endpoint_explains_a_legacy_xls(client, endpoint):
+    """All three read with openpyxl, so all three must say the same useful thing."""
+    r = client.post(endpoint,
+                    files={"file": ("book.xls", LEGACY_XLS, "application/vnd.ms-excel")})
     assert r.status_code == 400
     assert "Save As" in r.json()["detail"]      # not "File is not a zip file"
 

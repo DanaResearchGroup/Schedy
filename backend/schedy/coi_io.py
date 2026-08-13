@@ -21,6 +21,8 @@ from __future__ import annotations
 import csv
 import io
 
+from . import uploads
+
 # A course record is a plain dict {"number": str, "name": str} — the same shape
 # the /courses-of-interest endpoint has always stored.
 COLUMNS = ["number", "name"]
@@ -157,14 +159,7 @@ def from_xlsx_bytes(data: bytes) -> list[dict]:
 
 def from_upload(data: bytes, filename: str) -> list[dict]:
     """Parse an uploaded interest file, choosing the reader by extension."""
-    name = filename.lower()
-    if name.endswith(".xls"):
-        # openpyxl reads the zip-based formats only. Left to fall through, a
-        # legacy .xls dies as "File is not a zip file", which tells the planner
-        # nothing about what to do next.
-        raise ValueError(
-            "legacy .xls files are not supported; open it in Excel and use "
-            "Save As → .xlsx (or .csv)")
-    if name.endswith((".xlsx", ".xlsm")):
+    uploads.reject_legacy_xls(filename)
+    if uploads.is_excel(filename):
         return from_xlsx_bytes(data)
     return from_csv(data.decode("utf-8-sig"))

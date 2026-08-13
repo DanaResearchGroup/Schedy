@@ -202,9 +202,25 @@ export const STRINGS = {
   tabSchedule: { he: "מערכת", en: "Schedule" },
   tabCatalog: { he: "קטלוג", en: "Catalog" },
   tabImport: { he: "ייבוא", en: "Import" },
-  importSkeleton: { he: "ייבוא שלד (XLSX)", en: "Import skeleton (XLSX)" },
-  importHint: { he: "בחר קובץ שלד מהטכניון — יסונן לקורסים שבקטלוג", en: "Pick the Technion skeleton — filtered to catalog courses" },
-  dropHere: { he: "גרור לכאן קובץ XLSX, או לחץ לבחירה", en: "Drop an XLSX file here, or click to choose" },
+  importSkeleton: { he: "ייבוא שלד (Excel)", en: "Import skeleton (Excel)" },
+  importHint: {
+    he: "בחר קובץ שלד מהטכניון — יסונן לקורסים שמעניינים אותנו",
+    en: "Pick the Technion skeleton — filtered to our courses of interest",
+  },
+  dropHere: {
+    he: "גרור לכאן קובץ Excel‏ (‎.xlsx או ‎.xlsm), או לחץ לבחירה",
+    en: "Drop an Excel file (.xlsx or .xlsm) here, or click to choose",
+  },
+  // The client-side extension guard's own messages. Kept apart from `dropHere`
+  // so a rejected file explains itself instead of repeating the dropzone prompt.
+  needsExcel: {
+    he: "נדרש קובץ Excel‏ — ‎.xlsx או ‎.xlsm",
+    en: "Needs an Excel file — .xlsx or .xlsm",
+  },
+  legacyXls: {
+    he: "קובצי ‎.xls ישנים אינם נתמכים — פתח באקסל ושמור בשם ‎.xlsx",
+    en: "Legacy .xls files aren't supported — open it in Excel and use Save As → .xlsx",
+  },
   dropToImport: { he: "שחרר כדי לייבא", en: "Release to import" },
   importReplaceHint: { he: "ייבוא חדש מחליף את הנתונים הקיימים", en: "A new import replaces the existing data" },
   clearImport: { he: "נקה ייבוא", en: "Clear import" },

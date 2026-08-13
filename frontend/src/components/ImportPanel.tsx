@@ -21,8 +21,9 @@ const NAMED_DETAILS: Array<[keyof OfferedRow, string]> = [
   ["language", "language"],
 ];
 
-// Skeleton import + review/correct: upload the Technion XLSX (the backend parses
-// it and keeps only our courses of interest), then hand-edit the parsed rows —
+// Skeleton import + review/correct: upload the Technion export — .xlsx or .xlsm,
+// the zip-based formats openpyxl reads — and the backend parses it and keeps only
+// our courses of interest. Then hand-edit the parsed rows —
 // day, start time, group — before they drive the solve. Rows with a grid-aligned
 // day+time are anchored (⚓) for the solver (option a). Save persists to the
 // backend; the next Solve uses the corrected rows.
@@ -58,8 +59,11 @@ export function ImportPanel({ lang }: { lang: Lang }) {
   }, []);
 
   const onFile = async (f: File) => {
-    if (!/\.xlsx?$/i.test(f.name)) {
-      setError(t("dropHere", lang));
+    // Not /\.xlsx?$/ — that also admits legacy .xls, which openpyxl can't read.
+    // A .xls is called out by name: it looks supported, so "needs an Excel file"
+    // would read as a contradiction rather than an instruction.
+    if (!/\.xls[xm]$/i.test(f.name)) {
+      setError(t(/\.xls$/i.test(f.name) ? "legacyXls" : "needsExcel", lang));
       return;
     }
     setBusy(true);
@@ -142,7 +146,7 @@ export function ImportPanel({ lang }: { lang: Lang }) {
     >
       <div className="toolbar">
         <input
-          ref={fileRef} type="file" accept=".xlsx,.xls" hidden
+          ref={fileRef} type="file" accept=".xlsx,.xlsm" hidden
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
         />
         <button className="primary" disabled={busy} onClick={() => fileRef.current?.click()}>
