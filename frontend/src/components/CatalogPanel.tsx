@@ -40,7 +40,7 @@ export function CatalogPanel({ courses, lang, onAdd, onDelete, onSeed, onImport 
         <h2>{t("catalog", lang)}</h2>
         {!draft && (
           <div className="catalog-actions">
-            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" hidden
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xlsm" hidden
               onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
             <a className="ghost" href={api.catalogTemplateUrl()} download>{t("downloadTemplate", lang)}</a>
             <button className="ghost" onClick={() => fileRef.current?.click()}>{t("importCatalogLabel", lang)}</button>

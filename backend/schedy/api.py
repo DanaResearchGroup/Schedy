@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import catalog as catalog_mod
 from . import catalog_io
 from . import coi_io
+from . import uploads
 from .catalog import Cadence
 from .archive import Archive, contained
 from .calendar_engine import (
@@ -490,9 +491,10 @@ def create_app(store: Store | None = None) -> FastAPI:
     async def import_catalog(file: UploadFile = File(...)) -> dict:
         """Load a catalog version from a CSV/Excel file, replacing the current one."""
         data = await file.read()
-        name = (file.filename or "").lower()
+        name = file.filename or ""
         try:
-            if name.endswith((".xlsx", ".xls")):
+            uploads.reject_legacy_xls(name)
+            if uploads.is_excel(name):
                 courses = catalog_io.from_xlsx_bytes(data)
             else:
                 courses = catalog_io.from_csv(data.decode("utf-8-sig"))
@@ -604,6 +606,10 @@ def create_app(store: Store | None = None) -> FastAPI:
         survive, and for each surviving row the whole record is kept.
         """
         data = await file.read()
+        try:
+            uploads.reject_legacy_xls(file.filename or "")
+        except ValueError as exc:
+            raise HTTPException(400, f"could not parse skeleton: {exc}")
         relevant = _interest_numbers()
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
             tmp.write(data)

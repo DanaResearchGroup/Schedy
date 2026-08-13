@@ -70,7 +70,8 @@ The few dozen course numbers the department actually cares about. This list is w
 filters the skeleton: **a course not on this list is not imported.** It changes only
 slightly year to year, so keep the file, edit a couple of lines, reload it.
 
-CSV or Excel, both accepted. The headed form:
+CSV or Excel, both accepted (`.xlsx`/`.xlsm` — a pre-2007 `.xls` is refused with a
+note to re-save it). The headed form:
 
 ```csv
 number,name
