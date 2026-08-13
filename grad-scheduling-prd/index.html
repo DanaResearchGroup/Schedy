@@ -1,0 +1,1208 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Department course-scheduling auto-solver">
+      
+      
+      
+      
+        <link rel="prev" href="../PRD/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>PRD — Graduate courses - Schedy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#prd-graduate-courses-course-levels-and-per-term-scheduling" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Schedy" class="md-header__button md-logo" aria-label="Schedy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Schedy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              PRD — Graduate courses
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Schedy" class="md-nav__button md-logo" aria-label="Schedy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Schedy
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Constraints reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windows & packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD — Graduate courses
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD — Graduate courses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rejected-alternatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rejected alternatives
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-phase-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two-phase workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-term-scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New: term scoping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-course-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New: Course fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-session-and-fixedevent-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New: Session and FixedEvent fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraint-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraint implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constraint implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-elif-trap-read-before-implementing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The elif trap — read before implementing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#room-pinning-gap-read-before-implementing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Room pinning gap — read before implementing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ui-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UI changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-build-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended build sequence
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="prd-graduate-courses-course-levels-and-per-term-scheduling">PRD — Graduate courses, course levels, and per-term scheduling<a class="headerlink" href="#prd-graduate-courses-course-levels-and-per-term-scheduling" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Status: awaiting review — <strong>no code written</strong>
+Supersedes nothing; extends <code>PRD.md</code>, which assumes a single implicit semester.
+Design settled in a design interview; every decision below was chosen explicitly.</p>
+</blockquote>
+<h2 id="problem-statement">Problem statement<a class="headerlink" href="#problem-statement" title="Permanent link">&para;</a></h2>
+<p>Three problems, discovered together and inseparable in practice.</p>
+<p><strong>1. Graduate courses have no representation.</strong> <code>Program</code> has exactly three
+undergraduate tracks and <code>Cohort</code> assumes years 1–4. A graduate course cannot be
+entered at all without lying about its audience.</p>
+<p><strong>2. Graduate courses obey a different clash rule.</strong> Undergraduate electives may
+overlap — a student who cannot take both is a soft penalty the planner reviews
+(<code>elective_vs_elective</code>, weight 500). Graduate courses may <strong>not</strong> overlap each
+other, nor joint undergraduate/graduate courses. This is a hard rule, and it must
+also hold against graduate courses taught by other faculties.</p>
+<p><strong>3. The undergraduate schedule must publish before graduate courses are known.</strong>
+The department finalises and publishes the undergraduate timetable months before
+the graduate offering is settled. Graduate courses are appended later and must not
+disturb anything already published — which requires knowing <em>which</em> arrangement was
+published, and therefore requires Schedy to understand academic years at all.</p>
+<h2 id="terminology">Terminology<a class="headerlink" href="#terminology" title="Permanent link">&para;</a></h2>
+<p><strong>Academic year</strong> — <code>2025-26</code>, <code>2026-27</code>. A new first-class term.</p>
+<p><strong>Semester</strong> — <code>Winter</code> or <code>Spring</code>. The department runs Schedy in production twice
+a year, once per semester.</p>
+<p><strong>Term</strong> — the pair, e.g. <code>2026-27 Spring</code>. The unit everything is scoped by.</p>
+<p><strong>Level</strong> — <code>UG</code>, <code>joint</code>, or <code>grad</code>. A property of a course, distinct from <code>role</code>
+(core/elective/replacement/lab), which describes what a course <em>is</em> rather than who
+may take it.</p>
+<p><strong>Published</strong> — a term's schedule has been frozen and released. Published sessions
+are immovable.</p>
+<p><strong>Reservation</strong> — a provisional graduate session placed during phase 1 to hold
+space, standing in for a course not yet finalised.</p>
+<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
+<p>Each of these was chosen deliberately; the rationale is recorded because the
+reasoning is not recoverable from the code.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td>Grad↔grad and grad↔joint overlap is <strong>hard</strong>; joint↔joint is <strong>allowed</strong></td>
+<td>A graduate student combines a grad course with a joint course, so those must not clash. Two joint courses are largely undergraduate-attended and behave like ordinary electives.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>The rule covers <strong>every session</strong> — lecture, exercise, lab</td>
+<td>A student attends all sessions of their course; an exercise clash blocks them as surely as a lecture clash. Costs nothing at 3–4 grad courses a term.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>Level is <strong>stored when set, derived from the number when not</strong>, defaulting to UG</td>
+<td>No migration, old catalog files keep importing, and the course number is immutable after creation (<code>CourseForm.tsx:49</code>) so derivation only runs at entry.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>Grad courses carry <strong>no cohort</strong>; programs and year become optional</td>
+<td>A graduate student is not "ChemE Y2". Their protection comes from the level rule. Joint courses keep their undergraduate cohort.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>Everything is scoped by <strong>(academic year, semester)</strong></td>
+<td>The department publishes per semester and must be able to say which year a frozen schedule belongs to.</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>Availability is <strong>per-term, pre-filled from the same semester last year</strong></td>
+<td>A lecturer's commitments are usually stable but not permanent; editing a global set would silently change the constraints a published term was solved under.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td>Publishing is an <strong>explicit action</strong>, not implicit</td>
+<td>Matches "already set and published". Gives an auditable record and a visible lock.</td>
+</tr>
+<tr>
+<td>D8</td>
+<td>Published UG/joint sessions <strong>freeze</strong>; grad reservations stay <strong>fluid</strong></td>
+<td>The reservation's job — keeping joint courses out of those hours — is complete once phase 1 ends. Binding it afterwards would fail when this year's course differs in length.</td>
+</tr>
+<tr>
+<td>D9</td>
+<td>External grad course times come from the <strong>skeleton first, manual fallback</strong></td>
+<td>The imported XLSX is university-wide and already contains every faculty's times. The planner maintains a list of course numbers, not a timetable.</td>
+</tr>
+<tr>
+<td>D10</td>
+<td>Cadence (annual / biennial) drives <strong>reservations only</strong>; the human finalises in phase 2</td>
+<td>A cadence flag is a promise about the future and goes stale silently. Confining it to the reservation stage means a stale flag costs an unused slot, never a wrong schedule.</td>
+</tr>
+<tr>
+<td>D11</td>
+<td>Graduate courses get their <strong>own PDF page</strong>, separate from the per-cohort pages</td>
+<td>Grad courses carry no cohort (D4) and so appear on no cohort page. A dedicated graduate timetable is the output that makes D4 safe.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="rejected-alternatives">Rejected alternatives<a class="headerlink" href="#rejected-alternatives" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Soft grad rule.</strong> Rejected: the department treats it as inviolable. At 3–4 grad
+  courses in a 50-box week there is no feasibility pressure to justify relaxing it.</li>
+<li><strong>A synthetic <code>Graduate</code> program</strong> (D4). Rejected: it would fabricate a cohort and
+  drag grad courses into per-cohort machinery that does not describe them.</li>
+<li><strong>Global availability</strong> (D6). Rejected: mutating it would retroactively change the
+  basis of a published term.</li>
+<li><strong>Per-year catalog copies vs snapshot-only history.</strong> Superseded — the planner
+  requires everything per-term, so the catalog is genuinely per-term (D5).</li>
+</ul>
+<h2 id="rule-matrix">Rule matrix<a class="headerlink" href="#rule-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>grad (0058)</th>
+<th>joint (0056)</th>
+<th>UG elective</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>grad</strong></td>
+<td><strong>HARD</strong></td>
+<td><strong>HARD</strong></td>
+<td>soft (existing)</td>
+</tr>
+<tr>
+<td><strong>joint</strong></td>
+<td><strong>HARD</strong></td>
+<td>allowed</td>
+<td>soft (existing)</td>
+</tr>
+</tbody>
+</table>
+<p>Level is suggested from the course number, and may always be overridden:</p>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Suggested level</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0054</code></td>
+<td>UG</td>
+<td>Our department's undergraduate course</td>
+</tr>
+<tr>
+<td><code>0056</code></td>
+<td>joint</td>
+<td>Joint undergraduate/graduate</td>
+</tr>
+<tr>
+<td><code>0058</code></td>
+<td>grad</td>
+<td>Pure graduate</td>
+</tr>
+<tr>
+<td>other</td>
+<td>UG</td>
+<td>Another faculty — override to joint/grad as needed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="two-phase-workflow">Two-phase workflow<a class="headerlink" href="#two-phase-workflow" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>PHASE 1  ──────────────────────────────────────────────
+  solve: UG + joint courses
+       + last year&#39;s grad courses as reservations ◌
+         (carry the hard rules, so joint courses are
+          genuinely pushed out of those hours)
+  review, edit
+  PUBLISH  → stamped &quot;2026-27 Spring&quot;
+            UG/joint sessions  🔒 frozen
+            grad reservations  ◌ released
+
+PHASE 2  ──────────────────────────────────────────────  (weeks/months later)
+  confirm which grad courses actually run
+  append: grad courses only
+          prefer their reserved slot, may take any free slot
+          hard rules vs grad, joint, and external grad courses
+  nothing published moves
+</code></pre></div>
+<h2 id="data-model">Data model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
+<h3 id="new-term-scoping">New: term scoping<a class="headerlink" href="#new-term-scoping" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">terms</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="n">id</span><span class="w">        </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span><span class="w">   </span><span class="c1">-- &quot;2026-27-spring&quot;</span>
+<span class="w">    </span><span class="k">year</span><span class="w">      </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- &quot;2026-27&quot;</span>
+<span class="w">    </span><span class="n">semester</span><span class="w">  </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- &quot;winter&quot; | &quot;spring&quot;</span>
+<span class="w">    </span><span class="n">created</span><span class="w">   </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- ISO date</span>
+<span class="w">    </span><span class="n">published</span><span class="w"> </span><span class="nb">TEXT</span><span class="w">                </span><span class="c1">-- ISO timestamp, NULL while in progress</span>
+<span class="p">);</span>
+
+<span class="c1">-- courses and settings gain a term key</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">courses</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="n">term_id</span><span class="w"> </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="nb">number</span><span class="w">  </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="k">data</span><span class="w">    </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="w"> </span><span class="p">(</span><span class="n">term_id</span><span class="p">,</span><span class="w"> </span><span class="nb">number</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="n">term_id</span><span class="w"> </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">        </span><span class="c1">-- &#39;&#39; for global settings</span>
+<span class="w">    </span><span class="k">key</span><span class="w">     </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="w">   </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="w"> </span><span class="p">(</span><span class="n">term_id</span><span class="p">,</span><span class="w"> </span><span class="k">key</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Per-term</th>
+<th>Global (<code>term_id = ''</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>courses, availability, calendar, offered_rows, skeleton_course_numbers, courses_of_interest, last_schedule, published_schedule</td>
+<td>people (faculty registry), saves_dir, current_term</td>
+</tr>
+</tbody>
+</table>
+<p>Room inventory stays hardcoded (<code>domain.py:101</code>) and is global by construction.</p>
+<h3 id="new-course-fields">New: <code>Course</code> fields<a class="headerlink" href="#new-course-fields" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">level</span><span class="p">:</span> <span class="n">CourseLevel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># None -&gt; derive from number, default UG</span>
+<span class="n">cadence</span><span class="p">:</span> <span class="n">Cadence</span> <span class="o">=</span> <span class="n">Cadence</span><span class="o">.</span><span class="n">ANNUAL</span>  <span class="c1"># annual | biennial</span>
+<span class="n">provisional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>          <span class="c1"># a rolled-over grad course, not yet confirmed</span>
+</code></pre></div>
+<p><code>programs</code> and <code>year</code> become optional — validated as required only when
+<code>level != grad</code>.</p>
+<h3 id="new-session-and-fixedevent-fields">New: <code>Session</code> and <code>FixedEvent</code> fields<a class="headerlink" href="#new-session-and-fixedevent-fields" title="Permanent link">&para;</a></h3>
+<p><code>Session.level</code> is propagated from its course, exactly as <code>role</code> already is
+(<code>catalog.py</code> <code>common</code>). <code>FixedEvent.level</code> carries the same for external courses,
+so a biology graduate course can block grad placement without owning a cohort.</p>
+<h3 id="migration">Migration<a class="headerlink" href="#migration" title="Permanent link">&para;</a></h3>
+<p>The store opens, finds the old single-term schema, and:</p>
+<ol>
+<li>Asks the planner to name the current data's term (defaulting to a guess from
+   the semester calendar's start date, if set).</li>
+<li>Creates that term, moves every course and setting into it.</li>
+<li>Moves <code>people</code> and <code>saves_dir</code> to global.</li>
+</ol>
+<p>Irreversible in-place, so it <strong>takes a timestamped backup of <code>schedy.sqlite</code>
+first</strong> and reports where it went. Saved schedule JSON files are untouched; they
+already snapshot their own catalog.</p>
+<h2 id="constraint-implementation">Constraint implementation<a class="headerlink" href="#constraint-implementation" title="Permanent link">&para;</a></h2>
+<h3 id="the-elif-trap-read-before-implementing">The <code>elif</code> trap — read before implementing<a class="headerlink" href="#the-elif-trap-read-before-implementing" title="Permanent link">&para;</a></h3>
+<p><code>evaluator.py:144-168</code> checks session pairs in a single <code>if/elif</code> chain:</p>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="n">ae</span> <span class="ow">and</span> <span class="n">be</span><span class="p">:</span>                     <span class="c1"># elective vs elective   -&gt; SOFT</span>
+<span class="k">elif</span> <span class="p">(</span><span class="n">ae</span> <span class="ow">or</span> <span class="n">be</span><span class="p">)</span> <span class="ow">and</span> <span class="n">shared_cohorts</span><span class="p">:</span>  <span class="c1"># elective vs core    -&gt; SOFT</span>
+<span class="k">elif</span> <span class="n">shared_cohorts</span> <span class="ow">and</span> <span class="o">...</span><span class="p">:</span>      <span class="c1"># cohort double-booked   -&gt; HARD</span>
+</code></pre></div>
+<p>Graduate courses will almost always carry <code>role=elective</code>. If the grad rule is
+implemented by giving grad courses a shared synthetic cohort, the <strong>first branch
+wins</strong> and the result is a soft warning, not a hard block — silently wrong.</p>
+<p>The grad rule must therefore be an <strong>independent check</strong>, evaluated regardless of
+which branch of the elective chain fires:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># new, unconditional</span>
+<span class="k">if</span> <span class="n">_grad_clash</span><span class="p">(</span><span class="n">sa</span><span class="p">,</span> <span class="n">sb</span><span class="p">):</span>           <span class="c1"># grad↔grad or grad↔joint</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Violation</span><span class="p">(</span><span class="s2">&quot;grad_overlap&quot;</span><span class="p">,</span> <span class="n">HARD</span><span class="p">,</span> <span class="o">...</span><span class="p">))</span>
+</code></pre></div>
+<p>Mirrored in <code>model_builder.py</code> as a hard no-overlap constraint over the set of
+grad + joint sessions, and extended to <code>FixedEvent</code>s carrying <code>level in (grad, joint)</code>.</p>
+<h3 id="room-pinning-gap-read-before-implementing">Room pinning gap — read before implementing<a class="headerlink" href="#room-pinning-gap-read-before-implementing" title="Permanent link">&para;</a></h3>
+<p><code>fixed_day</code>/<code>fixed_box</code> pin a session's <strong>time but not its room</strong> — <code>domain.py:164</code>
+says so explicitly: <em>"Room is still solver-chosen."</em></p>
+<p>Phase 2 therefore cannot freeze a published schedule with the existing mechanism
+alone: the solver would honour every published time but remain free to shuffle
+rooms, changing the published timetable. A <code>fixed_room</code> (or an equivalent
+whole-placement pin) is required, and is a prerequisite for phase 2.</p>
+<h2 id="api-surface">API surface<a class="headerlink" href="#api-surface" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Route</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/terms</code></td>
+<td>List terms with status</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/terms</code></td>
+<td>Create a term, optionally rolling over from another</td>
+</tr>
+<tr>
+<td>GET/PUT</td>
+<td><code>/terms/current</code></td>
+<td>Read/switch the active term</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/terms/{id}</code></td>
+<td>Re-label a term, keeping its data — how a migration's guessed name is confirmed or corrected</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/terms/{id}/publish</code></td>
+<td>Freeze UG+joint placements, stamp published</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/terms/{id}/publish</code></td>
+<td>Un-publish (explicit, confirmed — see risks)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/terms/current/rollover</code></td>
+<td>Grad courses from the previous same semester, with last-run and cadence; due ones flagged</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/terms/current/rollover</code></td>
+<td>Copy the chosen ones in as provisional stand-ins</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/solve</code></td>
+<td>Phase 1 — unchanged, scoped to the current term</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/solve/grad</code></td>
+<td>Phase 2 — pin published sessions, place grad only</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/levels/suggest?number=</code></td>
+<td>Level suggested from a course number</td>
+</tr>
+</tbody>
+</table>
+<p>Every existing route becomes term-scoped implicitly via the current term; no route
+gains a term parameter except those above.</p>
+<h2 id="ui-changes">UI changes<a class="headerlink" href="#ui-changes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Header</strong></td>
+<td>Term selector — <code>2026-27 Spring ▾</code> — with status badge (in progress / 🔒 published). Switching terms swaps the whole working set.</td>
+</tr>
+<tr>
+<td><strong>Catalog</strong></td>
+<td>Level field with the suggested value pre-filled and a note showing it came from the number. Programs/year hidden or optional when level is grad. Cadence selector on grad courses. Level shown as a tag in the list.</td>
+</tr>
+<tr>
+<td><strong>Schedule</strong></td>
+<td><code>🔒 Publish</code> action beside Save. Published sessions render locked and refuse drags. Grad reservations render distinctly (new legend entry alongside the existing role colours, <code>App.tsx:369</code>). <code>+ Add graduate courses</code> starts phase 2 once published.</td>
+</tr>
+<tr>
+<td><strong>Availability</strong></td>
+<td>Unchanged in behaviour; its data is now term-scoped and pre-filled on rollover.</td>
+</tr>
+<tr>
+<td><strong>Calendar / Import / Checklist</strong></td>
+<td>Unchanged in behaviour; term-scoped data.</td>
+</tr>
+<tr>
+<td><strong>Schedules</strong></td>
+<td>Saves list gains the term each save belongs to.</td>
+</tr>
+<tr>
+<td><strong>New: Rollover</strong></td>
+<td>Shown when creating a term. Lists known grad courses with when each last ran and its cadence; due ones pre-ticked. Ticking creates provisional grad courses for reservations.</td>
+</tr>
+</tbody>
+</table>
+<p>All new strings bilingual Hebrew (RTL) / English, per existing convention.</p>
+<h2 id="test-plan">Test plan<a class="headerlink" href="#test-plan" title="Permanent link">&para;</a></h2>
+<p><strong>Level derivation</strong> — each prefix maps correctly; unknown prefixes default to UG;
+a stored level always beats the derived one; a course stored before the field
+existed has no stored level and so <em>derives</em> from its number (D3) — a legacy
+<code>0058…</code> course therefore reads as graduate, not UG.</p>
+<p><strong>Clash rules</strong> — grad↔grad hard; grad↔joint hard; joint↔joint produces no hard
+violation; <strong>grad↔grad where both are <code>role=elective</code> is still hard</strong> (the <code>elif</code>
+trap, as a named regression test); grad↔UG-elective remains soft; a grad
+<code>FixedEvent</code> from another faculty blocks a grad session.</p>
+<p><strong>Cohort-less grad</strong> — a grad course expands without error, produces sessions,
+and triggers no <code>cohort_double_booked</code> against anything. <code>Course.cohorts</code> returns
+empty for a graduate course whatever its <code>programs</code> say, so D4 holds structurally
+rather than depending on the form clearing the field.</p>
+<p><strong>Publish / freeze</strong> — publishing stamps the term; a published session cannot be
+moved by phase 2, <strong>including its room</strong>; un-publishing requires explicit confirm.</p>
+<p><strong>Phase 2</strong> — grad courses prefer their reserved slot; take another free slot when
+the reservation no longer fits; a grad course that cannot be placed is reported
+unplaced with the published schedule intact.</p>
+<p><strong>Term scoping</strong> — two terms hold independent catalogs; switching terms swaps the
+working set; global settings (people) are shared; a save records its term.</p>
+<p><strong>Migration</strong> — an old single-term database migrates with every course and setting
+preserved; a backup file is produced; migration is idempotent.</p>
+<p><strong>Rollover</strong> — grad courses come from the same semester one year back; a biennial
+course that ran two years ago is listed and pre-ticked; an annual course that ran
+last year is pre-ticked; availability is pre-filled and the source term unchanged.</p>
+<h2 id="risks">Risks<a class="headerlink" href="#risks" title="Permanent link">&para;</a></h2>
+<p><strong>Migration against live data.</strong> The planner already has a production database (15
+courses at time of writing) and saved schedules. The migration is the single most
+dangerous change here. Mitigations: timestamped backup before touching anything,
+idempotent, and verified against a copy of the real database before release.</p>
+<p><strong>Scope.</strong> The per-term re-architecture touches the store schema, every API route
+and every panel. It is far larger than the graduate rule that motivated it, and
+carries most of the risk. Sequencing it first and alone was recommended and
+declined in favour of this document; it remains the recommendation for the build.</p>
+<p><strong>Grad courses are invisible in cohort exports.</strong> PDF timetables render one page
+per cohort, so a cohort-less grad course appears on no page. Resolved by D11: a
+dedicated graduate PDF page. Must ship with phase 2, not after it.</p>
+<p><strong>Un-publishing.</strong> If a published schedule must be corrected, phase 2 work and the
+freeze interact in ways not yet designed. Currently specified as an explicit
+confirmed action; the consequences for already-appended grad courses are undefined.</p>
+<p><strong>Room pinning</strong> is a prerequisite, not a detail (see above). Phase 2 is unsound
+without it.</p>
+<h2 id="open-questions">Open questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li>What happens to appended grad courses if a published term is un-published and
+   re-solved?</li>
+<li>Should phase 1 warn when reservations consume an unreasonable share of the week?</li>
+<li>Do joint (0056) courses ever serve more than one undergraduate year?</li>
+</ol>
+<h2 id="recommended-build-sequence">Recommended build sequence<a class="headerlink" href="#recommended-build-sequence" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Term model + migration</strong>, verified against a copy of the production database.</li>
+<li><strong><code>fixed_room</code></strong> — prerequisite for freezing.</li>
+<li><strong>Level field + prefix suggestion</strong>, back-compatible.</li>
+<li><strong>Clash rules</strong> — independent check, with the <code>elif</code>-trap regression test.</li>
+<li><strong>Publish / freeze.</strong></li>
+<li><strong>Phase 2 append + reservations</strong>, including the graduate PDF page (D11).</li>
+<li><strong>Rollover + cadence.</strong></li>
+</ol>
+<p>Steps 3 and 4 deliver standalone value on the current single-term model and could
+ship first if the term model proves slow, at the cost of some rework where they meet.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

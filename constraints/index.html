@@ -457,6 +457,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grad-scheduling-prd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD — Graduate courses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -517,6 +544,18 @@
 <td>model <code>_hard_same_course_ta</code>, evaluator <code>ta_sessions_coincide</code></td>
 </tr>
 <tr>
+<td>Graduate-level courses never overlap (grad×grad, grad×joint)</td>
+<td>model <code>_hard_grad_level</code>, evaluator <code>grad_overlap</code></td>
+</tr>
+<tr>
+<td>A published session keeps its room, not just its hour</td>
+<td>room domain restriction, evaluator <code>room_pin_broken</code></td>
+</tr>
+<tr>
+<td>A published session keeps its day and hour</td>
+<td>pinned domain, evaluator <code>published_moved</code></td>
+</tr>
+<tr>
 <td>Lab cross-day satisfiability</td>
 <td>evaluator <code>lab_cross_day_unsatisfiable</code> (post-hoc)</td>
 </tr>
@@ -524,6 +563,61 @@
 </table>
 <p><strong>Exploited freedom:</strong> ChemE-only and BioChemE-only courses <em>may</em> overlap each
 other (different audiences, different rooms) — the solver packs the week with this.</p>
+<p><strong>Course level</strong> (<code>CourseLevel</code>: <code>ug</code> / <code>joint</code> / <code>grad</code>) is who may take a course,
+distinct from <code>role</code>, which is what it is. Suggested from the number — <code>0054</code>
+undergraduate, <code>0056</code> joint, <code>0058</code> graduate, anything else undergraduate — and
+overridable, since another faculty's graduate course follows no convention of ours.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>grad</th>
+<th>joint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>grad</strong></td>
+<td>HARD</td>
+<td>HARD</td>
+</tr>
+<tr>
+<td><strong>joint</strong></td>
+<td>HARD</td>
+<td>allowed (soft <code>elective_vs_elective</code> still applies)</td>
+</tr>
+</tbody>
+</table>
+<p>Graduate students pick a few courses from a small pool, so a clash between them is
+untakeable rather than merely unfortunate. Joint courses are largely
+undergraduate-attended and behave like ordinary electives among themselves.
+A <em>provisional</em> course is last year's graduate course standing in for one not yet
+confirmed. It is an ordinary graduate course to the solver, which is the point:
+it carries this rule, so joint courses are genuinely pushed out of the hours it
+reserves rather than merely discouraged from them.</p>
+<p>Exempt: exercise groups of one course (already <code>ta_sessions_coincide</code>) and
+alternatives of <em>one</em> cross-day lab against each other — a student takes the lab
+on one of the offered days. That second exemption is deliberately narrow: a lab
+exempt from the rule outright could sit on any graduate course, and
+<code>lab_cross_day_unsatisfiable</code> cannot cover for it, since that check reasons about
+cohorts and a graduate course has none. The rule also applies against another faculty's
+graduate courses, which carry a level on their <code>FixedEvent</code> wall — they own no
+cohort of ours, so blocking by cohort would never reach them.</p>
+<div class="admonition warning">
+<p class="admonition-title">The graduate check must stay independent</p>
+<p><code>_check_pairwise</code> tests pairs in one <code>if/elif</code> chain where
+<code>elective_vs_elective</code> (soft) is evaluated first. Graduate courses are nearly
+always electives, so folding the graduate rule into that chain would let the
+soft branch win and silently downgrade a hard rule to a warning.
+<code>test_grad_overlap_is_hard_even_when_both_are_electives</code> guards this.</p>
+</div>
+<p><strong>Anchored is not published.</strong> Both pin a session, and the difference is who may
+override it. A <em>skeleton anchor</em> is the university's timetable: it constrains the
+solver, but the planner may drag it in the editor, which scores a weight-0
+<code>fixed_placement</code> notice. A <em>publication</em> is the week already handed to students:
+it is frozen in day, hour <strong>and</strong> room, the blocks are not draggable, and moving
+one anyway is a hard <code>published_moved</code>. <code>Session.is_published</code> is what separates
+them — do not infer it from <code>fixed_room</code>.</p>
 <h2 id="soft-ladder-weighted-minimised-heaviest-lightest">Soft ladder (weighted, minimised; heaviest → lightest)<a class="headerlink" href="#soft-ladder-weighted-minimised-heaviest-lightest" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
