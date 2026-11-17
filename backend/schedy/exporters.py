@@ -23,7 +23,9 @@ from .domain import (
     CourseLevel,
     Problem,
     Schedule,
+    box_interval,
     box_label,
+    minutes_to_hhmm,
 )
 
 _FONTS_DIR = os.path.join(os.path.dirname(__file__), "assets", "fonts")
@@ -119,6 +121,7 @@ class GridCell:
     day: int
     start_box: int
     span: int  # length in boxes (rows it covers, starting at start_box)
+    provisional: bool = False  # a graduate reservation, not a confirmed course
 
 
 def cohort_grid_cells(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
@@ -174,32 +177,103 @@ def cohort_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCel
     return pages
 
 
+# Sessions with no lecturer and no TA land on this page of the person layout.
+UNASSIGNED_PAGE = "\x00unassigned"
+
+
+def _resource_cell(problem: Problem, sid: str, p) -> GridCell:
+    s = problem.session(sid)
+    return GridCell(
+        session_id=sid, course_number=s.course_number, type=s.type.value,
+        group=s.group, room=problem.room(p.room_id).name,
+        day=p.day, start_box=p.start_box, span=s.length_boxes,
+        provisional=s.provisional,
+    )
+
+
 def room_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
-    """Group placed sessions by room display name: one page per room in use."""
+    """Group placed sessions by room id: one page per room in use.
+
+    Keyed by id, not name, so two rooms that share a name stay two pages.
+    Provisional sessions are kept (the room really is held) and flagged.
+    """
     out: dict[str, list[GridCell]] = {}
     for sid, p in schedule.placements.items():
-        s = problem.session(sid)
-        room = problem.room(p.room_id).name
-        out.setdefault(room, []).append(GridCell(
-            session_id=sid, course_number=s.course_number, type=s.type.value,
-            group=s.group, room=room,
-            day=p.day, start_box=p.start_box, span=s.length_boxes,
-        ))
+        out.setdefault(p.room_id, []).append(_resource_cell(problem, sid, p))
     return out
 
 
 def person_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
-    """Group placed sessions by lecturer/TA name; shared sessions appear on each."""
+    """Group placed sessions by lecturer/TA id; shared sessions appear on each.
+
+    Sessions with no staff go on `UNASSIGNED_PAGE` so none is silently dropped.
+    """
     out: dict[str, list[GridCell]] = {}
     for sid, p in schedule.placements.items():
         s = problem.session(sid)
-        cell = GridCell(
-            session_id=sid, course_number=s.course_number, type=s.type.value,
-            group=s.group, room=problem.room(p.room_id).name,
-            day=p.day, start_box=p.start_box, span=s.length_boxes,
-        )
-        for name in dict.fromkeys((*s.lecturer_ids, *s.ta_ids)):
-            out.setdefault(name, []).append(cell)
+        cell = _resource_cell(problem, sid, p)
+        ids = list(dict.fromkeys((*s.lecturer_ids, *s.ta_ids))) or [UNASSIGNED_PAGE]
+        for pid in ids:
+            out.setdefault(pid, []).append(cell)
+    return out
+
+
+@dataclass(frozen=True)
+class StackedBlock:
+    """One drawn block on a grid: a cell, or several that overlap in time."""
+    day: int
+    start_box: int
+    span: int
+    cells: tuple[GridCell, ...]
+
+
+def stack_cells(cells: list[GridCell]) -> list[StackedBlock]:
+    """Merge cells that overlap in one day into stacked blocks.
+
+    Manual edits can place two sessions on top of each other; a grid cannot
+    draw overlapping spans, so the overlapping sessions share one block
+    (spanning their union) and every one of them is shown.
+    """
+    blocks: list[list] = []   # [day, start, end(excl), [cells]]
+    for c in sorted(cells, key=lambda x: (x.day, x.start_box, x.session_id)):
+        end = c.start_box + c.span
+        last = blocks[-1] if blocks else None
+        if last and last[0] == c.day and c.start_box < last[2]:
+            last[2] = max(last[2], end)
+            last[3].append(c)
+        else:
+            blocks.append([c.day, c.start_box, end, [c]])
+    return [StackedBlock(d, st, en - st, tuple(cs)) for d, st, en, cs in blocks]
+
+
+def stacked_lines(blk: StackedBlock, course_names: dict[str, str],
+                  has_font: bool) -> list[list[str]]:
+    """Markup lines for each cell of a block, one list per cell.
+
+    When the cells of a stacked block cover different time ranges, each also
+    gets its own range: the block spans their union, so without it a reader
+    would take every session for the full block.
+    """
+    from xml.sax.saxutils import escape
+
+    ranges = {(c.start_box, c.span) for c in blk.cells}
+    out = []
+    for c in blk.cells:
+        lines = [f"<b>{escape(c.course_number)}</b>"]
+        name = course_names.get(c.course_number, "")
+        if name and has_font:
+            lines.append(escape(_rtl(name)))
+        sub = c.type[:4]
+        if c.group:
+            sub += f" {escape(c.group)}"
+        sub += f" · {escape(c.room)}"
+        if c.provisional:
+            sub += " (provisional)"
+        lines.append(sub)
+        if len(ranges) > 1:
+            s, e = box_interval(c.start_box, c.span)
+            lines.append(f"{minutes_to_hhmm(s)}\u2013{minutes_to_hhmm(e)}")
+        out.append(lines)
     return out
 
 
@@ -228,6 +302,7 @@ def to_pdf(
     title: str = "Schedy timetable",
     course_names: dict[str, str] | None = None,
     layout: str = "flat",
+    person_names: dict[str, str] | None = None,
 ) -> bytes:
     """Printable PDF of the schedule.
 
@@ -236,7 +311,8 @@ def to_pdf(
     — the printable class timetable; `"room"` and `"person"` give the same grid
     per room and per lecturer/TA. `course_names` maps course number -> display
     name (Hebrew preferred), rendered right-to-left via the bundled Hebrew font;
-    without it (or the font) the export still works in ASCII.
+    without it (or the font) the export still works in ASCII. `person_names`
+    maps lecturer/TA id -> display name for the person layout's page titles.
     """
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate
@@ -253,8 +329,15 @@ def to_pdf(
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
     pages_by_layout = {"cohort": cohort_pages, "room": room_pages, "person": person_pages}
     if layout in pages_by_layout:
-        story = _grid_story(pages_by_layout[layout](problem, schedule),
-                            course_names or {}, fonts, styles, title)
+        grids = pages_by_layout[layout](problem, schedule)
+        labels: dict[str, str] = {}
+        if layout == "room":
+            labels = {rid: problem.room(rid).name for rid in grids}
+        elif layout == "person":
+            labels = {pid: (person_names or {}).get(pid) or pid for pid in grids}
+            labels[UNASSIGNED_PAGE] = "Unassigned"
+        story = _grid_story(grids, course_names or {}, fonts, styles, title,
+                            labels=labels)
     else:
         story = _flat_story(problem, schedule, course_names or {}, fonts, styles, title)
     doc.build(story)
@@ -262,6 +345,8 @@ def to_pdf(
 
 
 def _flat_story(problem, schedule, course_names, fonts, styles, title):
+    from xml.sax.saxutils import escape
+
     from reportlab.lib import colors
     from reportlab.platypus import Table, TableStyle, Paragraph
 
@@ -290,65 +375,66 @@ def _flat_story(problem, schedule, course_names, fonts, styles, title):
         ("ROWBACKGROUNDS", (0, 1), (-1, -1),
          [colors.white, colors.HexColor("#f0f4f8")]),
     ]))
-    return [Paragraph(title, styles["Title"]), table]
+    return [Paragraph(escape(title), styles["Title"]), table]
 
 
-def _grid_story(grids, course_names, fonts, styles, title):
+def _grid_story(grids, course_names, fonts, styles, title, labels=None):
     from xml.sax.saxutils import escape
 
     from reportlab.lib import colors
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
-    from reportlab.platypus import PageBreak, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import PageBreak, Paragraph, Table, TableStyle
 
     body_font, head_font, has_font = fonts
+    labels = labels or {}
     cell_style = ParagraphStyle("cell", fontName=body_font, fontSize=7, leading=8.5)
+    title_style = ParagraphStyle("pagetitle", parent=styles["Title"], fontName=head_font)
     if not grids:
-        return [Paragraph(title, styles["Title"]),
+        return [Paragraph(escape(title), title_style),
                 Paragraph("No sessions placed yet.", styles["Normal"])]
 
+    def heading(label):
+        text = labels.get(label, label)
+        if has_font:
+            text = _rtl(text)
+        return Paragraph(escape(f"{title} — {text}"), title_style)
+
+    ncols = 1 + len(DAY_NAMES)
     col_widths = [2.2 * cm] + [4.5 * cm] * len(DAY_NAMES)
     story = []
-    # Pages alphabetically, then the graduate page last: it is an appendix to
-    # the undergraduate timetable, not one of its year-groups.
-    order = sorted(grids, key=lambda k: (k == GRADUATE_PAGE, k))
+    # Pages alphabetically by label, then the graduate page and the unassigned
+    # page last: appendices to the main timetable, not members of it.
+    order = sorted(grids, key=lambda k: (k in (GRADUATE_PAGE, UNASSIGNED_PAGE),
+                                         k == UNASSIGNED_PAGE, labels.get(k, k)))
     for page_i, label in enumerate(order):
-        data = [["", *DAY_NAMES]]
+        # Row 0 is the page title and row 1 the day header; both repeat when a
+        # crowded page spills, so a continuation still says whose it is.
+        data = [[heading(label)] + [""] * (ncols - 1), ["", *DAY_NAMES]]
         for b in range(BOXES_PER_DAY):
             data.append([box_label(b), "", "", "", "", ""])
-        spans = []
-        for c in sorted(grids[label], key=lambda x: (x.day, x.start_box)):
-            col, row0 = c.day + 1, c.start_box + 1
-            lines = [f"<b>{escape(c.course_number)}</b>"]
-            name = course_names.get(c.course_number, "")
-            if name and has_font:
-                lines.append(escape(_rtl(name)))
-            sub = c.type[:4]
-            if c.group:
-                sub += f" {escape(c.group)}"
-            sub += f" · {escape(c.room)}"
-            lines.append(sub)
-            para = Paragraph("<br/>".join(lines), cell_style)
-            existing = data[row0][col]
-            data[row0][col] = para if not existing else [existing, para]
-            if c.span > 1:
-                spans.append(("SPAN", (col, row0), (col, c.start_box + c.span)))
+        spans = [("SPAN", (0, 0), (-1, 0))]
+        for blk in stack_cells(grids[label]):
+            col, row0 = blk.day + 1, blk.start_box + 2
+            paras = [Paragraph("<br/>".join(lines), cell_style)
+                     for lines in stacked_lines(blk, course_names, has_font)]
+            data[row0][col] = paras[0] if len(paras) == 1 else paras
+            if blk.span > 1:
+                spans.append(("SPAN", (col, row0), (col, row0 + blk.span - 1)))
 
-        table = Table(data, colWidths=col_widths, repeatRows=1)
+        table = Table(data, colWidths=col_widths, repeatRows=2)
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b6cb0")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("BACKGROUND", (0, 1), (0, -1), colors.HexColor("#f1f5f9")),
-            ("FONTNAME", (0, 0), (-1, 0), head_font),
-            ("FONTNAME", (0, 1), (0, -1), body_font),
+            ("BACKGROUND", (0, 0), (-1, 1), colors.HexColor("#2b6cb0")),
+            ("TEXTCOLOR", (0, 0), (-1, 1), colors.white),
+            ("BACKGROUND", (0, 2), (0, -1), colors.HexColor("#f1f5f9")),
+            ("FONTNAME", (0, 0), (-1, 1), head_font),
+            ("FONTNAME", (0, 2), (0, -1), body_font),
             ("FONTSIZE", (0, 0), (-1, -1), 7.5),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            ("GRID", (0, 1), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             *spans,
         ]))
-        story.append(Paragraph(f"{title} — {label}", styles["Title"]))
-        story.append(Spacer(1, 0.2 * cm))
         story.append(table)
-        if page_i < len(grids) - 1:
+        if page_i < len(order) - 1:
             story.append(PageBreak())
     return story

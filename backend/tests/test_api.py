@@ -905,3 +905,14 @@ def test_a_filesystem_root_contains_its_descendants(tmp_path, monkeypatch):
         r = c.put("/config", json={"saves_dir": str(tmp_path / "x")})
         assert r.status_code == 200
     store.close()
+
+
+def test_pdf_export_survives_markup_in_a_lecturer_id_and_uses_registry_names(client):
+    evil = '<img src="/etc/hostname" width="9" height="9"/><b>x'
+    assert client.post("/catalog/courses", json=_core("00540319", evil)).status_code == 200
+    client.put("/people", json={"items": [{"id": evil, "name": "Dr Real", "kind": "faculty"}]})
+    assert client.post("/solve", json={"time_limit_s": 5}).json()["solved"] is True
+    for layout in ("person", "room", "cohort", "flat"):
+        r = client.get("/export/pdf", params={"layout": layout})
+        assert r.status_code == 200 and r.content[:4] == b"%PDF"
+        assert b"/Subtype /Image" not in r.content and b"/Subtype/Image" not in r.content
