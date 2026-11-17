@@ -117,6 +117,11 @@ describe("canDrop — a published session has no legal target", () => {
     expect(canDrop("pub", 3, 5, "hall6", {}, sessions, [])).toBe(false);
   });
 
+  it("refuses every drop for a graduate course kept as a pin", () => {
+    const sessions: Record<string, SessionMeta> = { g: meta({ grad_pinned: true }) };
+    expect(canDrop("g", 3, 5, "hall6", {}, sessions, [])).toBe(false);
+  });
+
   it("still allows a merely skeleton-anchored session to move", () => {
     // An anchor constrains the solver, not the planner — unchanged behaviour.
     const sessions: Record<string, SessionMeta> = { anc: meta({ fixed: true }) };

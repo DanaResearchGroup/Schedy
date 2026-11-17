@@ -22,7 +22,7 @@ export function canDrop(
   if (!s) return true;
   // Published: the slot was handed to students, so there is no legal target.
   // The blocks are also non-draggable; this is the backstop.
-  if (s.published) return false;
+  if (s.published || s.grad_pinned) return false;
   const len = Math.max(1, s.length_boxes);
   const a0 = startBox;
   const a1 = startBox + len; // half-open [a0, a1)

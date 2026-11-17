@@ -48,8 +48,33 @@ export interface UploadResult {
 // serves the built SPA (see frontend/.env.production and docs/windows.md).
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
+// A 409 detail is a plain string, or `{message, violations, preview}` from a
+// refused solve: show the message, then one line per hard violation. The
+// non-persisted `preview` stays in the response body and is not drawn.
+export function detailText(d: unknown): string | null {
+  if (typeof d === "string") return d;
+  if (d && typeof d === "object" && typeof (d as { message?: unknown }).message === "string") {
+    const { message, violations } = d as {
+      message: string;
+      violations?: { kind: string; message: string; session_ids: string[] }[];
+    };
+    const lines = (violations ?? []).filter((v) => v && v.kind).map(
+      (v) => `- ${v.kind}: ${v.message}${v.session_ids?.length ? ` (${v.session_ids.join(", ")})` : ""}`);
+    return [message, ...lines].join("\n");
+  }
+  return null;
+}
+
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    let detail = body;                  // a 409's reason reads better unwrapped
+    try {
+      const d = JSON.parse(body)?.detail;
+      detail = detailText(d) ?? detail;
+    } catch { /* not JSON: keep the text */ }
+    throw new Error(`${res.status} ${detail}`);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -96,7 +121,15 @@ export const api = {
 
   unpublishTerm: (term: string) =>
     fetch(`${BASE}/terms/${term}/publish?confirm=true`, { method: "DELETE" })
-      .then(json<Term>),
+      .then(json<Term & { grad_pinned: string[] }>),
+
+  getGradPins: (term: string) =>
+    fetch(`${BASE}/terms/${term}/grad-pins`).then(json<{ pinned: Record<string, unknown> }>),
+
+  // Graduate courses kept as pins by an unpublish stay put until released.
+  releaseGradPins: (term: string) =>
+    fetch(`${BASE}/terms/${term}/grad-pins?confirm=true`, { method: "DELETE" })
+      .then(json<{ released: string[] }>),
 
   // Phase 2 — graduate courses placed around the published week.
   solveGrad: (timeLimit = 10) =>

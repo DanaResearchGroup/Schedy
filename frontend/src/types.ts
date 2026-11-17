@@ -137,6 +137,9 @@ export interface SessionMeta {
   fixed: boolean;
   // Frozen by publication — already handed to students, so it cannot be dragged.
   published?: boolean;
+  // A graduate course kept as a hard pin since an unpublish: it cannot be dragged
+  // either, until the planner releases the pins.
+  grad_pinned?: boolean;
   // A stand-in for a course not yet confirmed: it holds hours through phase 1.
   provisional?: boolean;
   // Who may take it — drives the hard graduate non-overlap rule.
