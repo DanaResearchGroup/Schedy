@@ -34,8 +34,20 @@ def freeze_violations(frozen: dict[str, dict], problem, schedule: Schedule
     return out
 
 
-def refusal(violations: list[tuple[str, str]], what: str) -> str:
-    """The 409 message: which sessions, and the only way out."""
+def refusal(violations: list[tuple[str, str]], what: str,
+            grad_only: list[str] = (), term: str = "") -> str:
+    """The 409 message: which sessions, and the only way out.
+
+    ``grad_only`` are the offenders held only as graduate pins, whose way out is
+    releasing them; the rest were published, whose way out is unpublishing.
+    """
     names = ", ".join(f"{sid} ({kind})" for sid, kind in violations)
-    return (f"{what} would change published session(s): {names}; "
-            "unpublish the term first")
+    way = []
+    if any(sid not in grad_only for sid, _ in violations):
+        way.append("unpublish the term first")
+    if grad_only:
+        way.append("release the graduate pins first "
+                   f"(DELETE /terms/{term}/grad-pins?confirm=true)")
+    kind = ("graduate-pinned" if len(grad_only) == len(violations)
+            else "published" if not grad_only else "frozen")
+    return f"{what} would change {kind} session(s): {names}; " + " and ".join(way)

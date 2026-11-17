@@ -19,8 +19,9 @@
 >   lecturer changes at unchanged coordinates, and concurrent requests.
 > - **Not built:** distinct grid rendering of grad reservations; planner-tunable
 >   soft weights; biology-avoidance intervals are not wired through `_problem()`.
-> - **Un-publish decided, awaiting implementation:** appended grad courses stay as
->   pinned placements; a re-solve fails loudly if they no longer fit.
+> - **Un-publish built:** grad-level sessions placed at un-publish stay pinned and
+>   are guarded like published ones until released; a re-solve fails loudly (409,
+>   naming them) if they no longer fit.
 > Supersedes nothing; extends `PRD.md`, which assumes a single implicit semester.
 > Design settled in a design interview; every decision below was chosen explicitly.
 
@@ -242,7 +243,9 @@ whole-placement pin) is required, and is a prerequisite for phase 2.
 | GET/PUT | `/terms/current` | Read/switch the active term |
 | PUT | `/terms/{id}` | Re-label a term, keeping its data — how a migration's guessed name is confirmed or corrected |
 | POST | `/terms/{id}/publish` | Freeze UG+joint placements, stamp published |
-| DELETE | `/terms/{id}/publish` | Un-publish (explicit, confirmed — see risks) |
+| DELETE | `/terms/{id}/publish` | Un-publish (explicit, confirmed); grad-level sessions placed at that moment stay pinned |
+| GET | `/terms/{id}/grad-pins` | Grad placements kept as hard pins since the last un-publish |
+| DELETE | `/terms/{id}/grad-pins` | Release those pins (explicit, confirmed) so a solve may move them |
 | GET | `/terms/current/rollover` | Grad courses from the previous same semester, with last-run and cadence; due ones flagged |
 | POST | `/terms/current/rollover` | Copy the chosen ones in as provisional stand-ins |
 | POST | `/solve` | Phase 1 — unchanged, scoped to the current term |
@@ -316,17 +319,28 @@ declined in favour of this document; it remains the recommendation for the build
 per cohort, so a cohort-less grad course appears on no page. Resolved by D11: a
 dedicated graduate PDF page. Must ship with phase 2, not after it.
 
-**Un-publishing.** If a published schedule must be corrected, phase 2 work and the
-freeze interact in ways not yet designed. Currently specified as an explicit
-confirmed action; the consequences for already-appended grad courses are undefined.
+**Un-publishing.** An explicit confirmed action. Appended grad courses are kept
+as pins rather than released with the week (Open question 1). Provenance is the
+course level, so a retried un-publish or a publish/un-publish cycle keeps them.
 
 **Room pinning** is a prerequisite, not a detail (see above). Phase 2 is unsound
 without it.
 
 ## Open questions
 
-1. What happens to appended grad courses if a published term is un-published and
-   re-solved?
+1. ~~What happens to appended grad courses if a published term is un-published and
+   re-solved?~~ **Resolved.** Grad-level sessions placed at un-publish stay pinned
+   (day, hour, room) and are guarded like published ones until released: every
+   write path refuses to move or drop one. A re-solve either keeps them or fails
+   with a 409 whose detail is `{message, violations, preview}`: the message names
+   the pins only when they appear in the hard violations (otherwise it says the
+   failure is not caused by them), separates infeasible, timed out and an invalid
+   model, and nothing is persisted; `preview` holds the candidate placements.
+   Marking a pinned course provisional or changing its level is refused (409)
+   until the pin is released; publishing folds every held pin in. Un-publishing
+   an already-unpublished term changes no pins. The planner
+   releases them explicitly with `DELETE /terms/{id}/grad-pins?confirm=true`, after
+   which a solve may move them. Publishing again freezes the week, grad included; the next un-publish re-derives the pins by level.
 2. Should phase 1 warn when reservations consume an unreasonable share of the week?
 3. Do joint (0056) courses ever serve more than one undergraduate year?
 

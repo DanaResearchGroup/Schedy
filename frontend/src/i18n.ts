@@ -138,6 +138,16 @@ export const STRINGS = {
     en: "Unpublish {term}?\n\nThe week is released, and the solver may move "
       + "sessions the students have already been given.",
   },
+  gradPinned: { he: "מקובע (תואר שני)", en: "Pinned (graduate)" },
+  gradPinsKept: {
+    he: "{n} קורסי תואר שני נשארו מקובעים. פתרון חדש לא יזיז אותם.",
+    en: "{n} graduate course(s) stay pinned; a re-solve will not move them.",
+  },
+  releaseGradPins: { he: "שחרר קיבוע תואר שני", en: "Release graduate pins" },
+  releaseGradPinsConfirm: {
+    he: "לשחרר את קורסי התואר השני המקובעים?\n\nפתרון חדש יוכל להזיז אותם.",
+    en: "Release the pinned graduate courses?\n\nA re-solve may then move them.",
+  },
   publishedMissing: {
     he: "שיעורים שפורסמו ואינם קיימים עוד בקטלוג: {ids}. הם נשמטו מהמערכת הקפואה.",
     en: "Published sessions the catalog no longer has: {ids}. They have dropped "

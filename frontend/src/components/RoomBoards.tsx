@@ -132,7 +132,7 @@ export function RoomBoards({
     } as const;
     return (
       <div
-        key={sid} className={cls} draggable={!m?.published} style={style}
+        key={sid} className={cls} draggable={!m?.published && !m?.grad_pinned} style={style}
         onDragStart={(e) => {
           e.dataTransfer.setData("text/session", sid);
           startDrag(sid);

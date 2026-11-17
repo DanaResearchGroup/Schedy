@@ -111,7 +111,7 @@ export function WeeklyGrid({
                     } as const;
                     return (
                       <div
-                        key={sid} className={cls} draggable={!m?.published} style={style}
+                        key={sid} className={cls} draggable={!m?.published && !m?.grad_pinned} style={style}
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/session", sid);
                           setDragSid(sid);
@@ -121,6 +121,7 @@ export function WeeklyGrid({
                         title={m
                           ? `${m.course_number} ${name || ""} ${m.type}${
                               m.published ? ` · ${t("published", lang)}`
+                                : m.grad_pinned ? ` · ${t("gradPinned", lang)}`
                                 : fixed ? ` · ${t("fixedTag", lang)}` : ""}`.trim()
                           : sid}
                       >

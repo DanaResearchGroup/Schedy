@@ -20,10 +20,11 @@ from .model_builder import ModelBuilder
 
 @dataclass
 class SolveResult:
-    status: str                       # OPTIMAL | FEASIBLE | INFEASIBLE | UNKNOWN
+    status: str                       # OPTIMAL | FEASIBLE | INFEASIBLE | UNKNOWN | MODEL_INVALID
     schedule: Schedule | None
     evaluation: EvaluationResult | None
     objective: float | None
+    detail: str = ""                 # why, when the status alone does not say
 
     @property
     def solved(self) -> bool:
@@ -58,7 +59,10 @@ def solve(
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             # Enforcing made it infeasible (no clash-free arrangement exists) —
             # fall back to the last solved, flagged best-effort schedule.
-            return last or SolveResult(status_name, None, None, None)
+            if last:
+                return last
+            why = builder.model.Validate() if status_name == "MODEL_INVALID" else ""
+            return SolveResult(status_name, None, None, None, detail=why)
 
         schedule = builder.extract(solver)
         evaluation = evaluate(problem, schedule)

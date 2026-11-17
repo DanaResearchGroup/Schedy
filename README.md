@@ -109,10 +109,7 @@ the planner can move them to any folder under that one. To keep them elsewhere â
 a synced folder, a network drive â€” set `SCHEDY_SAVES_ROOT` before launch. The
 root is environment-only on purpose: the folder inside it is chosen through the
 app, so confining it is what keeps a request from naming any folder on the disk.
-**Known defect (tracked for a fix):** `SCHEDY_SAVES_ROOT` only sets the boundary
-that a chosen folder is checked against. The default folder still sits beside the
-database, so on its own the variable can leave saves outside the root; also set
-`SCHEDY_SAVES` to a folder inside it.
+The root holds every saves folder, the default one beside the database included.
 
 Packaging a one-click Windows app: see [docs/windows.md](docs/windows.md).
 

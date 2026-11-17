@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
+import { showReleaseGradPins } from "./gradPins";
 import type {
   Course, FixedEvent, Placement, SessionMeta, TermList, Violation,
 } from "./types";
@@ -62,6 +63,7 @@ export default function App() {
   const [filter, setFilter] = useState<GridFilter>(NO_FILTER);
   const [notice, setNotice] = useState<string | null>(null);
   const [terms, setTerms] = useState<TermList | null>(null);
+  const [gradPins, setGradPins] = useState<Record<string, unknown>>({});
   const [publishDrift, setPublishDrift] = useState<string | null>(null);
   const [rollover, setRollover] = useState(false);
   const [layout, setLayout] = useState<"grid" | "rooms">("grid");
@@ -77,7 +79,12 @@ export default function App() {
   }, [lang]);
 
   const refresh = () => api.listCourses().then(setCourses).catch((e) => setError(String(e)));
-  const refreshTerms = () => api.listTerms().then(setTerms).catch((e) => setError(String(e)));
+  // The pin list lives on the server; read it whenever the term list is read.
+  const refreshGradPins = (term: string) =>
+    api.getGradPins(term).then((r) => setGradPins(r.pinned)).catch((e) => setError(String(e)));
+  const refreshTerms = () => api.listTerms()
+    .then((l) => { setTerms(l); return refreshGradPins(l.current); })
+    .catch((e) => setError(String(e)));
   useEffect(() => { refresh(); refreshTerms(); }, []);
 
   // Ctrl/Cmd+Z to undo, Ctrl+Y or Ctrl/Cmd+Shift+Z to redo (Schedule tab only).
@@ -163,6 +170,7 @@ export default function App() {
       else setError(`No solution (${r.status})`);
     } catch (e) {
       setError(String(e));
+      if (terms) refreshGradPins(terms.current);   // a 409 may be about a pin
     } finally {
       setSolving(false);
     }
@@ -196,6 +204,7 @@ export default function App() {
     setFilter(NO_FILTER);
     setError(null);
     setPublishDrift(null);
+    setGradPins({});
   };
 
   const flash = (msg: string) => {
@@ -299,8 +308,26 @@ export default function App() {
     const label = termLabel(terms.current, lang);
     if (!window.confirm(t("unpublishConfirm", lang, { term: label }))) return;
     try {
-      await api.unpublishTerm(terms.current);
+      const r = await api.unpublishTerm(terms.current);
       await refreshTerms();
+      if (placements) {                      // the blocks are movable again
+        const ev = await api.evaluate(placements);
+        setSessions(ev.sessions);
+        setViolations(ev.violations);
+      }
+      if (r.grad_pinned.length) {
+        flash(t("gradPinsKept", lang, { n: String(r.grad_pinned.length) }));
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const releaseGradPins = async () => {
+    if (!terms || !window.confirm(t("releaseGradPinsConfirm", lang))) return;
+    try {
+      await api.releaseGradPins(terms.current);
+      await refreshGradPins(terms.current);
       if (placements) {                      // the blocks are movable again
         const ev = await api.evaluate(placements);
         setSessions(ev.sessions);
@@ -509,10 +536,17 @@ export default function App() {
                 </>
               )
               : (
-                <button className="ghost" disabled={!placements} onClick={publishTerm}
-                  title={t("publishHint", lang)}>
-                  🔒 {t("publish", lang)}
-                </button>
+                <>
+                  <button className="ghost" disabled={!placements} onClick={publishTerm}
+                    title={t("publishHint", lang)}>
+                    🔒 {t("publish", lang)}
+                  </button>
+                  {showReleaseGradPins(gradPins, !!currentTerm?.published) && (
+                    <button className="ghost" onClick={releaseGradPins}>
+                      {t("releaseGradPins", lang)}
+                    </button>
+                  )}
+                </>
               ))}
             {placements && (
               <>
