@@ -921,14 +921,32 @@ def create_app(store: Store | None = None) -> FastAPI:
                 or os.environ.get("SCHEDY_SAVES")
                 or _app_dir())
 
-    def _default_saves_dir() -> str:
-        """Where saves go when the planner has not chosen a folder.
+    def _default_saves_dir() -> tuple[str, str | None]:
+        """Where saves go when the planner has not chosen a folder, and any
+        default that had to be refused.
 
-        Beside the DB (``%APPDATA%\\Schedy\\saves`` on Windows, ``~/Schedy/saves``
-        on Unix), or ``SCHEDY_SAVES`` when the operator named one.
+        ``saves`` inside the root: beside the DB (``%APPDATA%\\Schedy\\saves`` on
+        Windows, ``~/Schedy/saves`` on Unix) unless the operator moved the root
+        with ``SCHEDY_SAVES_ROOT``. ``SCHEDY_SAVES`` wins when it names a folder.
+
+        Defaults get the same containment check as a chosen folder: when
+        ``SCHEDY_SAVES_ROOT`` is set it is authoritative, so a ``SCHEDY_SAVES``
+        outside it, or a ``<root>/saves`` that is a symlink leading out, is
+        refused and reported, and the root itself stands in. The result is
+        always absolute, so it round-trips through the UI unchanged.
         """
+        root = _saves_root()
         env = os.environ.get("SCHEDY_SAVES")
-        return env if env else os.path.join(_app_dir(), "saves")
+        rejected = None
+        if env:
+            ok = contained(root, os.path.abspath(env))
+            if ok is not None:
+                return str(ok), None
+            rejected = env
+        ok = contained(root, "saves")
+        if ok is not None:
+            return str(ok), rejected
+        return str(Path(root).resolve()), rejected or os.path.join(root, "saves")
 
     def _configured_saves_dir() -> tuple[str, str | None]:
         """The folder in use, and any stored value that had to be refused.
@@ -943,8 +961,8 @@ def create_app(store: Store | None = None) -> FastAPI:
             ok = contained(_saves_root(), configured)
             if ok is not None:
                 return str(ok), None
-            return _default_saves_dir(), configured
-        return _default_saves_dir(), None
+            return _default_saves_dir()[0], configured
+        return _default_saves_dir()
 
     def _saves_dir() -> str:
         return _configured_saves_dir()[0]

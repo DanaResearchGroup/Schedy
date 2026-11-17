@@ -19,6 +19,7 @@ against path traversal.
 from __future__ import annotations
 
 import json
+import ntpath
 import os
 import re
 from dataclasses import dataclass
@@ -33,12 +34,29 @@ SCHEMA_VERSION = 1
 _FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
+_RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
+             *(f"COM{i}" for i in [*range(1, 10), "\u00b9", "\u00b2", "\u00b3"]),
+             *(f"LPT{i}" for i in [*range(1, 10), "\u00b9", "\u00b2", "\u00b3"])}
+
+
+def _is_reserved(filename: str) -> bool:
+    """Whether Windows treats `filename` as a device name. Python 3.13+ knows
+    the full rule (`ntpath.isreserved`); older versions use the list above."""
+    if hasattr(ntpath, "isreserved"):
+        return ntpath.isreserved(filename)
+    return filename.split(".")[0].rstrip(" ").upper() in _RESERVED
+
+
 def _slug(name: str) -> str:
     """A filesystem-safe, human-readable stem derived from a display name."""
     s = _FORBIDDEN.sub("", name)
     s = re.sub(r"\s+", "-", s.strip())
     s = s.strip(". ")  # Windows rejects trailing dots/spaces
-    return s[:60] or "schedule"
+    s = s[:60].strip(". ") or "schedule"
+    # Windows reserves these device names, with or without an extension.
+    if _is_reserved(s + EXT):
+        s = f"_{s}"
+    return s
 
 
 def _now_iso() -> str:
@@ -58,8 +76,9 @@ def contained(root: str | Path, candidate: str | Path) -> Path | None:
     pointing out of it is rejected on where it leads rather than accepted on
     where it sits. Comparison goes through `os.path.normcase`, because on
     Windows ``C:\\Users\\X`` and ``c:\\users\\x`` are one folder and a plain
-    string compare would say otherwise. The separator is required after the
-    root so that a sibling named ``Schedy-next-door`` cannot pass as ``Schedy``.
+    string compare would say otherwise. Containment is by path component, so a
+    sibling named ``Schedy-next-door`` cannot pass as ``Schedy``, and a
+    filesystem or drive root (``/``, ``C:\\``) still contains its descendants.
 
     The target need not exist: the planner is usually naming a folder to create.
     """
@@ -69,8 +88,7 @@ def contained(root: str | Path, candidate: str | Path) -> Path | None:
         p = p.resolve() if p.is_absolute() else (base / p).resolve()
     except (OSError, ValueError):  # unreadable, or a path the OS rejects outright
         return None
-    b, c = os.path.normcase(str(base)), os.path.normcase(str(p))
-    if c != b and not c.startswith(b + os.sep):
+    if not Path(os.path.normcase(str(p))).is_relative_to(os.path.normcase(str(base))):
         return None
     return p
 
