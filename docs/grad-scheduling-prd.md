@@ -1,6 +1,26 @@
 # PRD — Graduate courses, course levels, and per-term scheduling
 
-> Status: awaiting review — **no code written**
+> Status: **built** (PR #5): terms and migration, `fixed_room`, course levels
+> with prefix suggestion, the graduate clash rules, publish / freeze, phase-2
+> append (`POST /solve/grad`), rollover with cadence, and the graduate PDF page.
+> Still open: the three questions at the end. The level suggestion is mirrored
+> client-side rather than served by `GET /levels/suggest` (not implemented).
+> The body below is the design record. Where the build differs:
+> - **D9 skeleton-first external grad times: not built.** External courses block
+>   only through catalog `ext_*` fields; importing their skeleton times creates no wall.
+> - **Phase-2 reservation preference: not built.** `/solve/grad` passes no previous
+>   placements and has no preference objective. It also schedules newly added
+>   UG/joint sessions, not grad only.
+> - **Migration differs.** It guesses the term and rewrites first; the name is
+>   confirmed afterwards (`PUT /terms/{id}`). The backup is taken, but its
+>   location is not reported.
+> - **Known defect (tracked for a fix):** loading a saved schedule writes
+>   `last_schedule` before the freeze is checked, so it can move a published term's
+>   schedule. The freeze claim holds for `/solve` and `/solve/grad`, not for load.
+> - **Not built:** distinct grid rendering of grad reservations; planner-tunable
+>   soft weights; biology-avoidance intervals are not wired through `_problem()`.
+> - **Un-publish decided, awaiting implementation:** appended grad courses stay as
+>   pinned placements; a re-solve fails loudly if they no longer fit.
 > Supersedes nothing; extends `PRD.md`, which assumes a single implicit semester.
 > Design settled in a design interview; every decision below was chosen explicitly.
 
@@ -218,7 +238,7 @@ whole-placement pin) is required, and is a prerequisite for phase 2.
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/terms` | List terms with status |
-| POST | `/terms` | Create a term, optionally rolling over from another |
+| POST | `/terms` | Create an empty term (availability is pre-filled from last year; courses are not rolled over — use the rollover routes) |
 | GET/PUT | `/terms/current` | Read/switch the active term |
 | PUT | `/terms/{id}` | Re-label a term, keeping its data — how a migration's guessed name is confirmed or corrected |
 | POST | `/terms/{id}/publish` | Freeze UG+joint placements, stamp published |
@@ -227,7 +247,7 @@ whole-placement pin) is required, and is a prerequisite for phase 2.
 | POST | `/terms/current/rollover` | Copy the chosen ones in as provisional stand-ins |
 | POST | `/solve` | Phase 1 — unchanged, scoped to the current term |
 | POST | `/solve/grad` | Phase 2 — pin published sessions, place grad only |
-| GET | `/levels/suggest?number=` | Level suggested from a course number |
+| GET | `/levels/suggest?number=` | Level suggested from a course number — **not implemented**; mirrored client-side |
 
 Every existing route becomes term-scoped implicitly via the current term; no route
 gains a term parameter except those above.
