@@ -8,6 +8,7 @@ layer only wires HTTP to them.
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,15 +37,44 @@ from .domain import (
 )
 from .evaluator import evaluate
 from .exporters import to_csv, to_pdf
+from .freeze import freeze_violations, refusal
 from .parser import parse_rows, parse_skeleton
 from .solver import solve
 from .store import Store, TermId, course_from_dict, course_to_dict
 from .validator import ChecklistItem, find_missing
 
 
+def _parse_availability(raw) -> dict[str, set[tuple[int, int]]]:
+    """person -> {(day, box)}; raises on any other shape."""
+    return {p: {(int(d), int(b)) for d, b in cells} for p, cells in (raw or {}).items()}
+
+
 def _load_availability(store: Store) -> dict[str, set[tuple[int, int]]]:
-    raw = store.get_setting("availability", {}) or {}
-    return {p: {tuple(cell) for cell in cells} for p, cells in raw.items()}
+    return _parse_availability(store.get_setting("availability", {}))
+
+
+def _normalized_catalog(courses) -> list:
+    """The catalog exactly as the store will keep it: string keys, each once.
+
+    The store keys courses by number as text, so ``540002`` and ``"540002"``
+    are one row and the last write wins. Validating a catalog that is not the
+    one stored lets a duplicate or a numeric key slip past the freeze guard.
+    """
+    out, seen = [], set()
+    for c in courses:
+        if c.number is None or not str(c.number).strip():
+            raise ValueError("a course has no number")
+        c = replace(c, number=str(c.number))
+        if c.number in seen:
+            raise ValueError(f"duplicate course number {c.number}")
+        seen.add(c.number)
+        out.append(c)
+    return out
+
+
+def _stored_courses(store: Store, term: str | None = None) -> list:
+    """The stored catalog with every number as text (legacy rows may be int)."""
+    return [replace(c, number=str(c.number)) for c in store.list_courses(term)]
 
 
 def _calendar_from_dict(raw: dict) -> SemesterCalendar:
@@ -74,6 +104,9 @@ def _stored_week_anchor(store: Store) -> int:
         return week_anchor(_calendar_from_dict(raw))
     except (KeyError, TypeError, ValueError):
         return 0
+
+
+_KEEP = object()   # "leave this setting as stored"
 
 
 def _problem(store: Store):
@@ -363,9 +396,13 @@ def create_app(store: Store | None = None) -> FastAPI:
         the undergraduate timetable months before it knows which graduate courses
         will run, and phase 2 places those around what is frozen here (PRD D8).
         """
-        _open_term(term)
+        row = _open_term(term)
         if not confirm:
             raise HTTPException(400, "publishing requires ?confirm=true")
+        # A second publish would re-derive the pins from today's catalog and
+        # silently unpin whatever has since become provisional or graduate.
+        if row.get("published"):
+            raise HTTPException(409, f"{term} is already published; unpublish first")
 
         placements = store.get_setting("last_schedule") or {}
         if not placements:
@@ -421,6 +458,49 @@ def create_app(store: Store | None = None) -> FastAPI:
         store.set_published(term, None)
         return store.get_term(term)
 
+    def _candidate_problem(courses, offered_rows=_KEEP, availability=_KEEP):
+        """The Problem the catalog would expand to if `courses` replaced it."""
+        rows = (store.get_setting("offered_rows")
+                if offered_rows is _KEEP else offered_rows)
+        avail = (_load_availability(store) if availability is _KEEP
+                 else _parse_availability(availability))
+        return catalog_mod.expand(
+            courses, offered_rows=rows or None,
+            availability=avail,
+            week_anchor=_stored_week_anchor(store),
+            pins=store.get_setting("published_schedule") or None)
+
+    def _refuse_if_unfrozen(what: str, problem, schedule: Schedule) -> None:
+        """409 if the candidate would move or lose a published session."""
+        frozen = store.get_setting("published_schedule") or {}
+        bad = freeze_violations(frozen, problem, schedule) if frozen else []
+        if bad:
+            raise HTTPException(409, refusal(bad, what))
+
+    def _refuse_if_lost(problem, schedule: Schedule) -> None:
+        frozen = store.get_setting("published_schedule") or {}
+        lost = [v for v in freeze_violations(frozen, problem, schedule)
+                if v[1] == "missing"] if frozen else []
+        if lost:
+            raise HTTPException(409, refusal(lost, "that schedule"))
+
+    def _refuse_if_catalog_loses_sessions(what: str, courses,
+                                          offered_rows=_KEEP) -> None:
+        """409 if replacing the catalog/skeleton would drop a published session.
+
+        Only the session definitions are in question here, so the baseline
+        stands in for the schedule: a stale `last_schedule` is not this write's
+        doing.
+        """
+        frozen = store.get_setting("published_schedule") or {}
+        if not frozen:
+            return
+        problem = _candidate_problem(courses, offered_rows)
+        sched = Schedule()
+        for sid, pin in frozen.items():
+            sched.place(sid, int(pin["day"]), int(pin["start_box"]), pin["room_id"])
+        _refuse_if_unfrozen(what, problem, sched)
+
     # ---- reset ------------------------------------------------------ #
     @app.post("/reset")
     def reset_everything(confirm: bool = False) -> dict:
@@ -444,14 +524,20 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.post("/catalog/courses")
     def upsert_course(payload: dict = Body(...)) -> dict:
         try:
-            course = course_from_dict(payload)
+            course = _normalized_catalog([course_from_dict(payload)])[0]
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(400, f"invalid course: {exc}")
+        _refuse_if_catalog_loses_sessions(
+            "that course change",
+            [c for c in _stored_courses(store) if c.number != course.number] + [course])
         store.upsert_course(course)
         return course_to_dict(course)
 
     @app.delete("/catalog/courses/{number}")
     def delete_course(number: str) -> dict:
+        _refuse_if_catalog_loses_sessions(
+            "deleting that course",
+            [c for c in _stored_courses(store) if c.number != number])
         store.delete_course(number)
         return {"deleted": number}
 
@@ -462,9 +548,10 @@ def create_app(store: Store | None = None) -> FastAPI:
         existing = store.list_courses()
         if existing and not force:
             raise HTTPException(409, "catalog not empty; pass ?force=true to replace")
+        courses = sample_courses()
+        _refuse_if_catalog_loses_sessions("seeding the demo catalog", courses)
         for c in existing:
             store.delete_course(c.number)
-        courses = sample_courses()
         for c in courses:
             store.upsert_course(c)
         return {"seeded": len(courses)}
@@ -498,10 +585,12 @@ def create_app(store: Store | None = None) -> FastAPI:
                 courses = catalog_io.from_xlsx_bytes(data)
             else:
                 courses = catalog_io.from_csv(data.decode("utf-8-sig"))
+            courses = _normalized_catalog(courses)
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(400, f"could not parse catalog file: {exc}")
         if not courses:
             raise HTTPException(400, "no courses found in the file")
+        _refuse_if_catalog_loses_sessions("that import", courses)
         for c in store.list_courses():
             store.delete_course(c.number)
         for c in courses:
@@ -624,9 +713,7 @@ def create_app(store: Store | None = None) -> FastAPI:
             raise HTTPException(400, f"could not parse skeleton: {exc}")
         finally:
             os.unlink(path)
-        store.set_setting("skeleton_course_numbers",
-                          sorted({s.course_number for s in all_offered}))
-        store.set_setting("offered_rows", [
+        new_rows = [
             {"course_number": s.course_number,
              "event_type": s.event_type.value if s.event_type else None,
              "group_code": s.group_code, "name_he": s.name_he, "name_en": s.name_en,
@@ -636,7 +723,11 @@ def create_app(store: Store | None = None) -> FastAPI:
              "details": s.details,
              "pinned": catalog_mod.pinnable(s.day, s.start_min)}
             for s in offered
-        ])
+        ]
+        _refuse_if_catalog_loses_sessions("that skeleton", _stored_courses(store), new_rows)
+        store.set_setting("skeleton_course_numbers",
+                          sorted({s.course_number for s in all_offered}))
+        store.set_setting("offered_rows", new_rows)
         out = {"count": len(offered), "offered": store.get_setting("offered_rows")}
         if not relevant:
             # Not an error: the file parsed, and the university-wide course
@@ -662,12 +753,16 @@ def create_app(store: Store | None = None) -> FastAPI:
             start = int(start) if start is not None and start != "" else None
             norm.append({**r, "day": day, "start_min": start,
                          "pinned": catalog_mod.pinnable(day, start)})
+        _refuse_if_catalog_loses_sessions("those skeleton rows",
+                                          _stored_courses(store), norm)
         store.set_setting("offered_rows", norm)
         return {"count": len(norm), "offered": norm}
 
     @app.delete("/skeleton/rows")
     def clear_skeleton_rows() -> dict:
         """Remove all imported skeleton rows (a fresh import starts clean)."""
+        _refuse_if_catalog_loses_sessions("clearing the skeleton",
+                                          _stored_courses(store), [])
         store.set_setting("offered_rows", [])
         store.set_setting("skeleton_course_numbers", None)
         return {"count": 0, "offered": []}
@@ -798,6 +893,7 @@ def create_app(store: Store | None = None) -> FastAPI:
             sid: {"day": p.day, "start_box": p.start_box, "room_id": p.room_id}
             for sid, p in result.schedule.placements.items()
         }
+        _refuse_if_unfrozen("that solve", problem, result.schedule)
         store.set_setting("last_schedule", placements)
         return {
             "status": result.status, "solved": True,
@@ -848,12 +944,7 @@ def create_app(store: Store | None = None) -> FastAPI:
             for sid, p in result.schedule.placements.items()
         }
         frozen = store.get_setting("published_schedule") or {}
-        moved = [sid for sid, p in frozen.items()
-                 if sid in placements and placements[sid] != p]
-        if moved:  # the pins should make this impossible; never ship it silently
-            raise HTTPException(
-                500, f"phase 2 moved published session(s): {', '.join(sorted(moved))}")
-
+        _refuse_if_unfrozen("that solve", problem, result.schedule)
         store.set_setting("last_schedule", placements)
         return {
             "status": result.status, "solved": True,
@@ -891,6 +982,9 @@ def create_app(store: Store | None = None) -> FastAPI:
         # a published session somewhere the students were never told about.
         breaks_freeze = any(v.kind in ("published_moved", "room_pin_broken")
                             for v in evaluation.violations)
+        # Moving a session is answered with the violation (the grid shows it);
+        # losing one is a malformed edit and is refused outright.
+        _refuse_if_lost(problem, sched)
         if not breaks_freeze:
             store.set_setting("last_schedule", {
                 sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
@@ -1038,21 +1132,39 @@ def create_app(store: Store | None = None) -> FastAPI:
                 409, f"that schedule belongs to {saved_term}, not "
                      f"{store.current_term()}; pass ?confirm=true to load it anyway")
         snap = doc.get("payload", {})
-        # Replace the working state with the frozen scenario.
-        for c in store.list_courses():
-            store.delete_course(c.number)
-        for cd in snap.get("courses", []):
-            store.upsert_course(course_from_dict(cd))
-        store.set_setting("offered_rows", snap.get("offered_rows"))
-        store.set_setting("availability", snap.get("availability"))
-        store.set_setting("calendar", snap.get("calendar"))
-        placements = snap.get("placements") or {}
-        store.set_setting("last_schedule", placements)
-        # Return a render-ready schedule (same shape as /solve) so the UI can
-        # paint it immediately.
-        problem = _problem(store)
-        sched = _schedule_from(problem, placements)
-        ev = evaluate(problem, sched)
+        # Parse and expand the whole candidate first: nothing is replaced until
+        # it is known to be valid and to keep every published session in place.
+        try:
+            courses = _normalized_catalog(
+                course_from_dict(cd) for cd in snap.get("courses", []))
+            candidate = _candidate_problem(
+                courses, snap.get("offered_rows"), snap.get("availability"))
+            placements = snap.get("placements") or {}
+            for pl in placements.values():
+                candidate.room(pl["room_id"])
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"that saved schedule is invalid: {exc}")
+        _refuse_if_unfrozen("loading that schedule",
+                            candidate, _schedule_from(candidate, placements))
+        # Replace the working state with the frozen scenario, and build the
+        # response before committing: if anything fails, nothing was replaced.
+        try:
+            with store.transaction():
+                for c in store.list_courses():
+                    store.delete_course(c.number)
+                for c in courses:
+                    store.upsert_course(c)
+                store.set_setting("offered_rows", snap.get("offered_rows"))
+                store.set_setting("availability", snap.get("availability"))
+                store.set_setting("calendar", snap.get("calendar"))
+                store.set_setting("last_schedule", placements)
+                # Return a render-ready schedule (same shape as /solve) so the
+                # UI can paint it immediately.
+                problem = _problem(store)
+                sched = _schedule_from(problem, placements)
+                ev = evaluate(problem, sched)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"that saved schedule is invalid: {exc}")
         return {
             "status": "LOADED", "solved": True,
             "feasible": ev.is_feasible, "soft_penalty": ev.soft_penalty,

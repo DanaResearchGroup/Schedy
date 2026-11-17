@@ -14,9 +14,9 @@
 > - **Migration differs.** It guesses the term and rewrites first; the name is
 >   confirmed afterwards (`PUT /terms/{id}`). The backup is taken, but its
 >   location is not reported.
-> - **Known defect (tracked for a fix):** loading a saved schedule writes
->   `last_schedule` before the freeze is checked, so it can move a published term's
->   schedule. The freeze claim holds for `/solve` and `/solve/grad`, not for load.
+> - **Freeze covers every write path** (solve, grad solve, evaluate, load, catalog
+>   and skeleton edits) except two gaps listed in `PRD.md` caveats: duration or
+>   lecturer changes at unchanged coordinates, and concurrent requests.
 > - **Not built:** distinct grid rendering of grad reservations; planner-tunable
 >   soft weights; biology-avoidance intervals are not wired through `_problem()`.
 > - **Un-publish decided, awaiting implementation:** appended grad courses stay as

@@ -17,7 +17,8 @@ import json
 import re
 import sqlite3
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 
 from .catalog import Cadence, Course
@@ -121,6 +122,7 @@ class Store:
         self.path = path  # used to site the default saved-schedules folder
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._in_tx = False
         self._migrate_from_single_term()
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
@@ -302,6 +304,35 @@ class Store:
         self._term = term
         self.set_global("current_term", term)
 
+    # ---- transactions ------------------------------------------------ #
+    def _commit(self) -> None:
+        """Commit, unless a `transaction()` is open and will do it at the end."""
+        if not self._in_tx:
+            self.conn.commit()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Run several writes as one: all land, or none do.
+
+        The write methods below commit one by one; inside this block they do
+        not. The first write opens the SQLite transaction (on this one
+        connection), and an exception rolls the lot back, so a restore that
+        fails half-way leaves the previous state intact. Not re-entrant.
+        """
+        if self._in_tx:
+            raise RuntimeError("transaction already open")
+        self.conn.commit()
+        self._in_tx = True
+        try:
+            yield
+        except BaseException:
+            self.conn.rollback()
+            raise
+        else:
+            self.conn.commit()
+        finally:
+            self._in_tx = False
+
     # ---- courses ----------------------------------------------------- #
     def upsert_course(self, c: Course) -> None:
         self.conn.execute(
@@ -309,7 +340,7 @@ class Store:
             "ON CONFLICT(term_id, number) DO UPDATE SET data=excluded.data",
             (self._term, c.number, json.dumps(course_to_dict(c))),
         )
-        self.conn.commit()
+        self._commit()
 
     def get_course(self, number: str) -> Course | None:
         row = self.conn.execute(
@@ -327,7 +358,7 @@ class Store:
     def delete_course(self, number: str) -> None:
         self.conn.execute("DELETE FROM courses WHERE term_id=? AND number=?",
                           (self._term, number))
-        self.conn.commit()
+        self._commit()
 
     # ---- settings ---------------------------------------------------- #
     def _scope(self, key: str, term: str | None = None) -> str:
@@ -339,7 +370,7 @@ class Store:
             "ON CONFLICT(term_id, key) DO UPDATE SET value=excluded.value",
             (self._scope(key, term), key, json.dumps(value)),
         )
-        self.conn.commit()
+        self._commit()
 
     def get_setting(self, key: str, default=None, term: str | None = None):
         """This term's value, or another term's — rollover pre-fills from one."""
@@ -354,7 +385,7 @@ class Store:
             "ON CONFLICT(term_id, key) DO UPDATE SET value=excluded.value",
             (_GLOBAL, key, json.dumps(value)),
         )
-        self.conn.commit()
+        self._commit()
 
     def get_global(self, key: str, default=None):
         row = self.conn.execute(
