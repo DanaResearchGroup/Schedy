@@ -37,7 +37,7 @@ then hands the planner an **editable, live-validated** result.
   [examples/](examples/) for both formats.
 - **Skeleton import** — the filtered rows land in an **editable** table (expand
   any row for its full record); offered groups drive the solve and any
-  grid-aligned day/time is **pinned** as a hard fixed placement (🔒).
+  grid-aligned day/time is **pinned** as a hard fixed placement in the solver (🔒). The editor does not lock it: dragging a pinned block away is allowed and raises a soft `fixed_placement` notice.
 - **Bilingual** Hebrew (RTL) / English UI.
 - **Exports** — printable PDF timetables: one weekly grid page **per cohort**
   (Hebrew course names, spanning blocks) or a flat assignments list, plus CSV.
@@ -52,6 +52,9 @@ backend/        Python engine + FastAPI API
     evaluator.py         hard/soft violations — the correctness core (pure)
     parser.py            Technion skeleton XLSX -> sessions (pure core)
     coi_io.py            courses-of-interest file -> course numbers (pure)
+    catalog_io.py        catalog <-> CSV/Excel (pure)
+    uploads.py           filename rules shared by the upload endpoints (pure)
+    archive.py           saved-schedule files, one JSON per save
     validator.py         must-exist checklist -> missing items (pure)
     model_builder.py     Problem -> CP-SAT model
     solver.py            run + best-effort + evaluator report
@@ -60,8 +63,8 @@ backend/        Python engine + FastAPI API
     exporters.py         CSV + PDF
     api.py               FastAPI orchestration
     sample_data.py       illustrative demo catalog
-  tests/                 156 tests
-frontend/       React + TS + Vite — tabs: Schedule / Catalog / Availability / Calendar / Import
+  tests/                 345 tests
+frontend/       React + TS + Vite — tabs: Schedule / Catalog / People / Availability / Calendar / Import / Checklist / Schedules
 docs/           PRD + MkDocs documentation source (incl. windows.md)
 examples/       the two input files, in the exact formats expected
 raw/            constraints spec + example Technion skeleton
@@ -75,7 +78,7 @@ mkdocs.yml      HTML docs config
 conda env create -f environment.yml
 conda activate schedy
 cd backend && pip install -e .
-pytest                 # 156 passing
+pytest                 # 345 passing
 ```
 
 ## Run
@@ -106,6 +109,10 @@ the planner can move them to any folder under that one. To keep them elsewhere �
 a synced folder, a network drive — set `SCHEDY_SAVES_ROOT` before launch. The
 root is environment-only on purpose: the folder inside it is chosen through the
 app, so confining it is what keeps a request from naming any folder on the disk.
+**Known defect (tracked for a fix):** `SCHEDY_SAVES_ROOT` only sets the boundary
+that a chosen folder is checked against. The default folder still sits beside the
+database, so on its own the variable can leave saves outside the root; also set
+`SCHEDY_SAVES` to a folder inside it.
 
 Packaging a one-click Windows app: see [docs/windows.md](docs/windows.md).
 
@@ -117,8 +124,13 @@ exporters). Frontend is a functional MVP — tabbed app with the interactive
 editable grid (multi-box blocks + blackout/external overlay), full catalog editor
 with sample data across all three programs, per-person availability, semester
 calendar analysis, an editable skeleton import that pins fixed times, and
-per-cohort PDF grid export with Hebrew names. The PRD's design questions are
-resolved; the app is ready to populate with a real catalog.
+per-cohort PDF grid export with Hebrew names. Since then: a grid filter (course
+number prefix, audience, room, lecturer), credit points, per-term scheduling with
+course levels and graduate clash rules, a two-phase graduate workflow (publish
+the undergraduate schedule, append graduate courses later), saved schedules
+confined to one folder, and a clear message for legacy `.xls` uploads. The
+PRD's design questions are resolved; the app is ready to populate with a real
+catalog.
 
 Documentation: [docs/index.md](docs/index.md) · full spec & status:
 [docs/PRD.md](docs/PRD.md).

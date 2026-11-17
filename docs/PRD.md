@@ -112,7 +112,7 @@ The system maintains a **persistent course catalog** (the durable spine), ingest
 4. Remote/Zoom sessions to morning / late afternoon.
 5. Exercise after its course's lecture within the week (global, by `(day-index, hour)`; *every* exercise group after the lecture). Lowest weight — "good to have."
 
-Weights are tunable by the planner.
+Weights are set in code (`SoftWeights`); no API or UI exposes them yet (see Suggested next steps).
 
 **Freedom exploited:** ChemE-only and BioChemE-only courses may overlap each other (different audiences, different rooms).
 
@@ -177,7 +177,7 @@ Weights are tunable by the planner.
 
 ## Implementation Status
 
-> Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. **156 tests passing on Python 3.14**; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
+> Updated 2026-11-17. Backend engine complete and the frontend is a built, running MVP. **345 backend tests passing on Python 3.14** (plus the frontend vitest suite); the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.
 
 ### What is built
 
@@ -193,7 +193,7 @@ Implemented from the ground up, committed module-by-module. Stack as specified: 
 | `parser.py` + `validator.py` (pure) | ✅ | Technion XLSX → sessions (columns matched by Hebrew header); must-exist checklist matching; smoke-tested against the real `raw/30.4.26.XLSX` |
 | `model_builder.py` + `solver.py` | ✅ | CP-SAT model (hard no-overlap + weighted soft objective); best-effort solve + attached evaluator report |
 | `catalog.py` / `store.py` / `api.py` / `exporters.py` | ✅ | Course aggregate → Problem; SQLite persistence; FastAPI orchestration; CSV + Hebrew-capable PDF export |
-| `sample_data.py` | ✅ | Illustrative demo catalog (both programs, years 1–4, cross-day lab, electives, Zoom, computer-farm, external wall); `POST /catalog/seed` |
+| `sample_data.py` | ✅ | Illustrative demo catalog (all three programs, years 1–4, cross-day lab, electives, Zoom, computer-farm, external wall); `POST /catalog/seed` |
 
 **Frontend (`frontend/`):** built and running (Vite + React + TS), single-process via FastAPI `StaticFiles`. Tabs:
 - **Schedule** — drag-drop weekly grid with live re-validation; blocks colored by role and sized to their length; blackout + external-course walls overlaid; per-cohort/room/lecturer views; role/wall legend; CSV/PDF export; one-click sample-and-solve on the empty state.
@@ -218,12 +218,18 @@ Bilingual Hebrew-RTL / English throughout.
 ### Honest caveats
 
 - **Lab cross-day satisfiability uses a guided-repair loop.** Cross-day lab alternatives are excluded from the strict per-cohort no-overlap (a lab may overlap the cohort's course on its "off" day) and governed by the "≥1 clash-free day per cohort" rule. The base model omits that rule (it bloats the model and rarely binds); when the evaluator flags `lab_cross_day_unsatisfiable`, the solver encodes the constraint natively for the offending lab groups and re-solves (up to N rounds), falling back to the best-effort flagged schedule only if no clash-free arrangement exists.
-- **Skeleton day/time → hard fixed placement (option a).** When the skeleton gives a session a concrete, grid-aligned weekday/time, that `(day, box)` is pinned as a hard constraint in CP-SAT and flagged `fixed_placement` by the evaluator if moved; the grid locks such blocks (🔒). The import table is editable (correct day/time/group before solving). Validated on the real Technion fixture (96% of timed rows pin). **By design:** labs are never pinned (the skeleton carries no labs — labs are department-scheduled), and the skeleton's *room* strings are university-wide locations, ignored for solving (the solver assigns our six rooms; no room collisions are expected).
+- **Skeleton day/time → hard fixed placement (option a).** When the skeleton gives a session a concrete, grid-aligned weekday/time, that `(day, box)` is pinned as a hard constraint in CP-SAT and flagged `fixed_placement` by the evaluator if moved. The anchor is hard only in the solver: the editor grids do not lock it, and dragging it away is allowed, persisted, and reported as a soft, zero-weight `fixed_placement` notice. The import table is editable (correct day/time/group before solving). Validated on the real Technion fixture (96% of timed rows pin). **By design:** the department's own labs are never pinned (they are department-scheduled and unpinned on purpose; the university skeleton does carry lab rows, from other faculties), and the skeleton's *room* strings are university-wide locations, ignored for solving (the solver assigns our six rooms; no room collisions are expected).
+- **Known defect: saves root.** Setting only `SCHEDY_SAVES_ROOT` leaves the default saves folder beside the database, possibly outside the root. Tracked for a fix.
+- **Known defect: loading a saved schedule can move a published term's schedule.** `POST` load writes `last_schedule` before the publish freeze is checked, so a snapshot that conflicts with the freeze is persisted (the response reports `published_moved`). Tracked for a fix.
+- **Not wired / not built:** biology-avoidance intervals are not passed through `_problem()`; graduate reservations have no distinct grid rendering.
 - **Design questions resolved (2026-06-13):** ChemE–Chemistry is a full program (its own cohorts; `Program.CHEME_CHEM`), and the color→role mapping is confirmed (UI colors by role; programs carried per-course). See Further Notes.
 
 ### Suggested next steps
 
-1. Make the import table editable (correct day/time/group, persist back to `offered_rows`) — parsed times already feed the solve as hard fixed placements; this adds human review/correction before solving. Then extend pinning to labs and map skeleton room strings to the room inventory.
-2. A native CP-SAT encoding (or guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.
-3. Populate a real catalog (design questions resolved: ChemE–Chemistry is a full program; color→role mapping confirmed).
-4. PDF polish: per-cohort/per-room timetable pages (grid layout) rather than a single flat table.
+1. Per-room and per-lecturer PDF pages (the PDF has per-cohort and graduate pages; the on-screen grid already has room and lecturer views).
+2. Graduate un-publish: decided, awaiting implementation. Appended graduate courses are kept as pinned placements on un-publish; a re-solve fails loudly if they no longer fit.
+3. Map skeleton room strings to the room inventory. Department labs stay unpinned by design.
+4. Populate a real catalog.
+5. Expose the soft-constraint weights through an API and UI.
+6. Wire the biology-avoidance intervals through `_problem()`; render graduate reservations distinctly on the grid.
+7. Fix the two known defects above (saves root default, load-vs-freeze).
