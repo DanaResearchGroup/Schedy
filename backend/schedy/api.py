@@ -109,13 +109,24 @@ def _stored_week_anchor(store: Store) -> int:
 _KEEP = object()   # "leave this setting as stored"
 
 
+def _baseline(store: Store) -> dict:
+    """Every placement a write may not change: the published week, plus the
+    graduate sessions kept as pins since an unpublish. A published pin wins."""
+    return {**(store.get_setting("grad_pins") or {}),
+            **(store.get_setting("published_schedule") or {})}
+
+
+def _pins(store: Store) -> dict | None:
+    return _baseline(store) or None
+
+
 def _problem(store: Store):
     return catalog_mod.expand(
         store.list_courses(),
         offered_rows=store.get_setting("offered_rows") or None,
         availability=_load_availability(store),
         week_anchor=_stored_week_anchor(store),
-        pins=store.get_setting("published_schedule") or None,
+        pins=_pins(store),
     )
 
 
@@ -171,7 +182,7 @@ def _published_conflicts(store: Store, problem) -> list[dict]:
     return sorted(out, key=lambda d: d["session_id"])
 
 
-def _session_meta(problem) -> dict:
+def _session_meta(problem, grad_pinned=frozenset()) -> dict:
     """Per-session metadata the grid needs to render readable, filterable blocks."""
     out: dict[str, dict] = {}
     for s in problem.sessions:
@@ -186,7 +197,8 @@ def _session_meta(problem) -> dict:
             "tas": list(s.ta_ids),
             "is_remote": s.is_remote,
             "fixed": s.is_fixed,
-            "published": s.is_published,
+            "published": s.is_published and s.id not in grad_pinned,
+            "grad_pinned": s.id in grad_pinned,
             "provisional": s.provisional,
             "level": s.level.value,
             "enrollment": s.expected_enrollment,
@@ -416,8 +428,14 @@ def create_app(store: Store | None = None) -> FastAPI:
         # to a day, an hour and a room before anyone confirmed it runs. Phase 2
         # then refuses to start until the stand-ins are settled, leaving the
         # planner unpublishing a whole week to take back a guess.
+        # Graduate courses kept as pins since an unpublish are the exception:
+        # they already hold a slot, so publishing freezes the week as it stands.
+        kept = store.get_setting("grad_pins") or {}
+        # A held pin is never dropped, whatever the course's metadata says now:
+        # the catalog guard refuses such edits, this keeps legacy stores safe.
         freeze = {sid: s for sid, s in by_id.items()
-                  if s.level is not CourseLevel.GRAD and not s.provisional}
+                  if sid in kept or (not s.provisional
+                                     and s.level is not CourseLevel.GRAD)}
 
         # An unplaced session raises no violation, so it would be frozen out of
         # existence rather than frozen in place.
@@ -438,6 +456,7 @@ def create_app(store: Store | None = None) -> FastAPI:
                         "room_id": placements[sid]["room_id"]}
                   for sid in freeze}
         store.set_setting("published_schedule", pinned)
+        store.set_setting("grad_pins", {})
         # An instant, not a day: a term can be published, released and published
         # again inside one afternoon, and a bare local date tells those apart
         # neither by time nor by order — nor says which clock it was read from.
@@ -450,13 +469,107 @@ def create_app(store: Store | None = None) -> FastAPI:
 
         Anything already handed to students then stops being a promise, so this
         is deliberately explicit rather than a side effect of editing.
+
+        Graduate-level sessions placed at this moment are the exception to
+        "everything moves": they stay where they are, as pins guarded like
+        published ones, so the next solve places the undergraduate week around
+        them or fails loudly (see ``run_solve``). The level decides, not any
+        record of how a course got there, so retries and publish cycles agree.
+        ``DELETE /terms/{term}/grad-pins`` releases them.
         """
-        _open_term(term)
+        row = _open_term(term)
         if not confirm:
             raise HTTPException(400, "un-publishing requires ?confirm=true")
+        if not row.get("published"):
+            # Nothing is being released: deriving pins now would resurrect any
+            # the planner explicitly let go of.
+            kept = store.get_setting("grad_pins") or {}
+            return {**row, "grad_pinned": sorted(kept)}
+        placements = store.get_setting("last_schedule") or {}
+        by_id = {s.id: s for s in _problem(store).sessions}
+        derived = {sid: {"day": int(placements[sid]["day"]),
+                         "start_box": int(placements[sid]["start_box"]),
+                         "room_id": placements[sid]["room_id"]}
+                   for sid, s in by_id.items()
+                   if s.level is CourseLevel.GRAD and not s.provisional
+                   and sid in placements}
+        # Pins already held win: a retry must never shrink them.
+        kept = {**derived, **(store.get_setting("grad_pins") or {})}
+        store.set_setting("grad_pins", kept)
         store.set_setting("published_schedule", {})
         store.set_published(term, None)
-        return store.get_term(term)
+        return {**store.get_term(term), "grad_pinned": sorted(kept)}
+
+    @app.get("/terms/{term}/grad-pins")
+    def get_grad_pins(term: str) -> dict:
+        """Graduate placements kept as hard pins since the last unpublish."""
+        _open_term(term)
+        return {"pinned": store.get_setting("grad_pins") or {}}
+
+    @app.delete("/terms/{term}/grad-pins")
+    def release_grad_pins(term: str, confirm: bool = False) -> dict:
+        """Let the next solve move the kept graduate courses."""
+        _open_term(term)
+        if not confirm:
+            raise HTTPException(400, "releasing graduate pins requires ?confirm=true")
+        released = sorted(store.get_setting("grad_pins") or {})
+        store.set_setting("grad_pins", {})
+        return {"released": released}
+
+    def _meta(problem) -> dict:
+        return _session_meta(problem, frozenset(store.get_setting("grad_pins") or {}))
+
+    def _refuse_if_grad_pins_unfit(result, problem) -> None:
+        """409 when graduate pins are held and the solve did not honour them all.
+
+        Pins are hard, so a clean solve keeps every one. Anything else — no
+        schedule (proven infeasible, or out of time) or a best-effort one with
+        hard violations (a pinned room too small) — is refused rather than
+        persisted. No extra solves: the one result already says what happened.
+        """
+        grad = store.get_setting("grad_pins") or {}
+        published = store.get_setting("published_schedule") or {}
+        grad = {sid for sid in grad if sid not in published}
+        if not grad or (result.solved and result.evaluation.is_feasible):
+            return
+        term = store.current_term()
+        hard = [v for v in (result.evaluation.violations if result.solved else [])
+                if v.severity.lower() == "hard"]
+        blamed = sorted({sid for v in hard for sid in v.session_ids} & grad)
+        release = (f"release them with DELETE /terms/{term}/grad-pins?confirm=true "
+                   "to let a solve move them")
+        not_pins = ("; this is not caused by the graduate pins, so releasing them "
+                    "will not fix it")
+        if result.solved and blamed:
+            msg = ("graduate session(s) cannot keep their slots: " + ", ".join(blamed)
+                   + "; the best schedule found still breaks hard rules ("
+                   + ", ".join(sorted({v.kind for v in hard})) + f"). Fix the clash, or {release}")
+        elif result.solved:
+            msg = ("the best schedule found breaks hard rules ("
+                   + ", ".join(sorted({v.kind for v in hard})) + "); no pinned "
+                   "graduate session appears in the listed violations, but a pin can "
+                   "still crowd other courses (a shared lecturer or room). Fix the "
+                   f"listed violations first; if that fails, {release}")
+        elif result.status == "MODEL_INVALID":
+            msg = (f"the model is invalid: {result.detail or 'no reason given'}"
+                   + not_pins)
+        elif result.status == "UNKNOWN":
+            msg = ("graduate session(s) held as pins: " + ", ".join(sorted(grad))
+                   + "; the solver ran out of time before finding any schedule")
+        elif result.status == "INFEASIBLE":
+            msg = ("graduate session(s) held as pins: " + ", ".join(sorted(grad))
+                   + f"; the solver proved the week infeasible with them pinned. "
+                   f"Fix the clash, or {release}")
+        else:
+            msg = f"the solver stopped with status {result.status}" + not_pins
+        preview = ({sid: {"day": p.day, "start_box": p.start_box, "room_id": p.room_id}
+                    for sid, p in result.schedule.placements.items()}
+                   if result.solved else {})
+        # Nothing is persisted: the preview only lets the planner see why.
+        raise HTTPException(409, {"message": msg,
+                                  "violations": _violation_dicts(result.evaluation)
+                                  if result.solved else [],
+                                  "preview": preview})
 
     def _candidate_problem(courses, offered_rows=_KEEP, availability=_KEEP):
         """The Problem the catalog would expand to if `courses` replaced it."""
@@ -468,21 +581,41 @@ def create_app(store: Store | None = None) -> FastAPI:
             courses, offered_rows=rows or None,
             availability=avail,
             week_anchor=_stored_week_anchor(store),
-            pins=store.get_setting("published_schedule") or None)
+            pins=_pins(store))
+
+    def _refusal(bad, what: str) -> str:
+        published = store.get_setting("published_schedule") or {}
+        return refusal(bad, what, grad_only=[sid for sid, _ in bad
+                                             if sid not in published],
+                       term=store.current_term())
 
     def _refuse_if_unfrozen(what: str, problem, schedule: Schedule) -> None:
-        """409 if the candidate would move or lose a published session."""
-        frozen = store.get_setting("published_schedule") or {}
+        """409 if the candidate would move or lose a published or grad-pinned session."""
+        frozen = _baseline(store)
         bad = freeze_violations(frozen, problem, schedule) if frozen else []
         if bad:
-            raise HTTPException(409, refusal(bad, what))
+            raise HTTPException(409, _refusal(bad, what))
 
     def _refuse_if_lost(problem, schedule: Schedule) -> None:
-        frozen = store.get_setting("published_schedule") or {}
+        frozen = _baseline(store)
         lost = [v for v in freeze_violations(frozen, problem, schedule)
                 if v[1] == "missing"] if frozen else []
         if lost:
-            raise HTTPException(409, refusal(lost, "that schedule"))
+            raise HTTPException(409, _refusal(lost, "that schedule"))
+
+    def _refuse_if_pins_drift(what: str, problem) -> None:
+        """409 if a held graduate pin would stop being a confirmed graduate course.
+
+        A pin only stays a pin while its session is graduate-level and not
+        provisional; otherwise the next publish would silently drop it.
+        """
+        held = set(store.get_setting("grad_pins") or {}) - set(
+            store.get_setting("published_schedule") or {})
+        drifted = [(s.id, "no longer a confirmed graduate course")
+                   for s in problem.sessions if s.id in held
+                   and (s.provisional or s.level is not CourseLevel.GRAD)]
+        if drifted:
+            raise HTTPException(409, _refusal(drifted, what))
 
     def _refuse_if_catalog_loses_sessions(what: str, courses,
                                           offered_rows=_KEEP) -> None:
@@ -492,10 +625,11 @@ def create_app(store: Store | None = None) -> FastAPI:
         stands in for the schedule: a stale `last_schedule` is not this write's
         doing.
         """
-        frozen = store.get_setting("published_schedule") or {}
+        frozen = _baseline(store)
         if not frozen:
             return
         problem = _candidate_problem(courses, offered_rows)
+        _refuse_if_pins_drift(what, problem)
         sched = Schedule()
         for sid, pin in frozen.items():
             sched.place(sid, int(pin["day"]), int(pin["start_box"]), pin["room_id"])
@@ -884,6 +1018,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         time_limit = float(payload.get("time_limit_s", 10))
         problem = _problem(store)
         result = solve(problem, time_limit_s=time_limit)
+        _refuse_if_grad_pins_unfit(result, problem)
         if not result.solved:
             return {"status": result.status, "solved": False,
                     "placements": {}, "violations": [],
@@ -901,7 +1036,7 @@ def create_app(store: Store | None = None) -> FastAPI:
             "feasible": result.evaluation.is_feasible,
             "soft_penalty": result.evaluation.soft_penalty,
             "placements": placements,
-            "sessions": _session_meta(problem),
+            "sessions": _meta(problem),
             "violations": _violation_dicts(result.evaluation),
             "published_missing": _published_missing(store, problem),
             "published_conflicts": _published_conflicts(store, problem),
@@ -952,7 +1087,7 @@ def create_app(store: Store | None = None) -> FastAPI:
             "feasible": result.evaluation.is_feasible,
             "soft_penalty": result.evaluation.soft_penalty,
             "placements": placements,
-            "sessions": _session_meta(problem),
+            "sessions": _meta(problem),
             "violations": _violation_dicts(result.evaluation),
             "published_missing": _published_missing(store, problem),
             "published_conflicts": _published_conflicts(store, problem),
@@ -993,7 +1128,7 @@ def create_app(store: Store | None = None) -> FastAPI:
         return {
             "feasible": evaluation.is_feasible,
             "soft_penalty": evaluation.soft_penalty,
-            "sessions": _session_meta(problem),
+            "sessions": _meta(problem),
             "violations": _violation_dicts(evaluation),
         }
 
@@ -1162,6 +1297,7 @@ def create_app(store: Store | None = None) -> FastAPI:
                 candidate.room(pl["room_id"])
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(400, f"that saved schedule is invalid: {exc}")
+        _refuse_if_pins_drift("loading that schedule", candidate)
         _refuse_if_unfrozen("loading that schedule",
                             candidate, _schedule_from(candidate, placements))
         # Replace the working state with the frozen scenario, and build the
@@ -1190,7 +1326,7 @@ def create_app(store: Store | None = None) -> FastAPI:
                 sid: {"day": pl.day, "start_box": pl.start_box, "room_id": pl.room_id}
                 for sid, pl in sched.placements.items()
             },
-            "sessions": _session_meta(problem),
+            "sessions": _meta(problem),
             "violations": _violation_dicts(ev),
         }
 
