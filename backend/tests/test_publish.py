@@ -304,20 +304,6 @@ def test_unpublishing_clears_the_stamp_and_the_pins(client):
 
 # ---- a pin the catalog has outgrown ------------------------------------ #
 
-def test_solve_reports_a_published_session_the_catalog_no_longer_has(client):
-    # Deleting a published course drops it from the frozen schedule silently —
-    # nothing else would say so, because a session that does not exist raises no
-    # violation.
-    client.post("/catalog/courses", json=_course("00540001"))
-    client.post("/catalog/courses", json=_course("00540002"))
-    _solve(client)
-    _publish(client, confirm=True)
-
-    client.delete("/catalog/courses/00540002")
-    r = client.post("/solve", json={"time_limit_s": 5}).json()
-    assert r["published_missing"] == ["00540002-lec"]
-
-
 def test_solve_reports_nothing_missing_when_the_catalog_is_intact(client):
     client.post("/catalog/courses", json=_course("00540001"))
     _solve(client)
@@ -485,3 +471,363 @@ def test_a_legal_edit_is_still_persisted(client):
     placements["00580001-lec"] = {**g, "day": (g["day"] + 1) % 5}
     client.post("/evaluate", json={"placements": placements})
     assert client.store.get_setting("last_schedule") == placements
+
+
+# ---- loading a save must not move what was published ------------------ #
+
+def _save_moved_variant(client, tmp_path):
+    """Save a snapshot whose lecture sits a day off, then restore the real one."""
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    placements = _solve(client)
+    p = placements["00540001-lec"]
+    moved = {"00540001-lec": {**p, "day": (p["day"] + 1) % 5}}
+    client.post("/evaluate", json={"placements": moved})
+    save_id = client.post("/schedules", json={"name": "moved"}).json()["id"]
+    client.post("/evaluate", json={"placements": placements})    # back to the real one
+    return save_id
+
+
+def test_loading_a_save_that_moves_a_published_session_is_refused(client, tmp_path):
+    save_id = _save_moved_variant(client, tmp_path)
+    _publish(client, confirm=True)
+    before = client.get("/export/csv").content
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert r.status_code == 409, r.text
+    assert "published" in r.json()["detail"]
+    assert client.get("/export/csv").content == before       # nothing persisted
+
+
+def test_loading_a_save_that_agrees_with_the_published_schedule_still_works(
+        client, tmp_path):
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    _solve(client)
+    save_id = client.post("/schedules", json={"name": "same"}).json()["id"]
+    _publish(client, confirm=True)
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert r.status_code == 200, r.text
+    assert r.json()["feasible"] is True
+
+
+# ---- finding 1: a save that drops a published session -------------------- #
+
+def _published_two(client, tmp_path):
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    client.post("/catalog/courses", json=_course("00540002"))
+    _solve(client)
+
+
+def _snapshot_save(client, tmp_path, name, edit):
+    """Save the current state, then rewrite the saved JSON with `edit(payload)`."""
+    import json
+    save_id = client.post("/schedules", json={"name": name}).json()["id"]
+    path = next((tmp_path / "saves").glob(f"*{save_id}*"))
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    edit(doc["payload"])
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    return save_id
+
+
+def _drop_placement(p):
+    del p["placements"]["00540002-lec"]
+
+
+def _drop_course(p):
+    p["courses"] = [c for c in p["courses"] if c["number"] != "00540002"]
+
+
+def _drop_both(p):
+    _drop_placement(p)
+    _drop_course(p)
+
+
+@pytest.mark.parametrize("edit", [_drop_placement, _drop_course, _drop_both])
+def test_loading_a_save_that_drops_a_published_session_is_refused(
+        client, tmp_path, edit):
+    _published_two(client, tmp_path)
+    save_id = _snapshot_save(client, tmp_path, "drops", edit)
+    _publish(client, confirm=True)
+    before = client.get("/export/csv").content
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert r.status_code == 409, r.text
+    assert "00540002-lec" in r.json()["detail"]
+    assert "unpublish the term first" in r.json()["detail"]
+    assert client.get("/export/csv").content == before
+    assert len(client.get("/catalog/courses").json()) == 2
+
+
+# ---- finding 4: an invalid save must not half-replace the catalog ---------- #
+
+def test_loading_an_invalid_save_leaves_the_catalog_untouched(client, tmp_path):
+    _published_two(client, tmp_path)
+    def corrupt(p):
+        p["courses"][1] = {"number": "00540002", "lecture_boxes": "not a number"}
+    save_id = _snapshot_save(client, tmp_path, "bad", corrupt)
+    before = client.get("/catalog/courses").json()
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert r.status_code == 400, r.text
+    assert client.get("/catalog/courses").json() == before
+
+
+# ---- finding 2: every other write path ----------------------------------- #
+
+def _published_pair(client):
+    client.post("/catalog/courses", json=_course("00540001"))
+    client.post("/catalog/courses", json=_course("00540002"))
+    placements = _solve(client)
+    assert _publish(client, confirm=True).status_code == 200
+    return placements
+
+
+def test_evaluate_refuses_a_schedule_that_omits_a_published_session(client):
+    placements = _published_pair(client)
+    before = client.get("/export/csv").content
+    partial = {k: v for k, v in placements.items() if k != "00540002-lec"}
+
+    r = client.post("/evaluate", json={"placements": partial})
+
+    assert r.status_code == 409, r.text
+    assert "00540002-lec" in r.json()["detail"]
+    assert "unpublish the term first" in r.json()["detail"]
+    assert client.get("/export/csv").content == before
+
+
+@pytest.mark.parametrize("path", ["/solve", "/solve/grad"])
+def test_solve_refuses_when_a_published_session_has_no_definition(client, path):
+    # A legacy state: the baseline names a session the catalog no longer makes.
+    _published_pair(client)
+    frozen = client.store.get_setting("published_schedule")
+    client.store.set_setting("published_schedule", {
+        **frozen, "00549999-lec": {"day": 0, "start_box": 0, "room_id": "hall6"}})
+    before = client.get("/export/csv").content
+
+    r = client.post(path, json={"time_limit_s": 5})
+
+    assert r.status_code == 409, r.text
+    assert "00549999-lec" in r.json()["detail"]
+    assert "unpublish the term first" in r.json()["detail"]
+    assert client.get("/export/csv").content == before
+
+
+def test_catalog_paths_refuse_to_drop_a_published_course(client):
+    _published_pair(client)
+    before = client.get("/export/csv").content
+    keep = client.get("/catalog/export.csv").content.decode("utf-8-sig")
+    header, *rows = keep.strip().splitlines()
+    only_first = "\n".join([header, rows[0]])
+
+    attempts = [
+        client.delete("/catalog/courses/00540002"),
+        client.post("/catalog/courses", json=_course("00540002", lecture_boxes=0)),
+        client.post("/catalog/seed", params={"force": True}),
+        client.post("/catalog/import",
+                    files={"file": ("c.csv", only_first.encode("utf-8"), "text/csv")}),
+    ]
+
+    for r in attempts:
+        assert r.status_code == 409, r.text
+        assert "unpublish the term first" in r.json()["detail"]
+    assert len(client.get("/catalog/courses").json()) == 2
+    assert client.get("/export/csv").content == before
+
+
+def test_catalog_edit_that_keeps_every_published_session_still_works(client):
+    _published_pair(client)
+    r = client.post("/catalog/courses", json=_course("00540003"))
+    assert r.status_code == 200, r.text
+
+
+def test_skeleton_edits_that_rename_a_published_exercise_group_are_refused(client):
+    # Renaming a group changes the session id, which would drop it from the week.
+    client.post("/catalog/courses", json=_course("00540001", num_exercise_groups=1))
+    ex = {"course_number": "00540001", "event_type": "exercise", "group_code": "11",
+          "day": None, "start_min": None, "end_min": None}
+    assert client.put("/skeleton/rows", json={"rows": [ex]}).status_code == 200
+    _solve(client)
+    _publish(client, confirm=True)
+    assert "00540001-ex-11" in client.store.get_setting("published_schedule")
+    before = client.get("/export/csv").content
+
+    renamed = client.put("/skeleton/rows", json={"rows": [{**ex, "group_code": "12"}]})
+    cleared = client.delete("/skeleton/rows")
+
+    for r in (renamed, cleared):
+        assert r.status_code == 409, r.text
+        assert "00540001-ex-11" in r.json()["detail"]
+        assert "unpublish the term first" in r.json()["detail"]
+    assert client.get("/skeleton/rows").json()[0]["group_code"] == "11"
+    assert client.get("/export/csv").content == before
+
+
+# ---- round 3: course keys, restore atomicity, republishing ---------------- #
+
+def _csv_of(client, rows_edit):
+    text = client.get("/catalog/export.csv").content.decode("utf-8-sig")
+    header, *rows = text.strip().splitlines()
+    return "\n".join([header, *rows_edit(rows)]).encode("utf-8")
+
+
+def test_a_catalog_with_duplicate_course_numbers_is_refused(client):
+    _published_pair(client)
+    before = client.get("/export/csv").content
+    catalog = client.get("/catalog/export.csv").content
+
+    def dup_dropping(rows):
+        # Same number twice; the later copy is not offered, which would silently
+        # drop a published session if the last one won.
+        later = [r for r in rows if "00540002" in r][0]
+        return [*rows, later.replace(",True,", ",False,", 1)]
+
+    r = client.post("/catalog/import", files={"file": (
+        "c.csv", _csv_of(client, dup_dropping), "text/csv")})
+
+    assert r.status_code == 400, r.text
+    assert "duplicate" in r.json()["detail"].lower()
+    assert client.get("/catalog/export.csv").content == catalog
+    assert client.get("/export/csv").content == before
+
+
+def test_a_numeric_course_key_cannot_slip_past_the_freeze_guard(client):
+    client.post("/catalog/courses", json=_course("12345678"))
+    client.post("/catalog/courses", json=_course("00540002"))
+    _solve(client)
+    assert _publish(client, confirm=True).status_code == 200
+    before = client.get("/export/csv").content
+    catalog = client.get("/catalog/courses").json()
+
+    r = client.post("/catalog/courses", json=_course(12345678, lecture_boxes=0))
+
+    assert r.status_code == 409, r.text
+    assert client.get("/catalog/courses").json() == catalog
+    assert client.get("/export/csv").content == before
+
+
+def test_a_snapshot_with_duplicate_course_numbers_is_refused(client, tmp_path):
+    _published_two(client, tmp_path)
+
+    def dup(p):
+        p["courses"].append({**p["courses"][1], "lecture_boxes": 0})
+    save_id = _snapshot_save(client, tmp_path, "dup", dup)
+    _publish(client, confirm=True)
+    before = client.get("/export/csv").content
+    catalog = client.get("/catalog/courses").json()
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert r.status_code == 400, r.text
+    assert client.get("/catalog/courses").json() == catalog
+    assert client.get("/export/csv").content == before
+
+
+def _null_number(p):
+    p["courses"].insert(0, {"number": None})
+
+
+def _bad_availability(p):
+    p["availability"] = 42
+
+
+def _unknown_room(p):
+    sid = next(iter(p["placements"]))
+    p["placements"][sid]["room_id"] = "no-such-room"
+
+
+@pytest.mark.parametrize("edit", [_null_number, _bad_availability, _unknown_room])
+@pytest.mark.parametrize("published", [False, True])
+def test_a_bad_snapshot_is_refused_and_changes_nothing(
+        client, tmp_path, edit, published):
+    _published_two(client, tmp_path)
+    save_id = _snapshot_save(client, tmp_path, "bad", edit)
+    if published:
+        _publish(client, confirm=True)
+    before = client.get("/export/csv").content
+    catalog = client.get("/catalog/courses").json()
+    avail = client.get("/availability").json()
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert 400 <= r.status_code < 500, r.text
+    assert client.get("/catalog/courses").json() == catalog
+    assert client.get("/availability").json() == avail
+    after = client.get("/export/csv")
+    assert after.status_code == 200
+    assert after.content == before
+
+
+def test_a_failure_mid_restore_rolls_the_store_back(client):
+    client.post("/catalog/courses", json=_course("00540001"))
+    store = client.store
+    with pytest.raises(RuntimeError):
+        with store.transaction():
+            store.delete_course("00540001")
+            store.set_setting("availability", {"x": []})
+            raise RuntimeError("boom")
+    assert [c.number for c in store.list_courses()] == ["00540001"]
+    assert store.get_setting("availability") is None
+
+
+def _legacy_numeric_catalog(client):
+    """A row stored with an int number, as older versions left it."""
+    client.store.upsert_course(Course(number=12345678, programs=[Program.CHEME],
+                                      year=2, lecture_boxes=2,
+                                      expected_enrollment=30))
+    client.post("/catalog/courses", json=_course("00540002"))
+    _solve(client)
+    assert _publish(client, confirm=True).status_code == 200
+
+
+def test_a_legacy_numeric_row_cannot_be_upserted_past_the_freeze(client):
+    _legacy_numeric_catalog(client)
+    before = client.get("/export/csv").content
+
+    r = client.post("/catalog/courses", json=_course("12345678", lecture_boxes=0))
+
+    assert r.status_code == 409, r.text
+    assert client.get("/export/csv").content == before
+
+
+def test_a_legacy_numeric_row_cannot_be_deleted_past_the_freeze(client):
+    _legacy_numeric_catalog(client)
+    before = client.get("/export/csv").content
+
+    r = client.delete("/catalog/courses/12345678")
+
+    assert r.status_code == 409, r.text
+    assert client.get("/export/csv").content == before
+
+
+def test_loading_ignores_the_current_availability_it_is_replacing(client, tmp_path):
+    client.put("/config", json={"saves_dir": str(tmp_path / "saves")})
+    client.post("/catalog/courses", json=_course("00540001"))
+    _solve(client)
+    save_id = client.post("/schedules", json={"name": "ok"}).json()["id"]
+    # Accepted by the API but unparseable: it must not poison a valid save.
+    client.put("/availability", json={"alice": [["bad", 0]]})
+
+    r = client.post(f"/schedules/{save_id}/load")
+
+    assert r.status_code == 200, r.text
+
+
+def test_publishing_an_already_published_term_is_refused(client):
+    _published_pair(client)
+    pins = client.store.get_setting("published_schedule")
+    # Mark a frozen course provisional: a re-publish would silently unpin it.
+    r = client.post("/catalog/courses", json=_course("00540002", provisional=True))
+    assert r.status_code in (200, 409), r.text
+
+    again = _publish(client, confirm=True)
+
+    assert again.status_code == 409, again.text
+    assert "unpublish" in again.json()["detail"]
+    assert client.store.get_setting("published_schedule") == pins
