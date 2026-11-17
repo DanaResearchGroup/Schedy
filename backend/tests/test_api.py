@@ -75,6 +75,11 @@ def test_full_pipeline_catalog_solve_export(client):
     assert pdf.status_code == 200
     assert pdf.content[:4] == b"%PDF"
 
+    for layout in ("cohort", "flat", "room", "person"):
+        r = client.get("/export/pdf", params={"layout": layout})
+        assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    assert client.get("/export/pdf", params={"layout": "bogus"}).status_code == 400
+
 
 def test_export_before_solve_is_404(client):
     assert client.get("/export/csv").status_code == 404
