@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -592,6 +593,44 @@ def test_an_operator_can_move_the_root_but_a_request_cannot(tmp_path, monkeypatc
     store.close()
 
 
+def _drive_app(tmp_path, monkeypatch):
+    drive = tmp_path / "Drive" / "Schedy"
+    drive.mkdir(parents=True)
+    (tmp_path / "app").mkdir(exist_ok=True)
+    monkeypatch.setenv("SCHEDY_SAVES_ROOT", str(drive))
+    monkeypatch.delenv("SCHEDY_SAVES", raising=False)
+    store = Store(str(tmp_path / "app" / "moved.sqlite"))
+    return drive, store
+
+
+def test_default_saves_dir_sits_inside_an_operator_root(tmp_path, monkeypatch):
+    # README: setting SCHEDY_SAVES_ROOT keeps saves in that (synced) folder.
+    # With no folder chosen, saves must land there, not beside the database.
+    (tmp_path / "app").mkdir()
+    drive, store = _drive_app(tmp_path, monkeypatch)
+    with TestClient(create_app(store)) as c:
+        cfg = c.get("/config").json()
+        assert Path(cfg["saves_dir"]).is_relative_to(drive.resolve())
+        store.set_setting("last_schedule", {"x-lec": {"day": 0, "start_box": 1, "room_id": "h"}})
+        assert c.post("/schedules", json={"name": "one"}).status_code == 200
+        assert len(c.get("/schedules").json()) == 1
+        assert list(Path(cfg["saves_dir"]).glob("*"))  # file is inside the root
+        assert not (tmp_path / "app" / "saves").exists()
+    store.close()
+
+
+def test_a_stored_folder_outside_a_newly_set_root_falls_back_into_it(tmp_path, monkeypatch):
+    (tmp_path / "app").mkdir()
+    drive, store = _drive_app(tmp_path, monkeypatch)
+    stale = str(tmp_path / "app" / "saves")
+    store.set_setting("saves_dir", stale)
+    with TestClient(create_app(store)) as c:
+        cfg = c.get("/config").json()
+        assert Path(cfg["saves_dir"]).is_relative_to(drive.resolve())
+        assert cfg["rejected_saves_dir"] == stale
+    store.close()
+
+
 def test_clear_skeleton_rows(client):
     client.post("/catalog/courses", json=_core("00540319", "dr_a"))
     client.app.state.store.set_setting("offered_rows", [{
@@ -786,3 +825,78 @@ def test_availability_round_trips_and_constrains_solve(client):
     r = client.post("/solve", json={"time_limit_s": 5}).json()
     assert r["solved"]
     assert r["placements"]["00540319-lec"]["day"] >= 3
+
+
+# ---- defaults are held to the same root as a chosen folder ---------------- #
+
+def test_a_default_saves_symlink_pointing_out_of_the_root_is_refused(tmp_path, monkeypatch):
+    drive, store = _drive_app(tmp_path, monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (drive / "saves").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not available")
+    with TestClient(create_app(store)) as c:
+        cfg = c.get("/config").json()
+        assert Path(cfg["saves_dir"]).is_relative_to(drive.resolve())
+        assert Path(cfg["saves_dir"]).resolve() != outside.resolve()
+        assert cfg["rejected_saves_dir"]
+        store.set_setting("last_schedule", {"x-lec": {"day": 0, "start_box": 1, "room_id": "h"}})
+        assert c.post("/schedules", json={"name": "one"}).status_code == 200
+    assert not list(outside.iterdir())
+    store.close()
+
+
+def test_saves_env_outside_the_root_is_a_reported_conflict(tmp_path, monkeypatch):
+    drive, store = _drive_app(tmp_path, monkeypatch)
+    external = tmp_path / "external"
+    monkeypatch.setenv("SCHEDY_SAVES", str(external))
+    with TestClient(create_app(store)) as c:
+        cfg = c.get("/config").json()
+        assert Path(cfg["saves_dir"]).is_relative_to(drive.resolve())
+        assert cfg["rejected_saves_dir"] == str(external)
+        store.set_setting("last_schedule", {"x-lec": {"day": 0, "start_box": 1, "room_id": "h"}})
+        assert c.post("/schedules", json={"name": "one"}).status_code == 200
+    assert not external.exists()
+    store.close()
+
+
+def test_saves_env_inside_the_root_is_still_honoured(tmp_path, monkeypatch):
+    drive, store = _drive_app(tmp_path, monkeypatch)
+    monkeypatch.setenv("SCHEDY_SAVES", str(drive / "mine"))
+    with TestClient(create_app(store)) as c:
+        cfg = c.get("/config").json()
+        assert cfg["saves_dir"] == str((drive / "mine").resolve())
+        assert cfg["rejected_saves_dir"] is None
+    store.close()
+
+
+def test_a_relative_root_round_trips_through_the_ui(tmp_path, monkeypatch):
+    (tmp_path / "allowed").mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SCHEDY_SAVES_ROOT", "allowed")
+    monkeypatch.delenv("SCHEDY_SAVES", raising=False)
+    store = Store(str(tmp_path / "rel.sqlite"))
+    with TestClient(create_app(store)) as c:
+        first = c.get("/config").json()["saves_dir"]
+        assert os.path.isabs(first)
+        assert first == str((tmp_path / "allowed" / "saves").resolve())
+        back = c.put("/config", json={"saves_dir": first})
+        assert back.status_code == 200
+        assert back.json()["saves_dir"] == first
+    store.close()
+
+
+def test_a_filesystem_root_contains_its_descendants(tmp_path, monkeypatch):
+    fs_root = Path(tmp_path.anchor)
+    monkeypatch.setenv("SCHEDY_SAVES_ROOT", str(fs_root))
+    monkeypatch.delenv("SCHEDY_SAVES", raising=False)
+    store = Store(str(tmp_path / "slash.sqlite"))
+    with TestClient(create_app(store)) as c:
+        cfg = c.get("/config").json()
+        assert cfg["rejected_saves_dir"] is None
+        assert Path(cfg["saves_dir"]) == fs_root / "saves"
+        r = c.put("/config", json={"saves_dir": str(tmp_path / "x")})
+        assert r.status_code == 200
+    store.close()

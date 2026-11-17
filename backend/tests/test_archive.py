@@ -205,3 +205,36 @@ def test_a_save_written_before_terms_existed_reports_no_term(tmp_path):
     a = Archive(tmp_path)
     a.save("old plan", {"courses": []}, {})
     assert a.list()[0].term is None
+
+
+import pytest
+from schedy.archive import _slug
+
+
+@pytest.mark.parametrize("name", ["CON", "con", "PRN", "AUX", "NUL", "COM1", "lpt9", "NUL.txt", "con.schedy"])
+def test_slug_avoids_windows_reserved_device_names(name):
+    assert _slug(name).split(".")[0].upper() not in {
+        "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10))}
+
+
+def test_slug_keeps_ordinary_names_that_merely_start_like_reserved_ones():
+    assert _slug("Console") == "Console"
+    assert _slug("COM10") == "COM10"
+
+
+@pytest.mark.parametrize("name", ["CONIN$", "CONOUT$", "conin$", "COM\u00b9", "COM\u00b2", "COM\u00b3",
+                                  "LPT\u00b9", "LPT\u00b2", "lpt\u00b3", "COM\u00b2.txt"])
+def test_slug_avoids_console_and_superscript_device_names(name):
+    from schedy.archive import EXT, _is_reserved
+    assert not _is_reserved(_slug(name) + EXT)
+    assert _slug(name) != name
+
+
+def test_reserved_fallback_list_covers_them_without_ntpath_isreserved(monkeypatch):
+    import ntpath
+    from schedy import archive
+    monkeypatch.delattr(ntpath, "isreserved", raising=False)
+    for n in ["CONIN$", "CONOUT$", "COM\u00b9", "LPT\u00b3", "NUL.txt"]:
+        assert archive._is_reserved(n)
+    assert not archive._is_reserved("COM10")
