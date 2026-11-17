@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -452,6 +452,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#catalog_io-pure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        catalog_io (pure)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -474,6 +485,28 @@
     <span class="md-ellipsis">
       
         store
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#archive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        archive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uploads-pure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        uploads (pure)
       
     </span>
   </a>
@@ -681,9 +714,10 @@ weighted soft ladder.</p>
 <ul>
 <li><code>parser.parse_rows</code> locates columns by <strong>Hebrew header text</strong> (robust to
   reordering) and yields <code>OfferedSession</code>s, filtered to relevant course numbers.
-  Columns the scheduler reasons about become fields; every other named column is
-  carried verbatim in <code>details</code>, so the review screen shows a course's whole
-  record without a field per column. <code>parse_skeleton</code> is the thin file shell.</li>
+  Columns the scheduler reasons about become fields; a fixed allowlist of further
+  named columns is carried verbatim in <code>details</code>, so the review screen shows a
+  course's record without a field per column. Unknown columns, and the employee
+  number and national ID, are dropped. <code>parse_skeleton</code> is the thin file shell.</li>
 <li><code>validator.find_missing</code> checks the parsed skeleton against a user-defined
   <code>ChecklistItem</code> list (matches dedicated groups like <em>HEDVA 13</em> by substring).</li>
 </ul>
@@ -696,16 +730,28 @@ Format and examples: <a href="https://github.com/DanaResearchGroup/Schedy/blob/m
 <h2 id="engine">Engine<a class="headerlink" href="#engine" title="Permanent link">&para;</a></h2>
 <h3 id="model_builder"><code>model_builder</code><a class="headerlink" href="#model_builder" title="Permanent link">&para;</a></h3>
 <p>Translates a <code>Problem</code> into a CP-SAT model (hard no-overlap / forbidden regions;
-soft reified-overlap objective). Lab cross-day satisfiability is deliberately left
-to the evaluator as a post-hoc check.</p>
+soft reified-overlap objective). The base model omits lab cross-day
+satisfiability; the evaluator flags it and the solver's guided-repair loop
+rebuilds the model with native lab constraints for the offending groups.</p>
 <h3 id="solver"><code>solver</code><a class="headerlink" href="#solver" title="Permanent link">&para;</a></h3>
-<p><code>solve(problem, time_limit_s)</code> runs CP-SAT, extracts a <code>Schedule</code>, and always
-attaches the evaluator's report (<code>SolveResult</code>).</p>
+<p><code>solve(problem, time_limit_s)</code> runs CP-SAT, extracts a <code>Schedule</code>, and attaches the
+evaluator's report (<code>SolveResult</code>) whenever a schedule exists; an infeasible or
+unknown result carries none.</p>
 <h3 id="catalog"><code>catalog</code><a class="headerlink" href="#catalog" title="Permanent link">&para;</a></h3>
 <p><code>Course</code> aggregate + <code>expand(courses)</code> → <code>Problem</code>.</p>
+<h3 id="catalog_io-pure"><code>catalog_io</code> (pure)<a class="headerlink" href="#catalog_io-pure" title="Permanent link">&para;</a></h3>
+<p>Catalog ⇄ CSV/Excel, one row per course; list-valued fields use <code>;</code> inside the
+cell. The column header is the format spec.</p>
 <h2 id="io-delivery">I/O &amp; delivery<a class="headerlink" href="#io-delivery" title="Permanent link">&para;</a></h2>
 <h3 id="store"><code>store</code><a class="headerlink" href="#store" title="Permanent link">&para;</a></h3>
 <p>SQLite persistence: <code>courses</code> table + JSON <code>settings</code>. Single-planner local app.</p>
+<h3 id="archive"><code>archive</code><a class="headerlink" href="#archive" title="Permanent link">&para;</a></h3>
+<p>Saved schedules: one self-contained <code>.schedy.json</code> file per save (placements plus
+a copy of the catalog, skeleton rows, availability and calendar), in a folder
+confined under the saves root. Filesystem-only, no web concerns.</p>
+<h3 id="uploads-pure"><code>uploads</code> (pure)<a class="headerlink" href="#uploads-pure" title="Permanent link">&para;</a></h3>
+<p>Filename rules shared by the three spreadsheet-upload endpoints, including the
+refusal of legacy <code>.xls</code> with a message saying what to do.</p>
 <h3 id="exporters"><code>exporters</code><a class="headerlink" href="#exporters" title="Permanent link">&para;</a></h3>
 <p><code>to_csv</code> (deterministic, golden-tested) and <code>to_pdf</code> (reportlab) — per the PRD,
 <strong>no</strong> university XLSX writeback.</p>
@@ -733,6 +779,18 @@ engine modules.</p>
 <tr>
 <td>parser / validator</td>
 <td>column mapping, pass-through details, group codes, missing items, real XLSX smoke</td>
+</tr>
+<tr>
+<td>catalog_io / uploads</td>
+<td>CSV round trips (catalog_io); Excel/legacy <code>.xls</code> handling (uploads)</td>
+</tr>
+<tr>
+<td>archive</td>
+<td>save / load / list, id sanitising, folder confinement</td>
+</tr>
+<tr>
+<td>terms / publish / phase 2</td>
+<td>term scoping, freeze, graduate append, rollover, levels, clash rules</td>
 </tr>
 <tr>
 <td>coi_io</td>
@@ -801,10 +859,10 @@ engine modules.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

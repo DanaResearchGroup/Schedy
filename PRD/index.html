@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -821,7 +821,7 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 3. Avoid Biology-department electives.
 4. Remote/Zoom sessions to morning / late afternoon.
 5. Exercise after its course's lecture within the week (global, by <code>(day-index, hour)</code>; <em>every</em> exercise group after the lecture). Lowest weight — "good to have."</p>
-<p>Weights are tunable by the planner.</p>
+<p>Weights are set in code (<code>SoftWeights</code>); no API or UI exposes them yet (see Suggested next steps).</p>
 <p><strong>Freedom exploited:</strong> ChemE-only and BioChemE-only courses may overlap each other (different audiences, different rooms).</p>
 <h3 id="solver-scope">Solver scope<a class="headerlink" href="#solver-scope" title="Permanent link">&para;</a></h3>
 <ul>
@@ -884,7 +884,7 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 </ul>
 <h2 id="implementation-status">Implementation Status<a class="headerlink" href="#implementation-status" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p>Updated 2026-06-13. Backend engine complete and the frontend is a built, running MVP. <strong>156 tests passing on Python 3.14</strong>; the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.</p>
+<p>Updated 2026-11-17. Backend engine complete and the frontend is a built, running MVP. <strong>345 backend tests passing on Python 3.14</strong> (plus the frontend vitest suite); the app runs single-process (FastAPI serves the built SPA) through a live catalog → availability/calendar → skeleton-pinned solve → edit → CSV / per-cohort-grid PDF pipeline.</p>
 </blockquote>
 <h3 id="what-is-built">What is built<a class="headerlink" href="#what-is-built" title="Permanent link">&para;</a></h3>
 <p>Implemented from the ground up, committed module-by-module. Stack as specified: Python 3.14 · OR-Tools CP-SAT · FastAPI · SQLite · React/TypeScript.</p>
@@ -931,7 +931,7 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 <tr>
 <td><code>sample_data.py</code></td>
 <td>✅</td>
-<td>Illustrative demo catalog (both programs, years 1–4, cross-day lab, electives, Zoom, computer-farm, external wall); <code>POST /catalog/seed</code></td>
+<td>Illustrative demo catalog (all three programs, years 1–4, cross-day lab, electives, Zoom, computer-farm, external wall); <code>POST /catalog/seed</code></td>
 </tr>
 </tbody>
 </table>
@@ -954,15 +954,21 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
 <h3 id="honest-caveats">Honest caveats<a class="headerlink" href="#honest-caveats" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Lab cross-day satisfiability uses a guided-repair loop.</strong> Cross-day lab alternatives are excluded from the strict per-cohort no-overlap (a lab may overlap the cohort's course on its "off" day) and governed by the "≥1 clash-free day per cohort" rule. The base model omits that rule (it bloats the model and rarely binds); when the evaluator flags <code>lab_cross_day_unsatisfiable</code>, the solver encodes the constraint natively for the offending lab groups and re-solves (up to N rounds), falling back to the best-effort flagged schedule only if no clash-free arrangement exists.</li>
-<li><strong>Skeleton day/time → hard fixed placement (option a).</strong> When the skeleton gives a session a concrete, grid-aligned weekday/time, that <code>(day, box)</code> is pinned as a hard constraint in CP-SAT and flagged <code>fixed_placement</code> by the evaluator if moved; the grid locks such blocks (🔒). The import table is editable (correct day/time/group before solving). Validated on the real Technion fixture (96% of timed rows pin). <strong>By design:</strong> labs are never pinned (the skeleton carries no labs — labs are department-scheduled), and the skeleton's <em>room</em> strings are university-wide locations, ignored for solving (the solver assigns our six rooms; no room collisions are expected).</li>
+<li><strong>Skeleton day/time → hard fixed placement (option a).</strong> When the skeleton gives a session a concrete, grid-aligned weekday/time, that <code>(day, box)</code> is pinned as a hard constraint in CP-SAT and flagged <code>fixed_placement</code> by the evaluator if moved. The anchor is hard only in the solver: the editor grids do not lock it, and dragging it away is allowed, persisted, and reported as a soft, zero-weight <code>fixed_placement</code> notice. The import table is editable (correct day/time/group before solving). Validated on the real Technion fixture (96% of timed rows pin). <strong>By design:</strong> the department's own labs are never pinned (they are department-scheduled and unpinned on purpose; the university skeleton does carry lab rows, from other faculties), and the skeleton's <em>room</em> strings are university-wide locations, ignored for solving (the solver assigns our six rooms; no room collisions are expected).</li>
+<li><strong>Known defect: saves root.</strong> Setting only <code>SCHEDY_SAVES_ROOT</code> leaves the default saves folder beside the database, possibly outside the root. Tracked for a fix.</li>
+<li><strong>Known defect: loading a saved schedule can move a published term's schedule.</strong> <code>POST</code> load writes <code>last_schedule</code> before the publish freeze is checked, so a snapshot that conflicts with the freeze is persisted (the response reports <code>published_moved</code>). Tracked for a fix.</li>
+<li><strong>Not wired / not built:</strong> biology-avoidance intervals are not passed through <code>_problem()</code>; graduate reservations have no distinct grid rendering.</li>
 <li><strong>Design questions resolved (2026-06-13):</strong> ChemE–Chemistry is a full program (its own cohorts; <code>Program.CHEME_CHEM</code>), and the color→role mapping is confirmed (UI colors by role; programs carried per-course). See Further Notes.</li>
 </ul>
 <h3 id="suggested-next-steps">Suggested next steps<a class="headerlink" href="#suggested-next-steps" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Make the import table editable (correct day/time/group, persist back to <code>offered_rows</code>) — parsed times already feed the solve as hard fixed placements; this adds human review/correction before solving. Then extend pinning to labs and map skeleton room strings to the room inventory.</li>
-<li>A native CP-SAT encoding (or guided repair loop) for lab cross-day satisfiability so the solver honours it natively rather than only flagging it.</li>
-<li>Populate a real catalog (design questions resolved: ChemE–Chemistry is a full program; color→role mapping confirmed).</li>
-<li>PDF polish: per-cohort/per-room timetable pages (grid layout) rather than a single flat table.</li>
+<li>Per-room and per-lecturer PDF pages (the PDF has per-cohort and graduate pages; the on-screen grid already has room and lecturer views).</li>
+<li>Graduate un-publish: decided, awaiting implementation. Appended graduate courses are kept as pinned placements on un-publish; a re-solve fails loudly if they no longer fit.</li>
+<li>Map skeleton room strings to the room inventory. Department labs stay unpinned by design.</li>
+<li>Populate a real catalog.</li>
+<li>Expose the soft-constraint weights through an API and UI.</li>
+<li>Wire the biology-avoidance intervals through <code>_problem()</code>; render graduate reservations distinctly on the grid.</li>
+<li>Fix the two known defects above (saves root default, load-vs-freeze).</li>
 </ol>
 
 
@@ -1013,10 +1019,10 @@ Source material: <code>raw/Academic_Year_Schedule.md</code> (constraints), <code
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

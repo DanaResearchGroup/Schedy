@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -27,10 +27,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -706,7 +706,27 @@
 
 <h1 id="prd-graduate-courses-course-levels-and-per-term-scheduling">PRD — Graduate courses, course levels, and per-term scheduling<a class="headerlink" href="#prd-graduate-courses-course-levels-and-per-term-scheduling" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p>Status: awaiting review — <strong>no code written</strong>
+<p>Status: <strong>built</strong> (PR #5): terms and migration, <code>fixed_room</code>, course levels
+with prefix suggestion, the graduate clash rules, publish / freeze, phase-2
+append (<code>POST /solve/grad</code>), rollover with cadence, and the graduate PDF page.
+Still open: the three questions at the end. The level suggestion is mirrored
+client-side rather than served by <code>GET /levels/suggest</code> (not implemented).
+The body below is the design record. Where the build differs:
+- <strong>D9 skeleton-first external grad times: not built.</strong> External courses block
+  only through catalog <code>ext_*</code> fields; importing their skeleton times creates no wall.
+- <strong>Phase-2 reservation preference: not built.</strong> <code>/solve/grad</code> passes no previous
+  placements and has no preference objective. It also schedules newly added
+  UG/joint sessions, not grad only.
+- <strong>Migration differs.</strong> It guesses the term and rewrites first; the name is
+  confirmed afterwards (<code>PUT /terms/{id}</code>). The backup is taken, but its
+  location is not reported.
+- <strong>Known defect (tracked for a fix):</strong> loading a saved schedule writes
+  <code>last_schedule</code> before the freeze is checked, so it can move a published term's
+  schedule. The freeze claim holds for <code>/solve</code> and <code>/solve/grad</code>, not for load.
+- <strong>Not built:</strong> distinct grid rendering of grad reservations; planner-tunable
+  soft weights; biology-avoidance intervals are not wired through <code>_problem()</code>.
+- <strong>Un-publish decided, awaiting implementation:</strong> appended grad courses stay as
+  pinned placements; a re-solve fails loudly if they no longer fit.
 Supersedes nothing; extends <code>PRD.md</code>, which assumes a single implicit semester.
 Design settled in a design interview; every decision below was chosen explicitly.</p>
 </blockquote>
@@ -877,11 +897,11 @@ reasoning is not recoverable from the code.</p>
 <h2 id="two-phase-workflow">Two-phase workflow<a class="headerlink" href="#two-phase-workflow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>PHASE 1  ──────────────────────────────────────────────
   solve: UG + joint courses
-       + last year&#39;s grad courses as reservations ◌
+       + last year's grad courses as reservations ◌
          (carry the hard rules, so joint courses are
           genuinely pushed out of those hours)
   review, edit
-  PUBLISH  → stamped &quot;2026-27 Spring&quot;
+  PUBLISH  → stamped "2026-27 Spring"
             UG/joint sessions  🔒 frozen
             grad reservations  ◌ released
 
@@ -895,9 +915,9 @@ PHASE 2  ───────────────────────�
 <h2 id="data-model">Data model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
 <h3 id="new-term-scoping">New: term scoping<a class="headerlink" href="#new-term-scoping" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">terms</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="n">id</span><span class="w">        </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span><span class="w">   </span><span class="c1">-- &quot;2026-27-spring&quot;</span>
-<span class="w">    </span><span class="k">year</span><span class="w">      </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- &quot;2026-27&quot;</span>
-<span class="w">    </span><span class="n">semester</span><span class="w">  </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- &quot;winter&quot; | &quot;spring&quot;</span>
+<span class="w">    </span><span class="n">id</span><span class="w">        </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span><span class="w">   </span><span class="c1">-- "2026-27-spring"</span>
+<span class="w">    </span><span class="k">year</span><span class="w">      </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- "2026-27"</span>
+<span class="w">    </span><span class="n">semester</span><span class="w">  </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- "winter" | "spring"</span>
 <span class="w">    </span><span class="n">created</span><span class="w">   </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- ISO date</span>
 <span class="w">    </span><span class="n">published</span><span class="w"> </span><span class="nb">TEXT</span><span class="w">                </span><span class="c1">-- ISO timestamp, NULL while in progress</span>
 <span class="p">);</span>
@@ -911,7 +931,7 @@ PHASE 2  ───────────────────────�
 <span class="p">);</span>
 
 <span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">settings</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="n">term_id</span><span class="w"> </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">        </span><span class="c1">-- &#39;&#39; for global settings</span>
+<span class="w">    </span><span class="n">term_id</span><span class="w"> </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">        </span><span class="c1">-- '' for global settings</span>
 <span class="w">    </span><span class="k">key</span><span class="w">     </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
 <span class="w">    </span><span class="n">value</span><span class="w">   </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
 <span class="w">    </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="w"> </span><span class="p">(</span><span class="n">term_id</span><span class="p">,</span><span class="w"> </span><span class="k">key</span><span class="p">)</span>
@@ -968,7 +988,7 @@ wins</strong> and the result is a soft warning, not a hard block — silently wr
 which branch of the elective chain fires:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># new, unconditional</span>
 <span class="k">if</span> <span class="n">_grad_clash</span><span class="p">(</span><span class="n">sa</span><span class="p">,</span> <span class="n">sb</span><span class="p">):</span>           <span class="c1"># grad↔grad or grad↔joint</span>
-    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Violation</span><span class="p">(</span><span class="s2">&quot;grad_overlap&quot;</span><span class="p">,</span> <span class="n">HARD</span><span class="p">,</span> <span class="o">...</span><span class="p">))</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Violation</span><span class="p">(</span><span class="s2">"grad_overlap"</span><span class="p">,</span> <span class="n">HARD</span><span class="p">,</span> <span class="o">...</span><span class="p">))</span>
 </code></pre></div>
 <p>Mirrored in <code>model_builder.py</code> as a hard no-overlap constraint over the set of
 grad + joint sessions, and extended to <code>FixedEvent</code>s carrying <code>level in (grad, joint)</code>.</p>
@@ -997,7 +1017,7 @@ whole-placement pin) is required, and is a prerequisite for phase 2.</p>
 <tr>
 <td>POST</td>
 <td><code>/terms</code></td>
-<td>Create a term, optionally rolling over from another</td>
+<td>Create an empty term (availability is pre-filled from last year; courses are not rolled over — use the rollover routes)</td>
 </tr>
 <tr>
 <td>GET/PUT</td>
@@ -1042,7 +1062,7 @@ whole-placement pin) is required, and is a prerequisite for phase 2.</p>
 <tr>
 <td>GET</td>
 <td><code>/levels/suggest?number=</code></td>
-<td>Level suggested from a course number</td>
+<td>Level suggested from a course number — <strong>not implemented</strong>; mirrored client-side</td>
 </tr>
 </tbody>
 </table>
@@ -1198,10 +1218,10 @@ ship first if the term model proves slow, at the cost of some rework where they 
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
