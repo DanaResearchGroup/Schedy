@@ -720,9 +720,9 @@ The body below is the design record. Where the build differs:
 - <strong>Migration differs.</strong> It guesses the term and rewrites first; the name is
   confirmed afterwards (<code>PUT /terms/{id}</code>). The backup is taken, but its
   location is not reported.
-- <strong>Known defect (tracked for a fix):</strong> loading a saved schedule writes
-  <code>last_schedule</code> before the freeze is checked, so it can move a published term's
-  schedule. The freeze claim holds for <code>/solve</code> and <code>/solve/grad</code>, not for load.
+- <strong>Freeze covers every write path</strong> (solve, grad solve, evaluate, load, catalog
+  and skeleton edits) except two gaps listed in <code>PRD.md</code> caveats: duration or
+  lecturer changes at unchanged coordinates, and concurrent requests.
 - <strong>Not built:</strong> distinct grid rendering of grad reservations; planner-tunable
   soft weights; biology-avoidance intervals are not wired through <code>_problem()</code>.
 - <strong>Un-publish decided, awaiting implementation:</strong> appended grad courses stay as
