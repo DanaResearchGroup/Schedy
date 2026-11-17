@@ -1284,12 +1284,16 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.get("/export/pdf")
     def export_pdf(layout: str = "cohort") -> Response:
         """PDF export. layout='cohort' (default) = one weekly grid page per
-        cohort; layout='flat' = a single assignments table."""
+        cohort; 'room' / 'person' = one page per room / lecturer-or-TA;
+        'flat' = a single assignments table. Anything else is a 400."""
+        if layout not in ("cohort", "room", "person", "flat"):
+            raise HTTPException(400, f"unknown layout {layout!r}")
         problem, sched = _last_schedule()
         names = {c.number: (c.name_he or c.name_en) for c in store.list_courses()}
-        layout = layout if layout in ("cohort", "flat") else "cohort"
+        people = {p["id"]: p.get("name") for p in (store.get_setting("people") or [])}
         return Response(
-            to_pdf(problem, sched, course_names=names, layout=layout),
+            to_pdf(problem, sched, course_names=names, layout=layout,
+                   person_names=people),
             media_type="application/pdf",
         )
 

@@ -225,6 +225,8 @@ Bilingual Hebrew-RTL / English throughout.
 - **Not wired / not built:** biology-avoidance intervals are not passed through `_problem()`; graduate reservations have no distinct grid rendering.
 - **Design questions resolved (2026-06-13):** ChemE–Chemistry is a full program (its own cohorts; `Program.CHEME_CHEM`), and the color→role mapping is confirmed (UI colors by role; programs carried per-course). See Further Notes.
 
+- **PDF timetables omit fixed events and blackout windows.** The cohort, room and person PDFs draw only department placements, so an external event holding a room (or a blackout) prints as free time. Known gap, deferred.
+
 ### Suggested next steps
 
 1. Per-room and per-lecturer PDF pages (the PDF has per-cohort and graduate pages; the on-screen grid already has room and lecturer views).

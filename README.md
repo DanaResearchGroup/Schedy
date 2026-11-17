@@ -39,8 +39,8 @@ then hands the planner an **editable, live-validated** result.
   any row for its full record); offered groups drive the solve and any
   grid-aligned day/time is **pinned** as a hard fixed placement in the solver (🔒). The editor does not lock it: dragging a pinned block away is allowed and raises a soft `fixed_placement` notice.
 - **Bilingual** Hebrew (RTL) / English UI.
-- **Exports** — printable PDF timetables: one weekly grid page **per cohort**
-  (Hebrew course names, spanning blocks) or a flat assignments list, plus CSV.
+- **Exports** — printable PDF timetables: one weekly grid page **per cohort**,
+  **per room** or **per lecturer/TA** (Hebrew course names, spanning blocks), or a flat assignments list, plus CSV.
 
 ## Layout
 

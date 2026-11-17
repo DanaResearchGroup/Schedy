@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from schedy.domain import (
     Cohort,
     Problem,
@@ -14,6 +16,8 @@ from schedy.exporters import (
     CSV_HEADER,
     assignment_rows,
     cohort_grid_cells,
+    person_pages,
+    room_pages,
     to_csv,
     to_pdf,
 )
@@ -151,3 +155,193 @@ def test_the_graduate_page_renders():
                  course_names={"00580001": "תרמודינמיקה מתקדמת"})
     assert pdf[:4] == b"%PDF"
     assert len(pdf) > 1000
+
+
+# ---- per-room and per-person pages -------------------------------------- #
+
+def _staffed_problem():
+    lec = Session("s-lec", "C1", SessionType.LECTURE, 2,
+                  cohorts=frozenset({CHEME2}), lecturer_ids=("dr_x", "dr_y"))
+    ex = Session("s-ex", "C1", SessionType.EXERCISE, 1,
+                 cohorts=frozenset({CHEME2}), group="SE011",
+                 lecturer_ids=("dr_x",), ta_ids=("hedva",))
+    idle = Session("s-idle", "C2", SessionType.LECTURE, 1,
+                   cohorts=frozenset({CHEME2}), lecturer_ids=("dr_z",))
+    problem = Problem(sessions=[lec, ex, idle])
+    sched = Schedule()
+    sched.place("s-lec", day=0, start_box=0, room_id="hall1")
+    sched.place("s-ex", day=2, start_box=4, room_id="hall1")
+    return problem, sched    # s-idle is never placed
+
+
+def test_room_pages_has_one_page_per_used_room():
+    problem, sched = _staffed_problem()
+    sched.place("s-idle", day=1, start_box=1, room_id="room3")
+    pages = room_pages(problem, sched)
+    assert set(pages) == {"hall1", "room3"}
+    assert sorted((c.day, c.start_box) for c in pages["hall1"]) == [(0, 0), (2, 4)]
+    assert [c.session_id for c in pages["room3"]] == ["s-idle"]
+
+
+def test_room_pages_skips_rooms_with_no_placement():
+    problem, sched = _staffed_problem()
+    assert set(room_pages(problem, sched)) == {"hall1"}
+
+
+def test_person_pages_cover_every_lecturer_and_ta_of_a_placed_session():
+    problem, sched = _staffed_problem()
+    pages = person_pages(problem, sched)
+    assert set(pages) == {"dr_x", "dr_y", "hedva"}   # dr_z teaches only s-idle
+    # the two-lecturer session appears on both lecturers' pages
+    assert [c.session_id for c in pages["dr_y"]] == ["s-lec"]
+    assert sorted(c.session_id for c in pages["dr_x"]) == ["s-ex", "s-lec"]
+    assert [(c.day, c.start_box) for c in pages["hedva"]] == [(2, 4)]
+
+
+def _page_count(pdf: bytes) -> int:
+    return len(re.findall(rb"/Type\s*/Page(?!s)", pdf))
+
+
+def test_pdf_room_layout_has_one_page_per_room():
+    problem, sched = _staffed_problem()
+    sched.place("s-idle", day=1, start_box=1, room_id="room3")
+    assert _page_count(to_pdf(problem, sched, layout="room")) == 2
+
+
+def test_pdf_person_layout_has_one_page_per_person():
+    problem, sched = _staffed_problem()
+    assert _page_count(to_pdf(problem, sched, layout="person")) == 3
+
+
+# ---- hardening (review round 4) ---------------------------------------- #
+
+def test_labels_are_escaped_in_pdf_markup(tmp_path):
+    evil = Session("e", "C9", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}),
+                   lecturer_ids=('<img src="/etc/hostname" width="9" height="9"/>',
+                                 "<b>unclosed"))
+    problem = Problem(sessions=[evil])
+    sched = Schedule()
+    sched.place("e", day=0, start_box=0, room_id="hall1")
+    for layout in ("person", "room", "cohort", "flat"):
+        pdf = to_pdf(problem, sched, layout=layout, title="<b>t")
+        assert pdf[:4] == b"%PDF"
+        assert b"/Subtype /Image" not in pdf and b"/Subtype/Image" not in pdf
+
+
+def test_overlapping_cells_are_all_kept_in_stacked_blocks():
+    from schedy.exporters import GridCell, stack_cells
+    a = GridCell("a", "A1", "lecture", None, "R", 0, 0, 3)
+    b = GridCell("b", "B1", "lecture", None, "R", 0, 2, 1)   # starts inside a
+    c = GridCell("c", "C1", "lecture", None, "R", 0, 5, 1)
+    d = GridCell("d", "D1", "lecture", None, "R", 1, 0, 1)
+    blocks = stack_cells([c, b, a, d])
+    assert sorted(x.session_id for blk in blocks for x in blk.cells) == ["a", "b", "c", "d"]
+    ab = next(blk for blk in blocks if len(blk.cells) == 2)
+    assert (ab.day, ab.start_box, ab.span) == (0, 0, 3)
+    assert [x.session_id for x in ab.cells] == ["a", "b"]
+
+
+def test_stacked_lines_print_each_own_time_when_ranges_differ():
+    from schedy.exporters import GridCell, stack_cells, stacked_lines
+    a = GridCell("a", "A1", "lecture", None, "R", 0, 0, 3)   # 08:30-11:30
+    b = GridCell("b", "B1", "lecture", None, "R", 0, 2, 1)   # 10:30-11:30
+    (blk,) = stack_cells([a, b])
+    la, lb = stacked_lines(blk, {}, False)
+    assert la == ["<b>A1</b>", "lect · R", "08:30\u201311:30"]
+    assert lb == ["<b>B1</b>", "lect · R", "10:30\u201311:30"]
+
+
+def test_stacked_lines_omit_time_for_single_or_identical_ranges():
+    from schedy.exporters import GridCell, stack_cells, stacked_lines
+    a = GridCell("a", "A1", "lecture", None, "R", 0, 0, 2)
+    b = GridCell("b", "B1", "lab", "g1", "R2", 0, 0, 2)
+    (solo,) = stack_cells([a])
+    assert stacked_lines(solo, {}, False) == [["<b>A1</b>", "lect · R"]]
+    (pair,) = stack_cells([a, b])
+    assert stacked_lines(pair, {}, False) == [
+        ["<b>A1</b>", "lect · R"], ["<b>B1</b>", "lab g1 · R2"]]
+
+
+def test_overlapping_sessions_render_in_room_pdf():
+    s1 = Session("a", "C1", SessionType.LECTURE, 3, cohorts=frozenset({CHEME2}))
+    s2 = Session("b", "C2", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}))
+    problem = Problem(sessions=[s1, s2])
+    sched = Schedule()
+    sched.place("a", day=0, start_box=0, room_id="hall1")
+    sched.place("b", day=0, start_box=2, room_id="hall1")
+    assert to_pdf(problem, sched, layout="room")[:4] == b"%PDF"
+
+
+def test_provisional_sessions_are_flagged_on_room_and_person_pages():
+    prov = Session("p", "G1", SessionType.LECTURE, 1, cohorts=frozenset(),
+                   lecturer_ids=("dr_x",), provisional=True)
+    real = Session("r", "C1", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}),
+                   lecturer_ids=("dr_x",))
+    problem = Problem(sessions=[prov, real])
+    sched = Schedule()
+    sched.place("p", day=0, start_box=0, room_id="hall1")
+    sched.place("r", day=1, start_box=0, room_id="hall1")
+    for pages in (room_pages(problem, sched), person_pages(problem, sched)):
+        (cells,) = pages.values()
+        assert {c.session_id: c.provisional for c in cells} == {"p": True, "r": False}
+
+
+def test_rooms_with_the_same_name_get_separate_pages():
+    from schedy.domain import Room
+    s1 = Session("a", "C1", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}))
+    s2 = Session("b", "C2", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}))
+    problem = Problem(sessions=[s1, s2],
+                      rooms=[Room("r1", "Same", 10), Room("r2", "Same", 10)])
+    sched = Schedule()
+    sched.place("a", day=0, start_box=0, room_id="r1")
+    sched.place("b", day=0, start_box=0, room_id="r2")
+    assert set(room_pages(problem, sched)) == {"r1", "r2"}
+    assert _page_count(to_pdf(problem, sched, layout="room")) == 2
+
+
+def test_person_page_titles_use_registry_names_and_hebrew_renders():
+    from schedy.exporters import _grid_story
+    problem, sched = _staffed_problem()
+    # the registry name reaches the story's title row
+    story = _grid_story({"dr_x": []}, {}, ("Helvetica", "Helvetica-Bold", False),
+                        __import__("reportlab.lib.styles", fromlist=["x"]).getSampleStyleSheet(),
+                        "T", labels={"dr_x": "Dr. Xavier"})
+    assert "Dr. Xavier" in story[0]._cellvalues[0][0].text
+    pdf = to_pdf(problem, sched, layout="person",
+                 person_names={"dr_x": "ד\"ר כהן", "hedva": "Hedva"})
+    assert pdf[:4] == b"%PDF"
+
+
+def test_resource_heading_repeats_on_continuation_pages():
+    from schedy.exporters import _grid_story
+    from reportlab.lib.styles import getSampleStyleSheet
+    cells = [GridCellX(i) for i in range(10)]
+    story = _grid_story({"hall1": cells}, {f"C{i}": "x" * 70 for i in range(10)},
+                        ("Helvetica", "Helvetica-Bold", False),
+                        getSampleStyleSheet(), "T", labels={"hall1": "Hall 1"})
+    tables = [f for f in story if hasattr(f, "_cellvalues")]
+    assert tables[0].repeatRows == 2        # title row + day-header row repeat
+    problem = Problem(sessions=[
+        Session(f"s{i}", f"C{i}", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}))
+        for i in range(10)])
+    sched = Schedule()
+    for i in range(10):
+        sched.place(f"s{i}", day=0, start_box=i, room_id="hall1")
+    to_pdf(problem, sched, layout="room",
+           course_names={f"C{i}": "ש" * 70 for i in range(10)})
+
+
+def GridCellX(i):
+    from schedy.exporters import GridCell
+    return GridCell(f"s{i}", f"C{i}", "lecture", None, "Hall 1", 0, i, 1)
+
+
+def test_unstaffed_sessions_get_an_unassigned_page():
+    from schedy.exporters import UNASSIGNED_PAGE
+    s = Session("u", "C1", SessionType.LECTURE, 1, cohorts=frozenset({CHEME2}))
+    problem = Problem(sessions=[s])
+    sched = Schedule()
+    sched.place("u", day=0, start_box=0, room_id="hall1")
+    pages = person_pages(problem, sched)
+    assert [c.session_id for c in pages[UNASSIGNED_PAGE]] == ["u"]
+    assert _page_count(to_pdf(problem, sched, layout="person")) == 1

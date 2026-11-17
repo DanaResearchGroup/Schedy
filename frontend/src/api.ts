@@ -241,7 +241,7 @@ export const api = {
   },
 
   exportCsvUrl: () => `${BASE}/export/csv`,
-  exportPdfUrl: (layout: "cohort" | "flat" = "cohort") =>
+  exportPdfUrl: (layout: "cohort" | "room" | "person" | "flat" = "cohort") =>
     `${BASE}/export/pdf?layout=${layout}`,
 
   // ---- saved schedules (archive) ---- //

@@ -586,6 +586,8 @@ export default function App() {
                 </button>
                 <a className="ghost" href={api.exportCsvUrl()} download>Excel</a>
                 <a className="ghost" href={api.exportPdfUrl("cohort")} target="_blank" rel="noopener">{t("pdfGrid", lang)}</a>
+                <a className="ghost" href={api.exportPdfUrl("room")} target="_blank" rel="noopener">{t("pdfRooms", lang)}</a>
+                <a className="ghost" href={api.exportPdfUrl("person")} target="_blank" rel="noopener">{t("pdfPeople", lang)}</a>
                 <a className="ghost" href={api.exportPdfUrl("flat")} target="_blank" rel="noopener">{t("pdfList", lang)}</a>
               </>
             )}
