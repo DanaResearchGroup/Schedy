@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from schedy.domain import (
     Cohort,
     Problem,
@@ -194,3 +196,18 @@ def test_person_pages_cover_every_lecturer_and_ta_of_a_placed_session():
     assert [c.session_id for c in pages["dr_y"]] == ["s-lec"]
     assert sorted(c.session_id for c in pages["dr_x"]) == ["s-ex", "s-lec"]
     assert [(c.day, c.start_box) for c in pages["hedva"]] == [(2, 4)]
+
+
+def _page_count(pdf: bytes) -> int:
+    return len(re.findall(rb"/Type\s*/Page(?!s)", pdf))
+
+
+def test_pdf_room_layout_has_one_page_per_room():
+    problem, sched = _staffed_problem()
+    sched.place("s-idle", day=1, start_box=1, room_id="room3")
+    assert _page_count(to_pdf(problem, sched, layout="room")) == 2
+
+
+def test_pdf_person_layout_has_one_page_per_person():
+    problem, sched = _staffed_problem()
+    assert _page_count(to_pdf(problem, sched, layout="person")) == 3

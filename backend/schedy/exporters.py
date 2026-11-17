@@ -2,9 +2,11 @@
 
 Three views (per cohort, per room, per lecturer/TA) over two formats:
   * CSV  — a flat dump of all assignments (pure, deterministic, golden-testable).
-  * PDF  — printable weekly timetables (reportlab).
+  * PDF  — printable weekly timetables (reportlab), one grid page per cohort,
+           room or person.
 
-The view-building logic is pure and lives in `grid_rows` / `to_csv`; only
+The view-building logic is pure and lives in `cohort_pages` / `room_pages` /
+`person_pages` / `assignment_rows` / `to_csv`; only
 `to_pdf` touches reportlab. No university-XLSX writeback (out of scope per PRD).
 """
 
@@ -231,7 +233,8 @@ def to_pdf(
 
     `layout="flat"` (default) is one sorted table of every assignment;
     `layout="cohort"` is one weekly Sun–Thu × academic-hour grid page per cohort
-    — the printable class timetable. `course_names` maps course number -> display
+    — the printable class timetable; `"room"` and `"person"` give the same grid
+    per room and per lecturer/TA. `course_names` maps course number -> display
     name (Hebrew preferred), rendered right-to-left via the bundled Hebrew font;
     without it (or the font) the export still works in ASCII.
     """
@@ -248,8 +251,10 @@ def to_pdf(
     styles = getSampleStyleSheet()
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
-    if layout == "cohort":
-        story = _cohort_story(problem, schedule, course_names or {}, fonts, styles, title)
+    pages_by_layout = {"cohort": cohort_pages, "room": room_pages, "person": person_pages}
+    if layout in pages_by_layout:
+        story = _grid_story(pages_by_layout[layout](problem, schedule),
+                            course_names or {}, fonts, styles, title)
     else:
         story = _flat_story(problem, schedule, course_names or {}, fonts, styles, title)
     doc.build(story)
@@ -288,7 +293,7 @@ def _flat_story(problem, schedule, course_names, fonts, styles, title):
     return [Paragraph(title, styles["Title"]), table]
 
 
-def _cohort_story(problem, schedule, course_names, fonts, styles, title):
+def _grid_story(grids, course_names, fonts, styles, title):
     from xml.sax.saxutils import escape
 
     from reportlab.lib import colors
@@ -298,14 +303,13 @@ def _cohort_story(problem, schedule, course_names, fonts, styles, title):
 
     body_font, head_font, has_font = fonts
     cell_style = ParagraphStyle("cell", fontName=body_font, fontSize=7, leading=8.5)
-    grids = cohort_pages(problem, schedule)
     if not grids:
         return [Paragraph(title, styles["Title"]),
                 Paragraph("No sessions placed yet.", styles["Normal"])]
 
     col_widths = [2.2 * cm] + [4.5 * cm] * len(DAY_NAMES)
     story = []
-    # Cohorts alphabetically, then the graduate page last: it is an appendix to
+    # Pages alphabetically, then the graduate page last: it is an appendix to
     # the undergraduate timetable, not one of its year-groups.
     order = sorted(grids, key=lambda k: (k == GRADUATE_PAGE, k))
     for page_i, label in enumerate(order):
