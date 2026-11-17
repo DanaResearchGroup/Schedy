@@ -81,7 +81,8 @@ Filename rules shared by the three spreadsheet-upload endpoints, including the
 refusal of legacy `.xls` with a message saying what to do.
 
 ### `exporters`
-`to_csv` (deterministic, golden-tested) and `to_pdf` (reportlab) — per the PRD,
+`to_csv` (deterministic, golden-tested) and `to_pdf` (reportlab; layouts `flat`,
+`cohort`, `room`, `person` — built by the pure `*_pages` functions) — per the PRD,
 **no** university XLSX writeback.
 
 ### `api`

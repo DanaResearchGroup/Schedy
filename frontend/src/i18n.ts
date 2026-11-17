@@ -326,6 +326,8 @@ export const STRINGS = {
   fixedTag: { he: "עוגן (שלד)", en: "anchor (skeleton)" },
   pdfGrid: { he: "PDF מערכת", en: "PDF grid" },
   pdfList: { he: "PDF רשימה", en: "PDF list" },
+  pdfRooms: { he: "PDF לפי חדר", en: "PDF by room" },
+  pdfPeople: { he: "PDF לפי מרצה", en: "PDF by lecturer" },
   pinnedHint: {
     he: "⚓ שורות עם יום ושעה מהשלד מעוגנות עבור הפותר (אפשר עדיין להזיז ידנית).",
     en: "⚓ rows with a skeleton day + time are anchored for the solver (you can still move them manually).",
