@@ -14,6 +14,8 @@ from schedy.exporters import (
     CSV_HEADER,
     assignment_rows,
     cohort_grid_cells,
+    person_pages,
+    room_pages,
     to_csv,
     to_pdf,
 )
@@ -151,3 +153,44 @@ def test_the_graduate_page_renders():
                  course_names={"00580001": "תרמודינמיקה מתקדמת"})
     assert pdf[:4] == b"%PDF"
     assert len(pdf) > 1000
+
+
+# ---- per-room and per-person pages -------------------------------------- #
+
+def _staffed_problem():
+    lec = Session("s-lec", "C1", SessionType.LECTURE, 2,
+                  cohorts=frozenset({CHEME2}), lecturer_ids=("dr_x", "dr_y"))
+    ex = Session("s-ex", "C1", SessionType.EXERCISE, 1,
+                 cohorts=frozenset({CHEME2}), group="SE011",
+                 lecturer_ids=("dr_x",), ta_ids=("hedva",))
+    idle = Session("s-idle", "C2", SessionType.LECTURE, 1,
+                   cohorts=frozenset({CHEME2}), lecturer_ids=("dr_z",))
+    problem = Problem(sessions=[lec, ex, idle])
+    sched = Schedule()
+    sched.place("s-lec", day=0, start_box=0, room_id="hall1")
+    sched.place("s-ex", day=2, start_box=4, room_id="hall1")
+    return problem, sched    # s-idle is never placed
+
+
+def test_room_pages_has_one_page_per_used_room():
+    problem, sched = _staffed_problem()
+    sched.place("s-idle", day=1, start_box=1, room_id="room3")
+    pages = room_pages(problem, sched)
+    assert set(pages) == {"Hall 1", "Classroom 3"}
+    assert sorted((c.day, c.start_box) for c in pages["Hall 1"]) == [(0, 0), (2, 4)]
+    assert [c.session_id for c in pages["Classroom 3"]] == ["s-idle"]
+
+
+def test_room_pages_skips_rooms_with_no_placement():
+    problem, sched = _staffed_problem()
+    assert set(room_pages(problem, sched)) == {"Hall 1"}
+
+
+def test_person_pages_cover_every_lecturer_and_ta_of_a_placed_session():
+    problem, sched = _staffed_problem()
+    pages = person_pages(problem, sched)
+    assert set(pages) == {"dr_x", "dr_y", "hedva"}   # dr_z teaches only s-idle
+    # the two-lecturer session appears on both lecturers' pages
+    assert [c.session_id for c in pages["dr_y"]] == ["s-lec"]
+    assert sorted(c.session_id for c in pages["dr_x"]) == ["s-ex", "s-lec"]
+    assert [(c.day, c.start_box) for c in pages["hedva"]] == [(2, 4)]

@@ -172,6 +172,35 @@ def cohort_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCel
     return pages
 
 
+def room_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
+    """Group placed sessions by room display name: one page per room in use."""
+    out: dict[str, list[GridCell]] = {}
+    for sid, p in schedule.placements.items():
+        s = problem.session(sid)
+        room = problem.room(p.room_id).name
+        out.setdefault(room, []).append(GridCell(
+            session_id=sid, course_number=s.course_number, type=s.type.value,
+            group=s.group, room=room,
+            day=p.day, start_box=p.start_box, span=s.length_boxes,
+        ))
+    return out
+
+
+def person_pages(problem: Problem, schedule: Schedule) -> dict[str, list[GridCell]]:
+    """Group placed sessions by lecturer/TA name; shared sessions appear on each."""
+    out: dict[str, list[GridCell]] = {}
+    for sid, p in schedule.placements.items():
+        s = problem.session(sid)
+        cell = GridCell(
+            session_id=sid, course_number=s.course_number, type=s.type.value,
+            group=s.group, room=problem.room(p.room_id).name,
+            day=p.day, start_box=p.start_box, span=s.length_boxes,
+        )
+        for name in dict.fromkeys((*s.lecturer_ids, *s.ta_ids)):
+            out.setdefault(name, []).append(cell)
+    return out
+
+
 CSV_HEADER = [
     "course_number", "session_id", "session_type", "group", "day", "time",
     "room", "cohorts", "lecturers", "tas",
